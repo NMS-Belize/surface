@@ -258,5 +258,25 @@
         "name": "Cloud Height",
         "physical_quantity": 2
     }
+},
+{
+    "model": "wx.measurementvariable",
+    "pk": 28,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "name": "Visibility",
+        "physical_quantity": 2
+    }
+},
+{
+    "model": "wx.measurementvariable",
+    "pk": 29,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "name": "24-Hour Barometric Change",
+        "physical_quantity": 4
+    }
 }
 ]

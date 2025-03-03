@@ -2,6 +2,7 @@ from django import forms
 from wx.models import CountryISOCode, UTCOffsetMinutes
 from django.conf import settings
 from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.utils.safestring import mark_safe
 
 from wx.models import Station, Watershed, AdministrativeRegion, FTPServer, WxGroupPermission, WxPermission
 
@@ -53,6 +54,9 @@ class StationForm(forms.ModelForm):
             'data_type': 'Data Communication Method',
             'observer' : 'Local Observer Name',
             'organization' : 'Responsible Organization (Local)',
+        }
+        help_texts = {
+            'international_exchange': 'Upon selection, the station will be available in the WIS2 configuration dashboard. Head there to modify the default settings and customize how the station is published to WIS2.'
         }
         # widgets = {
         #     'wigos_part_3': forms.NumberInput(attrs={

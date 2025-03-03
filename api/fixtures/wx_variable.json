@@ -4318,5 +4318,65 @@
         "default_representation": "line",
         "synoptic_code_form": "R24R24R24R24"
     }
+},
+{
+    "model": "wx.variable",
+    "pk": 4056,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "variable_type": "Numeric",
+        "symbol": "VISBY-km",
+        "name": "Visibility [km]",
+        "sampling_operation": 1,
+        "measurement_variable": 28,
+        "unit": 8,
+        "precision": 5,
+        "scale": 0,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "(VV) VV [In Kilometers]"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4057,
+    "fields": {
+        "created_at": "2025-02-20T10:40:58Z",
+        "updated_at": "2025-02-20T10:40:58Z",
+        "variable_type": "Numeric",
+        "symbol": "BAR24C",
+        "name": "24-Hour Barometric Change",
+        "sampling_operation": 1,
+        "measurement_variable": 29,
+        "unit": 10,
+        "precision": 5,
+        "scale": 1,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "P24P24P24"
+    }
 }
 ]

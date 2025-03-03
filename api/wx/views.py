@@ -9,7 +9,7 @@ import uuid
 import wx.export_surface_oscar as exso
 import pyoscar
 from datetime import datetime as datetime_constructor
-from datetime import timezone
+from datetime import timezone, timedelta
 
 import matplotlib
 
@@ -908,7 +908,9 @@ def CheckManualImportView(request):
         uploaded_files = {}
         unsupported_files = ''
         duplicate_files = ''
+        non_existent_stations = []
         UPLOAD_DIR = '/data/documents/ingest/manual/check'
+        # dictionary of allowed file types
         allowed_file_types = {
             ".xlsx":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }
@@ -933,11 +935,34 @@ def CheckManualImportView(request):
                 for chunk in file_obj.chunks():  # Write file in chunks
                     destination.write(chunk)
 
+            missing_stations = [] # list holding the stations which do not exist in the database
+            excel_df = pd.ExcelFile(file_path) # the excel file into a dataframe
+            excel_sheet_names = excel_df.sheet_names # grab all the sheet names
+
+            # Loop through the sheet names in the file 
+            for sheet in excel_sheet_names:
+                # if a station exists 
+                if Station.objects.filter(name=str(sheet)).exists():
+                    continue #  continue on with the loop
+                else:
+                    missing_stations.append(str(sheet)) # add sheet name (station name) to the missing stations list
+                    
+            if missing_stations:
+                os.remove(file_path) # delete the file
+                non_existent_stations.append(f"File [{file_name}] contains station(s) which do not exist. Please correct the mistake and re-upload: {', '.join(missing_stations)}")
+
+                continue # skip to the next execution
+
             file_size = round(os.stat(file_path).st_size / (1024*1024), 4)
             
             uploaded_files[file_name] = file_size # Store file name and size (size in MB)
 
-        return JsonResponse({"uploaded_files": uploaded_files, "duplicate_files": duplicate_files, "unsupported_files": unsupported_files}, status=201)
+        return JsonResponse({"uploaded_files": uploaded_files, 
+                             "duplicate_files": duplicate_files, 
+                             "unsupported_files": unsupported_files, 
+                             "non_existent_stations": non_existent_stations}, 
+                             status=201
+                            )
     
     return JsonResponse({"error": "Invalid request method"}, status=400)
 
@@ -2717,7 +2742,7 @@ class StationDetailView(LoginRequiredMixin, DetailView):
                  Row('code', 'wigos'),
                  Row('begin_date', 'end_date', 'relocation_date'),
                  Row('wmo', 'reporting_status'),
-                 Row('is_active', 'is_automatic', 'international_exchange', 'is_synoptic'),
+                 Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
                  Row('synoptic_code', 'synoptic_type'),
                  Row('network', 'wmo_station_type'),
                  Row('profile', 'communication_type'),
@@ -2780,7 +2805,7 @@ class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
         Fieldset('SURFACE Requirements',
                  Row('latitude', 'longitude'),
                  Row('name'),
-                 Row('is_active', 'is_automatic', 'is_synoptic'),
+                 Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
                  Row('synoptic_code', 'synoptic_type'),
                  Row('code', 'elevation'),
                  Row('country', 'communication_type'),
@@ -2792,7 +2817,6 @@ class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
                  Row('wigos_part_1', 'wigos_part_2', 'wigos_part_3', 'wigos_part_4'),
                  Row('wmo_region'),
                  Row('wmo_station_type', 'reporting_status'),
-                 Row('international_exchange'),
                  ),
         Fieldset('OSCAR Specific Settings',
                 #  Row(''),
@@ -2938,7 +2962,7 @@ class StationUpdate(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
                  Row('code', 'wigos'),
                  Row('begin_date', 'end_date', 'relocation_date'),
                  Row('wmo', 'reporting_status'),
-                 Row('is_active', 'is_automatic', 'international_exchange', 'is_synoptic'),
+                 Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
                  Row('synoptic_code', 'synoptic_type'),
                  Row('network', 'wmo_station_type'),
                  Row('profile', 'communication_type'),
@@ -7627,9 +7651,9 @@ class IntervalViewSet(viewsets.ModelViewSet):
 def get_synop_table_config():
     # List of variables, in order, for synoptic station input form
     variable_symbols = [
-        'WINDINDR', 'PRECIND', 'STATIND', 'LOWCLH', 'VISBY',
+        'WINDINDR', 'PRECIND', 'STATIND', 'LOWCLH', 'VISBY-km', 'VISBY',
         'CLDTOT', 'WNDDIR', 'WNDSPD', 'TEMP', 'TDEWPNT', 'TEMPWB',
-        'RH', 'PRESSTN', 'PRESSEA', 'PRECSLR', 'PRECDUR', 'PRSWX',
+        'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECSLR', 'PRECDUR', 'PRSWX',
         'W1', 'W2', 'Nh', 'CL', 'CM', 'CH', 'STSKY',
         'DL', 'DM', 'DH', 'TEMPMAX', 'TEMPMIN', 'PREC24H', 'N1', 'C1', 'hh1',
         'N2', 'C2', 'hh2', 'N3', 'C3', 'hh3', 'N4', 'C4', 'hh4', 'SpPhenom'
@@ -7642,12 +7666,25 @@ def get_synop_table_config():
     nested_headers = [
         [variable.name for variable in variable_list]+['Remarks', 'Observer', 'Action'],
         # [variable.symbol for variable in variable_list]+['Remarks', 'Observer', 'Action'],
-        [variable.synoptic_code_form if variable.synoptic_code_form is not None else '' for variable in variable_list]+['', '', ''],
+        [
+            (
+                variable.synoptic_code_form + " [In Meters]" 
+                if variable.synoptic_code_form in ["h"] 
+                else
+                # variable.synoptic_code_form + " [In Kilometers]"
+                # if variable.synoptic_code_form in ["(VV) VV"] 
+                # else
+                variable.synoptic_code_form
+            ) 
+            if variable.synoptic_code_form is not None 
+            else '' 
+            for variable in variable_list
+         ]+['', '', ''],
     ]
 
     col_widths = [
-        99, 146, 176, 136, 61, 107, 100, 83, 171,
-        154, 117, 175, 163, 180, 129, 181, 112,
+        99, 146, 176, 136, 61, 61, 107, 100, 83,
+        171, 154, 117, 175, 163, 180, 129, 129, 181, 112,
         144, 144, 169, 108, 124, 110, 82, 148, 153,
         150, 208, 212, 162, 159, 195, 162, 159, 195,
         162, 159, 195, 162, 159, 195, 145, 64, 65, 49
@@ -7656,7 +7693,7 @@ def get_synop_table_config():
 
     columns = []
     for variable in variable_list:
-        if (variable.variable_type=='Numeric'):
+        if (variable.variable_type=='Numeric' and variable.id!=4057):
             var_type='numeric'
             numeric_format = '0'
             if variable.scale > 0:
@@ -7678,7 +7715,21 @@ def get_synop_table_config():
                 'codetable': variable.code_table_id,
                 'strict': 'true',
                 'validator': 'dropdownFieldValidator'
-            }            
+            }   
+        elif (variable.variable_type=='Numeric' and variable.id==4057): # the 24hr barometric change column
+            var_type='numeric'
+            numeric_format = '0'
+            if variable.scale > 0:
+                numeric_format = '0.'+'0'*variable.scale
+
+            new_column = {
+                'data': str(variable.id),
+                'name': str(variable.symbol),
+                'type': var_type,
+                'numericFormat': {'pattern': numeric_format},
+                'validator': 'numericFieldValidator',
+                'readOnly': 'true',
+            }         
         else:
             var_type='text'
             numeric_format=None
@@ -7686,7 +7737,7 @@ def get_synop_table_config():
                 'data': str(variable.id),
                 'name': str(variable.symbol),
                 'type': var_type,
-                'validator': 'textFieldValidator'
+                'validator': 'textFieldValidator',
             }
 
         columns.append(new_column)
@@ -7757,6 +7808,53 @@ class SynopView(LoginRequiredMixin, TemplateView):
         context['date'] = date
 
         return self.render_to_response(context)    
+
+
+@csrf_exempt
+def synop_pressure_calc(request):
+    if request.method == 'POST':
+        station_id = tuple([request.GET['station_id']])
+        data = json.loads(request.body)  # Parse JSON data
+        pressure_value = float(data.get('pressure_value')) 
+        date_value = data.get('date')
+
+        station = Station.objects.get(pk=station_id[0]) 
+        # Invert the station's UTC offset (minutes) to convert its local time to UTC.
+        offset = datetime.timedelta(minutes=(-1 * station.utc_offset_minutes))
+
+        # Convert the string to a datetime object:
+        dt_object = datetime.datetime.strptime(date_value, "%Y-%m-%d %H:%M")
+        dt_object = dt_object + offset
+
+        # Subtract 24 hours:
+        dt_24_hours_ago = dt_object - timedelta(days=1)
+
+        # Format the resulting datetime object back into a string:
+        formatted_date_string = dt_24_hours_ago.strftime("%Y-%m-%dT%H:%MZ")
+
+        pressure_variable_id = (61,)
+
+        # grab the query output for the Station pressure at sea level
+        dataset = get_station_raw_data('variable', pressure_variable_id, None, formatted_date_string, formatted_date_string,
+                                           station_id)
+
+        if dataset['results']:
+            pressure_data = dataset['results']['Pressure at Sea Level (hPa)']
+
+            # Since there's only one station, get the first (and only) key
+            station_name = next(iter(pressure_data))
+
+            value = pressure_data[station_name]['data'][0]['value']  
+
+            pressure_difference = value - pressure_value if pressure_value != -99.9 else -99.9
+        else:
+            pressure_difference = 'no data'
+
+        # display the error message
+        if dataset['messages']:
+            logger.error(f"An error occured whilst retrieving 24hr baromatric change value: {dataset['messages']}")
+        
+    return JsonResponse({'dataset': pressure_difference}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -7982,7 +8080,7 @@ def get_synop_form_config():
             "Form of layer", "Height of next layer", "Indicator", "Amt. of layer", "Form of layer",
             "Height of next layer", "Special Phenomena", "REMARKS", "Initails"
         ],
-        ["Land Station-no distinction AAXX", "GGggYYGG", "iW", "IIiii", "iR", "iX", "h", "(VV) VV", "N",
+        ["Land Station-no distinction AAXX", "GGggYYGG", "iW", "IIiii", "iR", "iX", "h [In Meters]", "(VV) VV", "N",
             "ddd dd", "(fmfm) f f", "1sn", "T'T' TTT", "2sn", "T'dT'd Td TdTd", "UUU", "",
             "3", "POPOPOPO", "4", "PHPHPHPH PPPP", "6", "RRR", "Tr", "7", "ww", "W1", "W2", "8", "Nh", "CL",
             "CM", "CH", "333", "0", "CS", "DL", "DM", "DH", "1sn", "TXTXTX", "2sn", "TnTnTn", "5j1",
@@ -8319,11 +8417,50 @@ def synop_load_form(request):
         pvd_atm_pressure = next((float(row[2]) for row in pvd_data_row if row[1] == variables.get(symbol='PRESSTN').id), None)
         relative_humidity = next((float(row[2]) for row in data_row if row[1] == variables.get(symbol='RH').id and str(row[2]) != str(settings.MISSING_VALUE)), None)
 
-        vars = [atm_pressure, pvd_atm_pressure]
-        if all(vars) and settings.MISSING_VALUE not in vars:
-            barometric_change_24h = round(atm_pressure-pvd_atm_pressure)
-        else:
+
+        # time solts to loop through to populate the 24hr brometric change column
+        time_slots = [' 00:00', ' 01:00', ' 02:00', ' 03:00', ' 04:00', ' 05:00', ' 06:00', 
+                        ' 07:00', ' 08:00', ' 09:00', ' 10:00', ' 11:00', ' 12:00', ' 13:00', 
+                        ' 14:00', ' 15:00', ' 16:00', ' 17:00', ' 18:00', ' 19:00', ' 20:00', 
+                        ' 21:00', ' 22:00', ' 23:00']
+        
+        # calculate barometric change
+        try:
+            # current time slot will be in the form year-month-day hour:minute
+            current_time_slot = request.GET['date'] + time_slots[i]
+
+            # Invert the station's UTC offset (minutes) to convert its local time to UTC.
+            offset = datetime.timedelta(minutes=(-1 * station.utc_offset_minutes))
+
+            dt_object = datetime.datetime.strptime(current_time_slot, "%Y-%m-%d %H:%M")
+            dt_object = dt_object + offset
+
+            # Format the resulting datetime object back into a string:
+            formatted_date_string = dt_object.strftime("%Y-%m-%dT%H:%MZ")
+
+            dataset = get_station_raw_data('variable', (4057,), None, formatted_date_string, formatted_date_string,
+                                    (int(request.GET['station_id']),))
+
+            if dataset['results']:
+                pressure_data = dataset['results']['24-Hour Barometric Change']
+
+                # Since there's only one station, get the first (and only) key
+                station_name = next(iter(pressure_data))
+
+                value = pressure_data[station_name]['data'][0]['value']  
+
+                if value == -99.9:
+                    barometric_change_24h = None
+                else:
+                    barometric_change_24h = value
+            else:
+                barometric_change_24h = None
+
+        except Exception as e:
+            logger.error(f"an error occured whilst calculating baraometric change: {e}")
             barometric_change_24h = None
+
+
 
         vars = [air_temp, air_temp_wb, atm_pressure]
         if all(vars) and settings.MISSING_VALUE not in vars:

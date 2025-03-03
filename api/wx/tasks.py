@@ -2161,6 +2161,7 @@ def ingest_manual_station_files(data_file_id_list):
 
             stations_list = '       '.join(source.sheet_names) # combining stations list into a long sting
 
+            # column names
             column_names = ['day', 'PRECIP', 'TEMPMAX', 'TEMPMIN', 'TEMPAVG', 'WNDMIL', 'WINDRUN', 'SUNSHNHR', 'EVAPINI', 'EVAPRES', 'EVAPPAN', 'TEMP', 'TEMPWB', 'TSOIL1', 'TSOIL4', 'DYTHND', 'DYFOG', 'DYHAIL', 'DYGAIL', 'TOTRAD', 'RH@TMAX', 'RHMAX', 'RHMIN',]
 
             # getting the month information from sheet 1

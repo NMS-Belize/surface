@@ -449,7 +449,7 @@ class Station(BaseModel):
         max_length=16,
     )
 
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False, verbose_name="Active Station")
 
 
     reporting_status = models.ForeignKey(
@@ -459,10 +459,10 @@ class Station(BaseModel):
         blank=True,
     )
 
-    international_exchange = models.BooleanField(default=False)
+    international_exchange = models.BooleanField(default=False, verbose_name="Enable Publishing to WIS2")
     
-    is_automatic = models.BooleanField(default=True)
-    is_synoptic = models.BooleanField(default=False)
+    is_automatic = models.BooleanField(default=True, verbose_name="Automatic Station")
+    is_synoptic = models.BooleanField(default=False, verbose_name="Synoptic Station")
     synoptic_code = models.IntegerField(
         null=True,
         blank=True
@@ -792,6 +792,13 @@ class Station(BaseModel):
 
     def __str__(self):
         return self.name + ' - ' + self.code
+
+
+
+class Wis2BoxPublish(models.Model):
+    station = models.ForeignKey(Station, on_delete=models.CASCADE)
+    publishing = models.BooleanField(default=False)
+
 
 
 class StationVariable(BaseModel):
@@ -1167,7 +1174,7 @@ class ManualStationDataFile(BaseModel):
     status = models.ForeignKey(StationDataFileStatus, on_delete=models.DO_NOTHING)
     filepath = models.CharField(max_length=1024)
     upload_date = models.DateTimeField(auto_now_add=True)
-    stations_list = models.TextField(null=True, blank=True)
+    stations_list = models.TextField(null=False, blank=True)
     month = models.CharField(max_length=128, default="Not Found")
     observation = models.TextField(null=True, blank=True)
     override_data_on_conflict = models.BooleanField(default=False)
