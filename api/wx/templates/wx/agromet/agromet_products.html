@@ -61,11 +61,18 @@
 				<v-row>
 					<v-col cols="2" v-if="requireNumericParam">
 						<v-text-field
-							v-model="requestData.numericParam"
+							v-model="requestData.numericParam1"
 							:rules="[rules.required, rules.numeric]"
 							label="Numeric Parameter"
 						/>
 					</v-col>
+					<v-col cols="2" v-if="requireNumericParam">
+						<v-text-field
+							v-model="requestData.numericParam2"
+							:rules="[rules.required, rules.numeric]"
+							label="Numeric Parameter"
+						/>
+					</v-col>					
 				</v-row>
 				<v-row>
 					<v-col cols="2">
@@ -200,7 +207,6 @@
 				</v-row>					
 			</v-form>
 			
-
 			<div>				
 				<template>
 					<v-card v-if="requestedData.responseData && !loading_data">
@@ -210,7 +216,14 @@
 								<v-data-table
 									:headers="dataTable.headers"
 									:items="dataTable.data"
-								></v-data-table>
+									:items-per-page="-1"
+								>
+									<template v-for="header in dataTable.colorHeaders" v-slot:[`item.${header.value}`]="{ item }">
+											<span :style="{ color: getColor(header, item) }">
+												[[ item[header.value] ]]
+											</span>
+								 	 </template>						  
+								</v-data-table>
 							</template>
 						</v-card-text>
 						<v-card-actions>
@@ -236,16 +249,6 @@
 		el: "#app",
 		vuetify: new Vuetify(),
 		delimiters: ["[[", "]]"],
-		validations: {
-			requestData: {
-                stationId: { required },
-                element: { required },
-                product: { required },
-                numericParam: { required, numeric },
-                startYear: { required },
-                endYear: { required }
-            }			
-		},
 		data: {
 			now: moment().format('YYYY-MM-DD'),
 			username: '{{username | safe}}',
@@ -257,32 +260,44 @@
 				percentage: value => (0 <= value && value <= 100) || 'Value must be between 0 and 100.',
 				positive: value => (0 <= value) || 'Value must greater than 0.',
 			},	
-			loading_data: false,	
+			loading_data: false,
+			showing_info: false,
+			isFormValid: false,
 			requestData: {
-				stationId: {{station_id}},
-                element: null,
-				product: null,
-				numericParam: null,
-				startYear: null,
-				endYear: null,
+				stationId: 6,
+                element: 'Air Temperature',
+				product: 'Degree days',
+				numericParam1: 15,
+				numericParam2: 45,
+				startYear: 2000,
+				endYear: 2010,
 				summaryType: 'Seasonal',
 				months: [],
 				interavl: null,
+				validateData: true,
+				maxHourPct: 80,
+				maxDayPct: 80,
+				maxDayGap: 5,
 			},
 			requestedData: {
 				stationId: null,
                 element: null,
 				product: null,
-				numericParam: null,
+				numericParam1: null,
+				numericParam2: null,
 				startYear: null,
 				endYear: null,
 				responseData: null,
 				summaryType: 'Seasonal',
 				months: [],
 				interavl: null,				
+				validateData: false,
+				maxHourPct: 0,
+				maxDayPct: 0,
+				maxDayGap: 0,
 			},
 			filters: {
-				is_automatic: true,
+				is_automatic: false,
 				is_seasonal: true
 			},			
 			elements: {
@@ -324,7 +339,7 @@
 			},
 			start_year_menu: false,
 			end_year_menu: false,
-			intervals: ['7 days', '10 days'],
+			intervals: ['7 days', '10 days', '1 month'],
 			months: [
 				{id: 1, name: 'Jan'},
 				{id: 2, name: 'Feb'},
@@ -341,9 +356,16 @@
 			],
 			stationList: [
 				{% for station in station_list %}
-					{id: {{station.id}}, name: "{{station.name | safe }} - {{station.code}}", is_automatic:  {{station.is_automatic|yesno:"true,false"}}},
+					{
+						id: {{station.id}},
+						base_name: "{{station.name | safe }}",
+						name: "{{station.name | safe }} - {{station.code}}",
+						is_automatic:  {{station.is_automatic|yesno:"true,false"}},
+						latitude: {{station.latitude}},
+						longitude: {{station.longitude}}
+					},
 				{% endfor %}
-			],
+			]
 		},
 		watch: {
 			'requestData.startYear' (newStartYear, oldStartYear) {
@@ -355,18 +377,11 @@
 			'filters.is_seasonal' (newValue, oldValue) {
 				this.requestData.summaryType = newValue?'Seasonal':'Monthly'
 			},
+			'requestData.summaryType' (newSummaryType, oldSummaryType){
+				this.requestData.months = []
+			},
 		},	
 		computed: {
-			filteredStationList() {
-				return this.stationList.filter(station=>station.is_automatic===this.filters.is_automatic)
-			},			
-			requireNumericParam (){
-				const productList = [
-					'Degree days',
-					'Hours or days above or below selected temperature',
-				]
-				return productList.includes(this.requestData.product)
-			},
 			availableStartYears () {
 				const min_year = 1900
 				const max_year = moment().year()
@@ -377,71 +392,94 @@
 				const min_year = this.requestData.startYear
 				const max_year = moment().year()
 				return Array.from({ length: max_year - min_year + 1 }, (_, i) => max_year - i);
-			},
-			disableQuery (){
-				const { numericParam, ...rest } =  this.requestData
-				if (Object.keys(rest).some(key => rest[key] === null)) return true
-				if (this.requireNumericParam && numericParam === null) return true
-				return false
+			},			
+			filteredStationList() {
+				return this.stationList.filter(station=>station.is_automatic===this.filters.is_automatic)
+			},			
+			requireNumericParam (){
+				const productList = [
+					'Degree days',
+					'Hours or days above or below selected temperature',
+				]
+				return productList.includes(this.requestData.product)
 			},
 			dataTable () {
-				let selectedVariableId = null
-				let filteredData = []
-				let data = this.requestedData.responseData
+				let filteredData = this.requestedData.responseData
 
-				const { element, product, ...rest } = this.requestedData
+				let baseKeys = []
+				let baseHeaders = []
 
-				if (element==='Air Temperature'){
-					if (product==='Degree days'){
-						return {
-							headers: [
-								{ text: 'Year', align: 'end', value: 'year' },
-								{ text: 'Heating Degree Days', align: 'end', value: 'hdd' },
-								{ text: 'Cooling Degree Days', align: 'end', value: 'cdd' }
-							],
-							data: data
-						};
-					}
-					else if (product==='Hours or days above or below selected temperature'){
-						return {
-							headers: [
-								{ text: 'Year', align: 'end', value: 'year' },
-								{ text: 'Days Below Value', align: 'end', value: 'below' },
-								{ text: 'Days Above Value', align: 'end', value: 'above' }
-							],
-							data: data
-						}
-					}
+				if (this.requestedData.summaryType==='Seasonal'){
+					baseKeys = ['station', 'year']
+					baseHeaders = [{ text: 'Year', align: 'end', value: 'year', sortable: false}];
+					
 				}
+				else if (this.requestedData.summaryType==='Monthly'){
+					baseHeaders = [
+						{ text: 'Year', align: 'end', value: 'year', sortable: false},
+						{ text: 'Month', align: 'end', value: 'month', sortable: false}
+					];
+					baseKeys = ['station', 'year', 'month']
+				}
+
+				const keys = filteredData.length? Object.keys(filteredData[0]).filter(item => !baseKeys.includes(item)): [];
+				const calcHeaders = keys.map(item => ({text: item, align: 'end', value: item, sortable: false}));
+
+				const colorHeaders = calcHeaders.filter(item => !item.value.endsWith('(% of days)'));
+				
+				return { headers: [...baseHeaders, ...calcHeaders], data: filteredData, colorHeaders: colorHeaders};		
+			},
+			filteredMinMaxData () {
+				const station = this.stationList.find(station => station.id === this.requestedData.stationId)
+				return this.requestedData.responseMinMaxData[station.base_name]
 			}			
 		},
 		methods: {
             getData(){
 				this.loading_data = true
 
+
 				this.requestedData.stationId = this.requestData.stationId
+				this.requestedData.element = this.requestData.element
+				this.requestedData.product = this.requestData.product				
+				this.requestedData.numericParam1 = this.requestData.numericParam1
+				this.requestedData.numericParam2 = this.requestData.numericParam2
 				this.requestedData.startYear = this.requestData.startYear
 				this.requestedData.endYear = this.requestData.endYear
-				this.requestedData.element = this.requestData.element
-				this.requestedData.product = this.requestData.product
-				this.requestedData.numericParam = this.requestData.numericParam
+				this.requestedData.summaryType = this.requestData.summaryType
+				this.requestedData.months = this.requestData.months
+				this.requestedData.interval = this.requestData.interval
+				this.requestedData.validateData = this.requestData.validateData
+				this.requestedData.maxHourPct = this.requestData.maxHourPct
+				this.requestedData.maxDayPct = this.requestData.maxDayPct
+				this.requestedData.maxDayGap = this.requestData.maxDayGap
 				this.requestedData.responseData = null
+				this.requestedData.responseMinMaxData = null
+				this.requestedData.requestedAt = moment().format('YYYY-MM-DD HH:mm')
 
 				const url = `/wx/agromet/products/get/`
 
 				const params = {
 					station_id: this.requestedData.stationId,
-					start_year: this.requestedData.startYear,
-					end_year: this.requestedData.endYear,
 					element: this.requestedData.element,
 					product: this.requestedData.product,
-					numeric_param: this.requestedData.numericParam,
+					numeric_param_1: this.requestedData.numericParam1,
+					numeric_param_2: this.requestedData.numericParam2,
+					start_year: this.requestedData.startYear,
+					end_year: this.requestedData.endYear,
+					summary_type: this.requestedData.summaryType,
+					months: this.requestedData.months,
+					interval: this.requestedData.interval,
+					validate_data: this.requestedData.validateData,
+					max_hour_pct: this.requestedData.maxHourPct,
+					max_day_pct: this.requestedData.maxDayPct,
+					max_day_gap: this.requestedData.maxDayGap
 				};
 
         		axios.get(url, { params })
 				.then(response => {
-					console.log('Return Data:', response.data)
-					this.requestedData.responseData = response.data;
+					this.requestedData.responseData = response.data.tableData;
+					this.requestedData.responseMinMaxData = response.data.minMaxData;
 				})
 				.catch(error => {
 					console.error('Error fetching data:', error);
@@ -451,9 +489,27 @@
 				});
 			},
 			convertToCSV(data) {
+				const { stationId, element, product, summaryType, startYear, endYear, interval, requestedAt, months, ...rest } = this.requestedData;
+				
+				const station = this.stationList.find(station => station.id === stationId)
+
+				const metadataList = [
+					`Description: Agromet ${summaryType} Summary\n`,
+					`Station Name: ${station?.name}\n`,
+					`Element: ${element}\n`,
+					`Product: ${product}\n`,
+					`${summaryType === 'Monthly' ? `Interval: ${interval}\nMonths: ${months}\n` : ''}`,
+					`Start/End Year: ${startYear}/${endYear}\n`,
+					`Station Lat/Lon: ${station?.latitude}/${station?.longitude}\n`,
+					`Request Datetime: ${requestedAt}\n`,
+					`UserName: ${this.username}`
+				]
+
+				const metadata = `"`+metadataList.join('')+`"\n\n`
+			  
 				const headers = data.headers.map(item => item.text).join(',') + '\n';
 
-				const indicesToRemove = [] // Exclude columns
+				const indicesToRemove = [0] // Exclude the StationID column
 				const rows = data.data.map(row => 
 				  Object.values(row)
 					.filter((value, index) => !indicesToRemove.includes(index)) 
@@ -461,31 +517,39 @@
 					.join(',')
 				).join('\n');
 
-				return headers + rows;
+				return metadata + headers + rows;
 			},
 			downloadCSV() {
 				const csvContent = this.convertToCSV(this.dataTable);
 				const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 				const link = document.createElement('a');
 
-				// const { stationId, variableIds, summaryType, startYear, endYear, interval, ...rest } = this.requestedData;
+				const { stationId, element, product, summaryType, startYear, endYear, interval, ...rest } = this.requestedData;
 
-				//  const selectedVariableId = variableIds[this.tab];
-				//  const station = this.stationList.find(station => station.id === stationId)
-				//  const variable = this.variableList.find(variable => variable.id === selectedVariableId)
+				const station = this.stationList.find(station => station.id === stationId)
 						
-				//  const filename = summaryType === 'Monthly' 
-  				// 	? `agromet-summary-(${summaryType})-${station?.name}-${variable?.symbol}-${startYear}-${endYear}-[${interval}].csv`
-  				// 	: `agromet-summary-(${summaryType})-${station?.name}-${variable?.symbol}-${startYear}-${endYear}.csv`;
+				const filename = summaryType === 'Monthly' 
+  					? `agromet-summary-(${summaryType})-${station?.name}-${element}-${product}-${startYear}-${endYear}-[${interval}].csv`
+  					: `agromet-summary-(${summaryType})-${station?.name}-${element}-${product}-${startYear}-${endYear}.csv`;
 			
-				let filename = 'agromet-product'
 				link.href = URL.createObjectURL(blob);
 				link.download = filename;
 				link.style.visibility = 'hidden';
 				document.body.appendChild(link);
 				link.click();
 				document.body.removeChild(link);
-			}			
+			},
+			getColor (header, item) {	
+				let item_entry = (this.requestedData.summaryType === 'Monthly')? {month: item.month, year: item.year} : {year: item.year}
+
+				const is_min = this.filteredMinMaxData[header.value].min.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
+				const is_max = this.filteredMinMaxData[header.value].max.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
+
+				if (is_min && is_max) return 'black'
+				else if (is_min) return 'blue'
+				else if (is_max) return 'red'
+				return 'black'
+			},					
 		}		
 	})
 </script>
