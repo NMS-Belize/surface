@@ -1,9 +1,6 @@
 import datetime
 import logging
 import os
-import pyoscar
-import shutil
-
 from builtins import IndexError
 
 import matplotlib as mpl

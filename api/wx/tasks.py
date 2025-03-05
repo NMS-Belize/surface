@@ -19,7 +19,6 @@ import psycopg2
 import pytz
 import requests
 import subprocess
-import wx.export_surface_oscar as exso
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.core.cache import cache
@@ -40,7 +39,7 @@ from wx.decoders.toa5 import read_file as read_file_toa5
 from wx.models import DataFile
 from wx.models import Document
 from wx.models import NoaaDcp
-from wx.models import Station, Country, WMOReportingStatus, WMORegion, WMOStationType
+from wx.models import Station
 from wx.models import StationFileIngestion, StationDataFile
 from wx.models import HourlySummaryTask, DailySummaryTask
 from wx.models import HydroMLPredictionStation, HydroMLPredictionMapping
@@ -1666,8 +1665,8 @@ def daily_summary(daily_summary_tasks_ids, station_ids, s_datetime, e_datetime):
     try:
         DailySummaryTask.objects.filter(id__in=daily_summary_tasks_ids).update(started_at=datetime.now(tz=pytz.UTC))
         calculate_daily_summary(s_datetime, e_datetime, station_id_list=station_ids)
-        for station_id in station_ids:
-           calculate_station_minimum_interval(s_datetime, e_datetime, station_id_list=(station_id,))
+        # for station_id in station_ids:
+        #    calculate_station_minimum_interval(s_datetime, e_datetime, station_id_list=(station_id,))
     except Exception as err:
         logger.error('Error calculation daily summary for day "{0}". '.format(daily_summary_date) + repr(err))
         db_logger.error('Error calculation daily summary for day "{0}". '.format(daily_summary_date) + repr(err))
@@ -2000,89 +1999,3 @@ def process_wave_data(station_id, e_datetime, data, seconds):
     reads = df[cols].values.tolist()
 
     return reads
-
-
-
-
-######################################################################
-# logic to submit station information to OSCAR given a request
-@shared_task
-def export_station_to_oscar(request):
-    # get wigos ID's
-    selected_ids = request.POST.getlist('selected_ids[]')
-
-    api_token = request.POST.get('api_token')
-
-    # Log the wigos id
-    print(f"Selected IDs: {selected_ids}")
-    # print(f"Token entered: {api_token}")
-
-    if selected_ids:
-
-        stations = Station.objects.filter(wigos__in=selected_ids)
-
-        oscar_status_msg_list = []
-
-        try:
-            for obj in stations:
-                station_info = []
-                
-                station_info.append(str(obj.wigos))
-                station_info.append(str(obj.name))
-                station_info.append(str(datetime.strptime(f'{obj.begin_date}', '%Y-%m-%d %H:%M:%S%z').strftime('%Y-%m-%dT%H:%M:%SZ')))
-                station_info.append(str(obj.latitude))
-                station_info.append(str(obj.longitude))
-                station_info.append(str(obj.elevation))
-                station_info.append(str(obj.wmo_region.notation))
-                station_info.append(str(obj.wmo_station_type.notation))
-                station_info.append(str(obj.reporting_status.notation))
-                station_info.append(str(datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')))
-                station_info.append(str(datetime.utcnow().strftime('%Y-%m-%dZ')))
-                station_info.append(str(obj.country.notation))
-
-                # export station information to OSCAR
-                oscar_status_msg_list.append(exso.surface_to_oscar(station_info, api_token=api_token))
-
-        except Exception as e:
-            oscar_status_msg_list.append({'code': 406, 'description': f'{e}'})
-        
-    else:
-        oscar_status_msg_list.append({'code': 412, 'description': 'No WIGOS ID was provided'})
-
-    return  oscar_status_msg_list
-
-
-# logic to submit station information to OSCAR given the wigos id and the api token
-@shared_task
-def export_station_to_oscar_wigos(selected_ids, api_token, cleaned_data):
-
-    # Log the wigos id
-    print(f"Selected IDs: {selected_ids[0]}")
-    # print(f"Token entered: {api_token}")
-
-    if selected_ids[0]:
-
-        try:
-            station_info = []
-            
-            station_info.append(str(selected_ids[0]))
-            station_info.append(str(cleaned_data['name']))
-            station_info.append(str(datetime.strptime(f"{cleaned_data['begin_date']}", '%Y-%m-%d %H:%M:%S%z').strftime('%Y-%m-%dT%H:%M:%SZ')))
-            station_info.append(str(cleaned_data['latitude']))
-            station_info.append(str(cleaned_data['longitude']))
-            station_info.append(str(cleaned_data['elevation']))
-            station_info.append(str(WMORegion.objects.filter(name=cleaned_data['wmo_region']).values_list('notation', flat=True).first()))
-            station_info.append(str(WMOStationType.objects.filter(name=cleaned_data['wmo_station_type']).values_list('notation', flat=True).first()))
-            station_info.append(str(WMOReportingStatus.objects.filter(name=cleaned_data['reporting_status']).values_list('notation', flat=True).first()))
-            station_info.append(str(datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')))
-            station_info.append(str(datetime.utcnow().strftime('%Y-%m-%dZ')))
-            station_info.append(str(Country.objects.filter(name=cleaned_data['country']).values_list('notation', flat=True).first()))
-
-            # export station information to OSCAR
-            return exso.surface_to_oscar(station_info, api_token=api_token)
-
-        except Exception as e:
-            return {'code': 406, 'description': f'{e}'}
-        
-    else:
-        return {'code': 412, 'description': 'No WIGOS ID was provided'}

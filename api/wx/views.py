@@ -5,8 +5,6 @@ import logging
 import os
 import random
 import uuid
-import wx.export_surface_oscar as exso
-import pyoscar
 from datetime import datetime as datetime_constructor
 from datetime import timezone
 
@@ -18,7 +16,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import psycopg2
 import pytz
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
@@ -54,7 +51,7 @@ from wx.forms import StationForm
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, \
-    StationProfile, Document, Watershed, Interval, CountryISOCode
+    StationProfile, Document, Watershed, Interval
 from wx.utils import get_altitude, get_watershed, get_district, get_interpolation_image, parse_float_value, \
     parse_int_value
 from .utils import get_raw_data, get_station_raw_data
@@ -65,7 +62,7 @@ from base64 import b64encode
 from wx.models import QualityFlag
 import time
 from wx.models import HighFrequencyData, MeasurementVariable
-from wx.tasks import fft_decompose, export_station_to_oscar, export_station_to_oscar_wigos
+from wx.tasks import fft_decompose
 import math
 import numpy as np
 
@@ -76,6 +73,7 @@ from wx.models import QcRangeThreshold, QcStepThreshold, QcPersistThreshold
 from simple_history.utils import update_change_reason
 from django.db.models.functions import Cast
 from django.db.models import IntegerField
+from jinja2 import Environment, FileSystemLoader
 
 logger = logging.getLogger('surface.urls')
 
@@ -2201,131 +2199,12 @@ def capture_forms_values_patch(request):
     return JsonResponse({'message': 'Only the GET and PATCH methods is allowed.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class StationOscarExportView(LoginRequiredMixin, ListView):
-    model = Station
-    template_name = 'wx/station_oscar_export.html'
-
-    def get_queryset(self):
-        # filter out all stations which don't have a wigos, wmo_region, and reporting_status
-        oscar_stations = Station.objects.filter(
-                                                wigos__isnull=False,
-                                                wmo_region__isnull=False,
-                                                reporting_status__isnull=False,
-                                                wmo_station_type__isnull=False
-                                            )
-        
-        # filter out all stations which are already in OSCAR into a list
-        export_ready_stations = [obj for obj in oscar_stations if not exso.check_station(obj.wigos, pyoscar.OSCARClient())]
-
-        # extract primary keys of the filtered objects
-        filtered_ids = [obj.id for obj in export_ready_stations]
-
-        # convert filtered list back to a queryset
-        filtered_queryset = Station.objects.filter(id__in=filtered_ids)
-
-        return filtered_queryset
-    
-
-    def post(self, request, *args, **kwargs):
-
-        try:
-            # run station export task
-            oscar_status_msg = export_station_to_oscar(request)
-
-            # run slight text formating on the status messages
-            for station_info in oscar_status_msg:
-                if station_info.get('logs'):
-                    station_info['logs'] = station_info['logs'].replace('\n', '<br/>')
-
-                elif station_info.get('description'):
-                    station_info['description'] = station_info['description'].replace('\n', '<br/>')
-
-            # get the names of the stations with status messages
-            status_station_names = list(Station.objects.filter(wigos__in=request.POST.getlist('selected_ids[]')).values_list('name', flat=True))
-
-            response_data = {
-                'success': True,
-                'oscar_status_msg': oscar_status_msg,
-                'status_station_names': status_station_names,
-            }
-
-        except Exception as e:
-            response_data = {
-                'success': False,
-                'oscar_status_msg': [{'code': 406, 'description': 'An error occured when attempting to add stations to OSCAR'}],
-                'message': f'An error occured when attempting to add stations to OSCAR: {e}',
-            }
-            
-        return JsonResponse(response_data)
-
-    
 class StationListView(LoginRequiredMixin, ListView):
     model = Station
 
 
 class StationDetailView(LoginRequiredMixin, DetailView):
     model = Station
-    template_name = 'wx/station_detail.html'  # Use the appropriate template
-    context_object_name = 'station'
-
-    # Define the same layout as in the UpdateView
-    layout = Layout(
-        Fieldset('Station Information',
-                 Row('latitude', 'longitude'),
-                 Row('name', 'alias_name'),
-                 Row('code', 'wigos'),
-                 Row('begin_date', 'end_date', 'relocation_date'),
-                 Row('wmo', 'reporting_status'),
-                 Row('is_active', 'is_automatic'),
-                 Row('network', 'wmo_station_type'),
-                 Row('profile', 'communication_type'),
-                 Row('elevation', 'country'),
-                 Row('region', 'watershed'),
-                 Row('wmo_region', 'utc_offset_minutes'),
-                 Row('wmo_station_plataform', 'data_type'),
-                 Row('observer', 'organization'),
-                ),
-        Fieldset('Local Environment',
-                 Row('local_land_use'),
-                 Row('soil_type'),
-                 Row('site_description'),
-                ),
-        Fieldset('Instrumentation and Maintenance'),
-        Fieldset('Observing Practices'),
-        Fieldset('Data Processing'),
-        Fieldset('Historical Events'),
-        Fieldset('Other Metadata',
-                 Row('hydrology_station_type', 'ground_water_province'),
-                 Row('existing_gauges', 'flow_direction_at_station'),
-                 Row('flow_direction_above_station', 'flow_direction_below_station'),
-                 Row('bank_full_stage', 'bridge_level'),
-                 Row('temporary_benchmark', 'mean_sea_level'),
-                 Row('river_code', 'river_course'),
-                 Row('catchment_area_station', 'river_origin'),
-                 Row('easting', 'northing'),
-                 Row('river_outlet', 'river_length'),
-                 Row('z', 'land_surface_elevation'),
-                 Row('top_casing_land_surface', 'casing_diameter'),
-                 Row('screen_length', 'depth_midpoint'),
-                 Row('casing_type', 'datum'),
-                 Row('zone')
-                 )
-        )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # Disable all fields
-        station_form = StationForm(instance=self.object)
-        for field in station_form.fields:
-            station_form.fields[field].widget.attrs['disabled'] = 'disabled'
-            # Add a custom class to apply the dashed border via CSS
-            station_form.fields[field].widget.attrs['class'] = 'dashed-border-field'
-
-        context['form'] = station_form
-        context['station_name'] = Station.objects.values('pk', 'name')  # Fetch only pk and name
-        # context['layout'] = self.layout
-        return context
 
 
 class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
@@ -2335,36 +2214,24 @@ class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     form_class = StationForm
 
     layout = Layout(
-        Fieldset('SURFACE Requirements',
+        Fieldset('Editing station',
                  Row('latitude', 'longitude'),
                  Row('name'),
                  Row('is_active', 'is_automatic'),
-                 Row('code', 'elevation'),
-                 Row('country', 'communication_type'),
-                 Row('region', 'watershed'),
-                 Row('utc_offset_minutes', 'begin_date'),
+                 Row('alias_name'),
+                 Row('code', 'profile'),
+                 Row('wmo', 'organization'),
+                 Row('wigos', 'observer'),
+                 Row('begin_date', 'data_source'),
+                 Row('end_date', 'communication_type')
                  ),
-        Fieldset('Additional Options',
-                #  Row('wigos'),
-                 Row('wigos_part_1', 'wigos_part_2', 'wigos_part_3', 'wigos_part_4'),
-                 Row('wmo_region'),
-                 Row('wmo_station_type', 'reporting_status'),
-                 Row('international_station'),
+        Fieldset('Other information',
+                 Row('elevation', 'watershed'),
+                 Row('country', 'region'),
+                 Row('utc_offset_minutes', 'local_land_use'),
+                 Row('soil_type', 'station_details'),
+                 Row('site_description', 'alternative_names')
                  ),
-        Fieldset('OSCAR Specific Settings',
-                #  Row(''),
-                ),
-        Fieldset('WIS2BOX Specific Settings',
-                #  Row(''),
-                )
-        # Fieldset('Other information',
-        #          Row('alias_name', 'observer'),
-        #          Row('wmo', 'organization'),
-        #          Row('profile', 'data_source'),
-        #          Row('end_date', 'local_land_use'),
-        #          Row('soil_type', 'station_details'),
-        #          Row('site_description', 'alternative_names')
-        #          ),
         # Fieldset('Hydrology information',
         #          Row('hydrology_station_type', 'ground_water_province'),
         #          Row('existing_gauges', 'flow_direction_at_station'),
@@ -2383,145 +2250,41 @@ class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
         #          )
     )
 
-    # Override dispatch to initialize variables
-    def dispatch(self, request, *args, **kwargs):
-        # Initialize your instance variable oscar_error_message
-        self.oscar_error_msg = ""
-        self.is_oscar_error_msg = False
-        
-        # Call the parent class's dispatch method to ensure the default behavior is preserved
-        return super().dispatch(request, *args, **kwargs)
-    
-
-    # ################
+    # passing required context for watershed and region autocomplete fields
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # context['watersheds'] = Watershed.objects.all()
-        # context['regions'] = AdministrativeRegion.objects.all()
-
-        # to show station management buttons beneath the title
-        context['is_create'] = True
+        context['watersheds'] = Watershed.objects.all()
+        context['regions'] = AdministrativeRegion.objects.all()
 
         return context
 
 
-    # form_valid function
-    def form_valid(self, form):
-
-        # retrieve api token and wigos_id
-        oscar_api_token = self.request.POST.get('oscar_api_token')
-
-        station_wigos_id = [f"{str(form.cleaned_data['wigos_part_1'])}-{str(CountryISOCode.objects.filter(name=form.cleaned_data['wigos_part_2']).values_list('notation', flat=True).first())}-{str(form.cleaned_data['wigos_part_3'])}-{str(form.cleaned_data['wigos_part_4'])}"]
-
-        if oscar_api_token:
-            try:
-                # run station export task
-                oscar_response_dict = export_station_to_oscar_wigos(station_wigos_id, oscar_api_token, form.cleaned_data)
-
-                # check if station was succesfully added to OSCAR or not
-                oscar_check = self.check_oscar_push(oscar_response_dict)
-
-                # if oscar push was unsuccessful
-                if not oscar_check[0]:
-
-                    # get the error message (why the oscar push failed)
-                    self.oscar_error_msg = oscar_check[1]['error_message']
-                    # oscar has recieved failed and therefore recieved an error message
-                    self.is_oscar_error_msg = True
-
-                    # execute the form_invalid option
-                    return self.form_invalid(form)
-
-            except Exception as e:
-
-                print(f"An error occured when attempting to add a station to OSCAR during station create!\nError: {e}")
-
-                self.oscar_error_msg = 'An error occured when attempting to add a station to OSCAR during station creation!'
-
-                self.is_oscar_error_msg = True
-
-                return self.form_invalid(form)
-
-        return super().form_valid(form)
-
-
-    def form_invalid(self, form):
-        # default behavior catches form errors
-        response = super().form_invalid(form)
-
-        response.context_data['oscar_error_msg'] = self.oscar_error_msg
-        response.context_data['is_oscar_error_msg'] = self.is_oscar_error_msg
-
-        return response
-
-
-    # fxn to check if station was successfully added to oscar
-    def check_oscar_push(self, oscar_response):
-        oscar_response_message = {'error_message': ""}
-
-        if oscar_response.get('code'):
-            if oscar_response['code'] == 401:
-                oscar_response_message['error_message'] = "Incorrect API token!\nTo be able to access OSCAR a valid API token is required.\nEnter the correct API token or please contact OSCAR service desk!"
-            elif oscar_response['code'] == 412:
-                oscar_response_message['error_message'] = oscar_response['description']
-            else:
-                oscar_response_message['error_message'] = "An error occured when attempting to add a station to OSCAR during station creation!"
-
-
-        # return true is oscar push was successful
-        elif oscar_response.get('xmlStatus'):
-
-            if  oscar_response['xmlStatus'] == 'SUCCESS':
-                return [True]
-            else:
-                oscar_response_message['error_message'] = oscar_response['logs']
-        
-        # otherwise return false
-        return [False, oscar_response_message]
-
-
 
 class StationUpdate(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
-    template_name = "wx/station_update.html"
     model = Station
     success_message = "%(name)s was updated successfully"
     form_class = StationForm
 
     layout = Layout(
-        Fieldset('Station Information',
+        Fieldset('Editing station',
                  Row('latitude', 'longitude'),
-                 Row('name', 'alias_name'),
-                 Row('code', 'wigos'),
-                 Row('begin_date', 'end_date', 'relocation_date'),
-                 Row('wmo', 'reporting_status'),
-                 Row('is_active', 'is_automatic'),
-                 Row('network', 'wmo_station_type'),
-                 Row('profile', 'communication_type'),
-                 Row('elevation', 'country'),
-                 Row('region', 'watershed'),
-                 Row('wmo_region', 'utc_offset_minutes'),
-                 Row('wmo_station_plataform', 'data_type'),
-                 Row('observer', 'organization'),
-                ),
-        Fieldset('Local Environment',
-                 Row('local_land_use'),
-                 Row('soil_type'),
-                 Row('site_description'),
-                ),
-        Fieldset('Instrumentation and Maintenance',
-                #  Row(''),
-                ),
-        Fieldset('Observing Practices',
-                #  Row(''),
-                ),
-        Fieldset('Data Processing',
-                #  Row(''),
-                ),
-        Fieldset('Historical Events',
-                #  Row(''),
-                ),
-        Fieldset('Other Metadata',
+                 Row('name', 'is_active'),
+                 Row('alias_name', 'is_automatic'),
+                 Row('code', 'profile'),
+                 Row('wmo', 'organization'),
+                 Row('wigos', 'observer'),
+                 Row('begin_date', 'data_source'),
+                 Row('end_date', 'communication_type')
+                 ),
+        Fieldset('Other information',
+                 Row('elevation', 'watershed'),
+                 Row('country', 'region'),
+                 Row('utc_offset_minutes', 'local_land_use'),
+                 Row('soil_type', 'station_details'),
+                 Row('site_description', 'alternative_names')
+                 ),
+        Fieldset('Hydrology information',
                  Row('hydrology_station_type', 'ground_water_province'),
                  Row('existing_gauges', 'flow_direction_at_station'),
                  Row('flow_direction_above_station', 'flow_direction_below_station'),
@@ -2537,49 +2300,9 @@ class StationUpdate(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
                  Row('casing_type', 'datum'),
                  Row('zone')
                  )
-    #     Fieldset('Editing station',
-    #              Row('latitude', 'longitude'),
-    #              Row('name', 'is_active'),
-    #              Row('alias_name', 'is_automatic'),
-    #              Row('code', 'profile'),
-    #              Row('wmo', 'organization'),
-    #              Row('wigos', 'observer'),
-    #              Row('begin_date', 'data_source'),
-    #              Row('end_date', 'communication_type')
-    #              ),
-    #     Fieldset('Other information',
-    #              Row('elevation', 'watershed'),
-    #              Row('country', 'region'),
-    #              Row('utc_offset_minutes', 'local_land_use'),
-    #              Row('soil_type', 'station_details'),
-    #              Row('site_description', 'alternative_names')
-    #              ),
-    #     Fieldset('Hydrology information',
-    #              Row('hydrology_station_type', 'ground_water_province'),
-    #              Row('existing_gauges', 'flow_direction_at_station'),
-    #              Row('flow_direction_above_station', 'flow_direction_below_station'),
-    #              Row('bank_full_stage', 'bridge_level'),
-    #              Row('temporary_benchmark', 'mean_sea_level'),
-    #              Row('river_code', 'river_course'),
-    #              Row('catchment_area_station', 'river_origin'),
-    #              Row('easting', 'northing'),
-    #              Row('river_outlet', 'river_length'),
-    #              Row('z', 'land_surface_elevation'),
-    #              Row('top_casing_land_surface', 'casing_diameter'),
-    #              Row('screen_length', 'depth_midpoint'),
-    #              Row('casing_type', 'datum'),
-    #              Row('zone')
-    #              )
-        )
 
-       
-    # passing context to display menu buttons beneat the title
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    )
 
-        context['is_update'] = True
-
-        return context
 
 @api_view(['POST'])
 def pgia_update(request):
@@ -5257,17 +4980,29 @@ class StationsMapView(LoginRequiredMixin, TemplateView):
 
 class StationMetadataView(LoginRequiredMixin, TemplateView):
     template_name = "wx/station_metadata.html"
-    model = Station
 
-    # passing required context for watershed and region autocomplete fields
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        context['station_id'] = kwargs.get('pk', 'null')
+        print('kwargs', context['station_id'])
 
-        context['station_name'] = Station.objects.values('pk', 'name')  # Fetch only pk and name
+        wmo_station_type_list = WMOStationType.objects.all()
+        context['wmo_station_type_list'] = wmo_station_type_list
 
-        context['is_metadata'] = True
+        wmo_region_list = WMORegion.objects.all()
+        context['wmo_region_list'] = wmo_region_list
 
-        return context
+        wmo_program_list = WMOProgram.objects.all()
+        context['wmo_program_list'] = wmo_program_list
+
+        station_profile_list = StationProfile.objects.all()
+        context['station_profile_list'] = station_profile_list
+
+        station_communication_list = StationCommunication.objects.all()
+        context['station_communication_list'] = station_communication_list
+
+        return self.render_to_response(context)
+
 
 @api_view(['GET'])
 def latest_data(request, variable_id):
@@ -6752,6 +6487,134 @@ def delete_pgia_hourly_capture_row(request):
 
     return Response(result, status=status.HTTP_200_OK)
 
+
+def calculate_agromet_summary_df_statistics(df: pd.DataFrame) -> list:
+    """
+    Calculates summary statistics (min, max, average, and standard deviation) for numeric columns
+    in the input DataFrame, grouped by 'station' and 'variable_id'. The results are appended to
+    the original DataFrame as new rows.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing the following columns:
+                           - 'station': Identifier for the station.
+                           - 'variable_id': Identifier for the variable.
+                           - 'month': Month of the observation (optional).
+                           - 'year': Year of the observation.
+                           - Other columns: Numeric variables (e.g., temperature, humidity).
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a row in the resulting DataFrame.
+              The rows include the original data as well as new rows for the calculated statistics.
+              Each dictionary has keys corresponding to the DataFrame columns, with additional rows
+              for 'MIN', 'MAX', 'AVG', and 'STD' values. The calculated statistics symbols are present in the 'year' column. 
+    """
+
+    index = ['station', 'variable_id', 'month', 'year']
+    agg_cols = [col for col in df.columns if (col not in index) and not col.endswith("(%% of days)")]
+    grouped = df.groupby(['station', 'variable_id'])
+    
+    def calculate_stats(group):
+        min_values = group[agg_cols].min()
+        max_values = group[agg_cols].max()
+        avg_values = group[agg_cols].mean().round(2)
+        std_values = group[agg_cols].std().round(2)
+
+        stats_dict = {}
+        for col in agg_cols:
+            stats_dict[col] = [min_values[col], max_values[col], avg_values[col], std_values[col]]
+        
+        # Add metadata for the new rows
+        stats_dict['station'] = group.name[0]  # Station name from the group key
+        stats_dict['variable_id'] = group.name[1]  # Variable ID from the group key
+        stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD']  # Labels for the new rows
+        
+        new_rows = pd.DataFrame(stats_dict)
+        
+        # Append the new rows to the original group
+        return pd.concat([group, new_rows], ignore_index=True)
+    
+    # Apply the helper function to each group and combine the results
+    result_df = grouped.apply(calculate_stats).reset_index(drop=True)
+    result_df = result_df.fillna('')
+    data = result_df.to_dict(orient='records')
+
+    return data
+
+
+def get_agromet_summary_df_min_max(df: pd.DataFrame) -> dict:
+    """
+    Generates a summary dictionary containing the minimum and maximum values for each variable
+    at each station, along with the corresponding time periods (month/year or year).
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing the following columns:
+                            - 'station': Identifier for the station.
+                            - 'variable_id': Identifier for the variable.
+                            - 'month' (optional): Month of the observation.
+                            - 'year': Year of the observation.
+                            - Other columns: Numeric variables (e.g., temperature, humidity).
+
+    Returns:
+        dict: A nested dictionary with the following structure:
+              {
+                  "station_1": {
+                      "variable_id_1": {
+                          "variable_name_1": {
+                              "min": [{"month": X, "year": Y}, ...],  # Records for min value
+                              "max": [{"month": X, "year": Y}, ...]   # Records for max value
+                          },
+                          ...
+                      },
+                      ...
+                  },
+                  ...
+              }
+              If 'month' is not present in the input DataFrame, the "month" key is omitted.
+    """
+
+    index = ['month', 'year'] if 'month' in df.columns else ['year']
+    grouped = df.groupby(['station', 'variable_id'] + index)
+    agg_df = grouped.agg(['min', 'max']).reset_index()
+    # Flatten the MultiIndex columns
+    agg_df.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in agg_df.columns]
+    
+    # Initialize the result dictionary
+    minMaxDict = {}
+    for (station, variable_id), group in agg_df.groupby(['station', 'variable_id']):
+        station = str(station)
+        variable_id = str(variable_id)
+        
+        if station not in minMaxDict:
+            minMaxDict[station] = {}
+        if variable_id not in minMaxDict[station]:
+            minMaxDict[station][variable_id] = {}
+        
+        # Iterate over each column (excluding index columns)
+        for col in df.columns:
+            if col not in ['station', 'variable_id'] + index:
+                col_min = group[f"{col}_min"].min()
+                col_max = group[f"{col}_max"].max()
+                
+                # Find records corresponding to min and max values
+                min_records = group[group[f"{col}_min"] == col_min][index].to_dict('records')
+                max_records = group[group[f"{col}_max"] == col_max][index].to_dict('records')
+                
+                # Convert numpy types to native Python types
+                def convert_types(records):
+                    for record in records:
+                        for key, value in record.items():
+                            if isinstance(value, (np.integer, np.floating)):
+                                record[key] = int(value) if isinstance(value, np.integer) else float(value)
+                    return records
+                
+                min_records = convert_types(min_records)
+                max_records = convert_types(max_records)
+                
+                minMaxDict[station][variable_id][str(col)] = {'min': min_records, 'max': max_records}
+    
+    return minMaxDict
+
+
 @api_view(['GET'])
 def get_agromet_summary_data(request):
     try:
@@ -6763,6 +6626,10 @@ def get_agromet_summary_data(request):
             'summary_type': request.GET.get('summary_type'),
             'months': request.GET.get('months'),
             'interval': request.GET.get('interval'),
+            'validate_data': request.GET.get('validate_data').lower() == 'true',
+            'max_hour_pct': request.GET.get('max_hour_pct'),
+            'max_day_pct': request.GET.get('max_day_pct'),
+            'max_day_gap': request.GET.get('max_day_gap'),
         }
     except ValueError as e:
         logger.error(repr(e))
@@ -6771,481 +6638,107 @@ def get_agromet_summary_data(request):
         logger.error(repr(e))
         return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    config = settings.SURFACE_CONNECTION_STRING
-
-    station = Station.objects.get(pk=requestedData['station_id'])
-
-    data = []
-    pgia_code = '8858307' # Phillip Goldson Int'l Synop
-    
-    timezone = pytz.timezone(settings.TIMEZONE_NAME)
-
     if requestedData['summary_type']=='Seasonal':
         # To calculate the seasonal summary, values from January of the next year and December of the previous year are required.
         requestedData['start_date'] = f"{int(requestedData['start_year'])-1}-12-01"
-        requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-02-01"        
-
-        if((station.is_automatic) or (station.code==pgia_code)):
-            query = f"""
-               WITH agg_definitions AS (
-                    SELECT *
-                    FROM (VALUES
-                        ('JFM', ARRAY[1, 2, 3]),
-                        ('FMA', ARRAY[2, 3, 4]),
-                        ('MAM', ARRAY[3, 4, 5]),
-                        ('AMJ', ARRAY[4, 5, 6]),
-                        ('MJJ', ARRAY[5, 6, 7]),
-                        ('JJA', ARRAY[6, 7, 8]),
-                        ('JAS', ARRAY[7, 8, 9]),
-                        ('ASO', ARRAY[8, 9, 10]),
-                        ('SON', ARRAY[9, 10, 11]),
-                        ('OND', ARRAY[10, 11, 12]),
-                        ('NDJ', ARRAY[11, 12, 13]),
-                        ('DRY', ARRAY[0, 1, 2, 3, 4, 5]),
-                        ('WET', ARRAY[6, 7, 8, 9, 10, 11]),
-                        ('ANNUAL', ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]),
-                        ('DJFM', ARRAY[0, 1, 2, 3])
-                    ) AS t(agg, months)
-                )
-                ,filtered_data AS (
-                    SELECT
-                        hs.station_id 
-                        ,hs.variable_id 
-                        ,EXTRACT(MONTH FROM hs.datetime AT TIME ZONE '{timezone}') AS month
-                        ,EXTRACT(YEAR FROM hs.datetime AT TIME ZONE '{timezone}') AS year
-                        ,so.symbol AS sampling_operation
-                        ,CASE so.symbol
-                            WHEN 'MIN' THEN hs.min_value
-                            WHEN 'MAX' THEN hs.max_value
-                            WHEN 'ACCUM' THEN hs.sum_value
-                            ELSE hs.avg_value
-                        END AS value
-                    FROM hourly_summary hs
-                    JOIN wx_variable vr ON vr.id = hs.variable_id
-                    JOIN wx_samplingoperation so ON so.id = vr.sampling_operation_id           
-                    WHERE hs.station_id = {requestedData['station_id']}
-                    AND hs.variable_id IN ({requestedData['variable_ids']})
-                    AND hs.datetime AT TIME ZONE '{timezone}' >= '{requestedData['start_date']}' 
-                    AND hs.datetime AT TIME ZONE '{timezone}' < '{requestedData['end_date']}'
-                ),
-                extended_data AS(
-                    SELECT
-                        station_id
-                        ,variable_id
-                        ,CASE 
-                            WHEN month=12 THEN 0
-                            WHEN month=1 THEN 13
-                        END as month    
-                        ,CASE 
-                            WHEN month=12 THEN year+1
-                            WHEN month=1 THEN year-1
-                        END as year
-                        ,sampling_operation
-                        ,value       
-                    FROM filtered_data
-                    WHERE month in (1,12)
-                    UNION ALL
-                    SELECT
-                        *
-                    FROM filtered_data
-                )
-                SELECT 
-                    st.name AS station, 
-                    ed.variable_id, 
-                    ed.year, 
-                    ad.agg
-                    ,ROUND(
-                    CASE ed.sampling_operation
-                        WHEN 'MIN' THEN MIN(value)::numeric
-                        WHEN 'MAX' THEN MAX(value)::numeric
-                        WHEN 'ACCUM' THEN SUM(value)::numeric
-                        WHEN 'STDV' THEN STDDEV(value)::numeric
-                        WHEN 'RMS' THEN SQRT(AVG(POW(value, 2)))::numeric
-                        ELSE AVG(value)::numeric
-                    END, 2
-                    ) AS value
-                FROM extended_data ed
-                JOIN wx_station st ON st.id = ed.station_id
-                CROSS JOIN  agg_definitions ad
-                WHERE ed.month = ANY(ad.months)
-                AND year BETWEEN {requestedData['start_year']} AND {requestedData['end_year']}
-                GROUP BY st.name, ed.variable_id, ed.year, ad.agg, ed.sampling_operation
-                ORDER BY year
-            """
-        else:
-            query = f"""
-               WITH agg_definitions AS (
-                    SELECT *
-                    FROM (VALUES
-                        ('JFM', ARRAY[1, 2, 3]),
-                        ('FMA', ARRAY[2, 3, 4]),
-                        ('MAM', ARRAY[3, 4, 5]),
-                        ('AMJ', ARRAY[4, 5, 6]),
-                        ('MJJ', ARRAY[5, 6, 7]),
-                        ('JJA', ARRAY[6, 7, 8]),
-                        ('JAS', ARRAY[7, 8, 9]),
-                        ('ASO', ARRAY[8, 9, 10]),
-                        ('SON', ARRAY[9, 10, 11]),
-                        ('OND', ARRAY[10, 11, 12]),
-                        ('NDJ', ARRAY[11, 12, 13]),
-                        ('DRY', ARRAY[0, 1, 2, 3, 4, 5]),
-                        ('WET', ARRAY[6, 7, 8, 9, 10, 11]),
-                        ('ANNUAL', ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]),
-                        ('DJFM', ARRAY[0, 1, 2, 3])
-                    ) AS t(agg, months)
-                )
-                ,filtered_data AS (
-                    SELECT
-                        ds.station_id 
-                        ,ds.variable_id 
-                        ,EXTRACT(MONTH FROM ds.day) AS month
-                        ,EXTRACT(YEAR FROM ds.day) AS year
-                        ,so.symbol AS sampling_operation
-                        ,CASE so.symbol
-                            WHEN 'MIN' THEN ds.min_value
-                            WHEN 'MAX' THEN ds.max_value
-                            WHEN 'ACCUM' THEN ds.sum_value
-                             ELSE ds.avg_value
-                        END AS value
-                    FROM daily_summary ds
-                    JOIN wx_variable vr ON vr.id = ds.variable_id
-                    JOIN wx_samplingoperation so ON so.id = vr.sampling_operation_id           
-                    WHERE ds.station_id = {requestedData['station_id']}
-                    AND ds.variable_id IN ({requestedData['variable_ids']})
-                    AND ds.day >= '{requestedData['start_date']}' 
-                    AND ds.day < '{requestedData['end_date']}'
-                ),
-                extended_data AS(
-                    SELECT
-                        station_id
-                        ,variable_id
-                        ,CASE 
-                            WHEN month=12 THEN 0
-                            WHEN month=1 THEN 13
-                        END as month    
-                        ,CASE 
-                            WHEN month=12 THEN year+1
-                            WHEN month=1 THEN year-1
-                        END as year
-                        ,sampling_operation
-                        ,value       
-                    FROM filtered_data
-                    WHERE month in (1,12)
-                    UNION ALL
-                    SELECT
-                        *
-                    FROM filtered_data
-                )
-                SELECT 
-                    st.name AS station, 
-                    ed.variable_id, 
-                    ed.year, 
-                    ad.agg
-                    ,ROUND(
-                    CASE ed.sampling_operation
-                        WHEN 'MIN' THEN MIN(value)::numeric
-                        WHEN 'MAX' THEN MAX(value)::numeric
-                        WHEN 'ACCUM' THEN SUM(value)::numeric
-                        WHEN 'STDV' THEN STDDEV(value)::numeric
-                        WHEN 'RMS' THEN SQRT(AVG(POW(value, 2)))::numeric
-                        ELSE AVG(value)::numeric
-                    END, 2
-                    ) AS value
-                FROM extended_data ed
-                JOIN wx_station st ON st.id = ed.station_id
-                CROSS JOIN  agg_definitions ad
-                WHERE ed.month = ANY(ad.months)
-                AND year BETWEEN {requestedData['start_year']} AND {requestedData['end_year']}
-                GROUP BY st.name, ed.variable_id, ed.year, ad.agg, ed.sampling_operation
-                ORDER BY year
-            """
-        
+        requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-02-01"
     elif requestedData['summary_type']=='Monthly':
         requestedData['start_date'] = f"{int(requestedData['start_year'])}-01-01"
         requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-01-01"
 
-        if requestedData['interval']=='7 days':
-            if((station.is_automatic) or (station.code==pgia_code)):
-                query = f"""
-                    WITH filtered_data AS (
-                        SELECT
-                            EXTRACT(YEAR FROM hs.datetime AT TIME ZONE '{timezone}') as year
-                            ,EXTRACT(MONTH FROM hs.datetime AT TIME ZONE '{timezone}') as month
-                            ,hs.station_id
-                            ,hs.variable_id
-                            ,st.name AS station
-                            ,so.symbol AS sampling_operation
-                            ,CASE so.symbol
-                                WHEN 'MIN' THEN hs.min_value
-                                WHEN 'MAX' THEN hs.max_value
-                                WHEN 'ACCUM' THEN hs.sum_value
-                                ELSE hs.avg_value
-                            END as value
-                            ,CASE
-                                WHEN EXTRACT(DAY FROM datetime AT TIME ZONE '{timezone}') BETWEEN 1 AND 7 THEN 'agg_1'
-                                WHEN EXTRACT(DAY FROM datetime AT TIME ZONE '{timezone}') BETWEEN 8 AND 14 THEN 'agg_2'
-                                WHEN EXTRACT(DAY FROM datetime AT TIME ZONE '{timezone}') BETWEEN 15 AND 21 THEN 'agg_3'
-                                WHEN EXTRACT(DAY FROM datetime AT TIME ZONE '{timezone}') >= 22 THEN 'agg_4'
-                            END AS agg
-                        FROM hourly_summary hs
-                        JOIN wx_station st ON st.id = hs.station_id
-                        JOIN wx_variable vr ON vr.id = hs.variable_id
-                        JOIN wx_samplingoperation so ON so.id = vr.sampling_operation_id   
-                        WHERE datetime AT TIME ZONE '{timezone}' >= '{requestedData['start_date']}'
-                          AND datetime AT TIME ZONE '{timezone}' < '{requestedData['end_date']}'
-                          AND station_id = {requestedData['station_id']}
-                          AND variable_id IN ({requestedData['variable_ids']})
-                          AND EXTRACT(MONTH FROM datetime AT TIME ZONE '{timezone}') IN ({requestedData['months']})                                             
-                    )
-                    SELECT
-                        station
-                        ,variable_id
-                        ,year
-                        ,month
-                        ,agg
-                        ,ROUND(
-                            CASE sampling_operation
-                                WHEN 'MIN' THEN MIN(value)::numeric
-                                WHEN 'MAX' THEN MAX(value)::numeric
-                                WHEN 'STDV' THEN STDDEV(value)::numeric
-                                WHEN 'ACCUM' THEN SUM(value)::numeric
-                                WHEN 'RMS' THEN SQRT(AVG(POW(value, 2)))::numeric
-                                ELSE AVG(value)::numeric
-                            END, 2
-                        ) AS value
-                    FROM filtered_data
-                    GROUP BY station, variable_id, month, year, agg, sampling_operation
-                    ORDER BY year, month
-                """
-            else:
-                query = f"""
-                    WITH filtered_data AS (
-                        SELECT
-                            EXTRACT(YEAR FROM ds.day) as year
-                            ,EXTRACT(MONTH FROM ds.day) as month
-                            ,ds.station_id
-                            ,ds.variable_id
-                            ,st.name AS station
-                            ,so.symbol AS sampling_operation
-                            ,CASE so.symbol
-                                WHEN 'MIN' THEN ds.min_value
-                                WHEN 'MAX' THEN ds.max_value
-                                WHEN 'ACCUM' THEN hs.sum_value
-                                ELSE hs.avg_value
-                            END as value
-                            ,CASE
-                                WHEN EXTRACT(DAY FROM ds.day) BETWEEN 1 AND 7 THEN 'agg_1'
-                                WHEN EXTRACT(DAY FROM ds.day) BETWEEN 8 AND 14 THEN 'agg_2'
-                                WHEN EXTRACT(DAY FROM ds.day) BETWEEN 15 AND 21 THEN 'agg_3'
-                                WHEN EXTRACT(DAY FROM ds.day) >= 22 THEN 'agg_4'
-                            END AS agg
-                        FROM daily_summary ds
-                        JOIN wx_station st ON st.id = ds.station_id
-                        JOIN wx_variable vr ON vr.id = ds.variable_id
-                        JOIN wx_samplingoperation so ON so.id = vr.sampling_operation_id   
-                        WHERE ds.day >= '{requestedData['start_date']}'
-                          AND ds.day < '{requestedData['end_date']}'
-                          AND ds.station_id = {requestedData['station_id']}
-                          AND ds.variable_id IN ({requestedData['variable_ids']})
-                          AND EXTRACT(MONTH FROM ds.day) IN ({requestedData['months']})                                             
-                    )
-                    SELECT
-                        station
-                        ,variable_id
-                        ,year
-                        ,month
-                        ,agg
-                        ,ROUND(
-                            CASE sampling_operation
-                                WHEN 'MIN' THEN MIN(value)::numeric
-                                WHEN 'MAX' THEN MAX(value)::numeric
-                                WHEN 'STDV' THEN STDDEV(value)::numeric
-                                WHEN 'ACCUM' THEN SUM(value)::numeric
-                                WHEN 'RMS' THEN SQRT(AVG(POW(value, 2)))::numeric
-                                ELSE AVG(value)::numeric
-                            END, 2
-                        ) AS value
-                    FROM filtered_data
-                    GROUP BY station, variable_id, month, year, agg, sampling_operation
-                    ORDER BY year, month
-                """
-            
-        elif requestedData['interval']=='10 days':
-            if((station.is_automatic) or (station.code==pgia_code)):
-                query = f"""
-                    WITH filtered_data AS (
-                        SELECT
-                            EXTRACT(YEAR FROM hs.datetime AT TIME ZONE '{timezone}') as year
-                            ,EXTRACT(MONTH FROM hs.datetime AT TIME ZONE '{timezone}') as month
-                            ,hs.station_id
-                            ,hs.variable_id
-                            ,st.name AS station
-                            ,so.symbol AS sampling_operation
-                            ,CASE so.symbol
-                                WHEN 'MIN' THEN hs.min_value
-                                WHEN 'MAX' THEN hs.max_value
-                                WHEN 'ACCUM' THEN hs.sum_value
-                                ELSE hs.avg_value
-                            END as value
-                            ,CASE
-                                WHEN EXTRACT(DAY FROM datetime AT TIME ZONE '{timezone}') BETWEEN 1 AND 10 THEN 'agg_1'
-                                WHEN EXTRACT(DAY FROM datetime AT TIME ZONE '{timezone}') BETWEEN 11 AND 20 THEN 'agg_2'
-                                WHEN EXTRACT(DAY FROM datetime AT TIME ZONE '{timezone}') >= 21 THEN 'agg_3'
-                            END AS agg
-                        FROM hourly_summary hs
-                        JOIN wx_station st ON st.id = hs.station_id
-                        JOIN wx_variable vr ON vr.id = hs.variable_id
-                        JOIN wx_samplingoperation so ON so.id = vr.sampling_operation_id   
-                        WHERE datetime AT TIME ZONE '{timezone}' >= '{requestedData['start_date']}'
-                          AND datetime AT TIME ZONE '{timezone}' < '{requestedData['end_date']}'
-                          AND station_id = {requestedData['station_id']}
-                          AND variable_id IN ({requestedData['variable_ids']})
-                          AND EXTRACT(MONTH FROM datetime AT TIME ZONE '{timezone}') IN ({requestedData['months']})                                             
-                    )
-                    SELECT
-                        station
-                        ,variable_id
-                        ,year
-                        ,month
-                        ,agg
-                        ,ROUND(
-                            CASE sampling_operation
-                                WHEN 'MIN' THEN MIN(value)::numeric
-                                WHEN 'MAX' THEN MAX(value)::numeric
-                                WHEN 'STDV' THEN STDDEV(value)::numeric
-                                WHEN 'ACCUM' THEN SUM(value)::numeric
-                                WHEN 'RMS' THEN SQRT(AVG(POW(value, 2)))::numeric
-                                ELSE AVG(value)::numeric
-                            END, 2
-                        ) AS value
-                    FROM filtered_data
-                    GROUP BY station, variable_id, month, year, agg, sampling_operation
-                    ORDER BY year, month
-                """
-            else:
-                query = f"""
-                    WITH filtered_data AS (
-                        SELECT
-                            EXTRACT(YEAR FROM ds.day) as year
-                            ,EXTRACT(MONTH FROM ds.day) as month
-                            ,ds.station_id
-                            ,ds.variable_id
-                            ,st.name AS station
-                            ,so.symbol AS sampling_operation
-                            ,CASE so.symbol
-                                WHEN 'MIN' THEN ds.min_value
-                                WHEN 'MAX' THEN ds.max_value
-                                WHEN 'ACCUM' THEN ds.sum_value
-                                ELSE ds.avg_value
-                            END as value
-                            ,CASE
-                                WHEN EXTRACT(DAY FROM ds.day) BETWEEN 1 AND 10 THEN 'agg_1'
-                                WHEN EXTRACT(DAY FROM ds.day) BETWEEN 11 AND 20 THEN 'agg_2'
-                                WHEN EXTRACT(DAY FROM ds.day) >= 21 THEN 'agg_3'
-                            END AS agg
-                        FROM daily_summary ds
-                        JOIN wx_station st ON st.id = ds.station_id
-                        JOIN wx_variable vr ON vr.id = ds.variable_id
-                        JOIN wx_samplingoperation so ON so.id = vr.sampling_operation_id   
-                        WHERE ds.day >= '{requestedData['start_date']}'
-                          AND ds.day < '{requestedData['end_date']}'
-                          AND ds.station_id = {requestedData['station_id']}
-                          AND ds.variable_id IN ({requestedData['variable_ids']})
-                          AND EXTRACT(MONTH FROM ds.day) IN ({requestedData['months']})                                             
-                    )
-                    SELECT
-                        station
-                        ,variable_id
-                        ,year
-                        ,month
-                        ,agg
-                        ,ROUND(
-                            CASE sampling_operation
-                                WHEN 'MIN' THEN MIN(value)::numeric
-                                WHEN 'MAX' THEN MAX(value)::numeric
-                                WHEN 'STDV' THEN STDDEV(value)::numeric
-                                WHEN 'ACCUM' THEN SUM(value)::numeric
-                                WHEN 'RMS' THEN SQRT(AVG(POW(value, 2)))::numeric
-                                ELSE AVG(value)::numeric
-                            END, 2
-                        ) AS value
-                    FROM filtered_data
-                    GROUP BY station, variable_id, month, year, agg, sampling_operation
-                    ORDER BY year, month
-                """
+    timezone = pytz.timezone(settings.TIMEZONE_NAME)
+    context = {
+        'station_id': requestedData['station_id'],
+        'variable_ids': requestedData['variable_ids'],
+        'timezone': timezone,
+        'start_date': requestedData['start_date'],
+        'end_date': requestedData['end_date'],
+        'start_year': requestedData['start_year'],
+        'end_year': requestedData['end_year'],
+        'months': requestedData['months'],
+        'max_hour_pct': float(requestedData['max_hour_pct']),
+        'max_day_pct': float(requestedData['max_day_pct']),
+        'max_day_gap': float(requestedData['max_day_gap'])
 
+    }
+    env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_summaries'))
+
+    pgia_code = '8858307' # Phillip Goldson Int'l Synop
+    station = Station.objects.get(pk=requestedData['station_id'])
+    is_hourly_summary = station.is_automatic or station.code == pgia_code
+
+    if requestedData['summary_type'] == 'Seasonal':
+        if requestedData['validate_data']:
+            template_name = 'seasonal_hourly_valid.sql' if is_hourly_summary else 'seasonal_daily_valid.sql'
+        else:
+            template_name = 'seasonal_hourly_raw.sql' if is_hourly_summary else 'seasonal_daily_raw.sql'       
+    elif requestedData['summary_type'] == 'Monthly':
+        if requestedData['interval'] == '7 days':
+            if requestedData['validate_data']:
+                template_name = 'monthly_7d_hourly_valid.sql' if is_hourly_summary else 'monthly_7d_daily_valid.sql'
+            else:
+                template_name = 'monthly_7d_hourly_raw.sql' if is_hourly_summary else 'monthly_7d_daily_raw.sql'
+
+        elif requestedData['interval'] == '10 days':
+            if requestedData['validate_data']:
+               template_name = 'monthly_10d_hourly_valid.sql' if is_hourly_summary else 'monthly_10d_daily_valid.sql'
+            else:
+               template_name = 'monthly_10d_hourly_raw.sql' if is_hourly_summary else 'monthly_10d_daily_raw.sql'            
+        elif requestedData['interval'] == '1 month':
+            if requestedData['validate_data']:
+                template_name = 'monthly_1m_hourly_valid.sql' if is_hourly_summary else 'monthly_1m_daily_valid.sql'
+            else:
+                template_name = 'monthly_1m_hourly_raw.sql' if is_hourly_summary else 'monthly_1m_daily_raw.sql'
+            
+
+    template = env.get_template(template_name)
+    query = template.render(context)
+
+    config = settings.SURFACE_CONNECTION_STRING
     with psycopg2.connect(config) as conn:
         df = pd.read_sql(query, conn)
-        # data = df.fillna('').to_dict(orient='records')
 
     if df.empty:
-        data=[]
-    else:
-        index = [col for col in df.columns if col not in ['agg', 'value']]
+        response = []
+        return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
 
-        pivot_df = df.pivot_table(
-            index=index,
-            columns='agg',
-            values='value',
-            aggfunc='first'
-        ).reset_index()
+    response = {
+        'tableData': calculate_agromet_summary_df_statistics(df),
+        'minMaxData': get_agromet_summary_df_min_max(df)
+    }
 
-
-        agg_cols = [col for col in pivot_df.columns if col not in index]  # Columns to aggregate
-        grouped = pivot_df.groupby(['station', 'variable_id'])
-
-        def calculate_stats(group):
-            min_values = group[agg_cols].min()
-            max_values = group[agg_cols].max()
-            avg_values = group[agg_cols].mean().round(2)
-            std_values = group[agg_cols].std().round(2)
-
-            stats_dict = {}
-            for col in agg_cols:
-                stats_dict[col] = [min_values[col], max_values[col], avg_values[col], std_values[col]]
-            stats_dict['station'] = group.name[0]
-            stats_dict['variable_id'] = group.name[1]
-            stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD'] 
-            
-            new_rows = pd.DataFrame(stats_dict)
-            
-            return pd.concat([group, new_rows], ignore_index=True)
-
-        result_df = grouped.apply(calculate_stats).reset_index(drop=True)
-        result_df = result_df.fillna('')
-
-        if (requestedData['summary_type']=='Seasonal'):
-            season_cols = ['JFM', 'FMA', 'MAM', 'AMJ', 'MJJ', 'JJA', 'JAS', 'ASO', 'SON', 'OND', 'NDJ', 'DRY', 'WET', 'ANNUAL', 'DJFM']
-            result_df = result_df[index+season_cols]
-
-        data = result_df.to_dict(orient='records')
-
-    response = data
     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
 
 
 class AgroMetSummariesView(LoginRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_summaries.html"
     agromet_variable_symbols = [
-        'TEMP', # Air Temp
-        'TEMPMIN', # Air Temp Min
-        'TEMPMAX', # Air Temp Max
-        'PRECIP', # Rainfall
-        # Soil Moisture
-        'TSOIL1', # Soil Temp 1feet
-        'TSOIL4', # Soil Temp 4feet
-        'RH', # Relative HUumidity
-        'WNDSPD', # Wind Speed
-        'WNDDIR', # Wind Direction
-        'EVAPPAN', # Evaportaion
-        # Evapotranspiration
-        'SOLARRAD', # Solar Radiation
+        'TEMP',
+        'TEMPAVG',
+        'TEMPMAX',
+        'TEMPMIN',
+        'EVAPPAN',
+        'PRECIP',
+        'RH',
+        'RHAVG',
+        'RHMAX',
+        'RHMIN',
+        'TSOIL1',
+        'TSOIL4',
+        'SOLARRAD',
+        'WNDDIR',
+        'WNDSPD',
+        'WNDSPAVG',
+        'WNDSPMAX',
+        'WNDSPMIN'
     ]  
 
     agromet_variable_ids = Variable.objects.filter(symbol__in=agromet_variable_symbols).values_list('id', flat=True)
               
     def get(self, request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
+
+        context['username'] = f'{request.user.first_name} {request.user.last_name}' if request.user.first_name and request.user.last_name else request.user.username
 
         context['station_id'] = request.GET.get('station_id', 'null')
         context['variable_ids'] = request.GET.get('variable_ids', 'null')
@@ -7256,7 +6749,7 @@ class AgroMetSummariesView(LoginRequiredMixin, TemplateView):
         context['oldest_year'] = 1900
         context['stationvariable_list'] = list(station_variables)
         context['variable_list'] = list(Variable.objects.filter(symbol__in=self.agromet_variable_symbols).values('id', 'name', 'symbol'))
-        context['station_list'] = list(Station.objects.filter(id__in=station_ids, is_active=True).values('id', 'name', 'code', 'is_automatic'))
+        context['station_list'] = list(Station.objects.filter(id__in=station_ids, is_active=True).values('id', 'name', 'code', 'is_automatic', 'latitude', 'longitude'))
 
         return self.render_to_response(context)
 
@@ -7372,7 +6865,9 @@ def get_agromet_products_data(request):
 class AgroMetProductsView(LoginRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_products.html"
     agromet_variable_symbols = [
-        'AIRTEMP', # Air Temp
+        'TEMP', # Air Temp
+        'TEMPMIN', # Air Temp Min
+        'TEMPMAX', # Air Temp Max
         'PRECIP', # Rainfall
         # Soil Moisture
         'TSOIL1', # Soil Temp 1feet
@@ -7393,7 +6888,7 @@ class AgroMetProductsView(LoginRequiredMixin, TemplateView):
 
         context['station_id'] = request.GET.get('station_id', 'null')
         context['variable_ids'] = request.GET.get('variable_ids', 'null')
-
+    
         station_variables = StationVariable.objects.filter(variable_id__in=self.agromet_variable_ids).values('id', 'station_id', 'variable_id')
         station_ids = station_variables.values_list('station_id', flat=True).distinct()
 

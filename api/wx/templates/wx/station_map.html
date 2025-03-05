@@ -635,7 +635,7 @@
         }
       ],
       timezone: "{{ TIMEZONE_NAME|escapejs }}",
-      zoom: Number("{{ MAP_ZOOM }}"),
+      zoom: "{{ MAP_ZOOM|safe }}",
       center: L.latLng("{{ MAP_LATITUDE|safe }}", "{{ MAP_LONGITUDE|safe }}"),
       url: "https://{s}.tile.osm.org/{z}/{x}/{y}.png",
       attribution:
@@ -1424,7 +1424,6 @@
       });
 
       window.mapReference = this.$refs.myMap.mapObject;
-
       this.getProfiles();
       this.getRegions();
       this.getWatershed();

@@ -15,10 +15,10 @@
 				</v-card>
 			</v-overlay>
 
-			<form enctype="multipart/form-data" method="POST" class="mb-10">
+			<v-form ref="form" v-model="isFormValid" enctype="multipart/form-data" method="POST" class="mb-10">
 				{% csrf_token %}
 				<v-row>
-					<v-col cols="2" class="d-flex justify-center">
+					<v-col cols="2" class="d-flex justify-left">
 						<v-switch 
 							v-model="filters.is_automatic"
 							:label='filters.is_automatic?"Automatic Stations":"Manual Stations"'
@@ -32,9 +32,9 @@
 							item-value="id"
 							item-text="name"
 							v-model="requestData.stationId"
-							required
 							hint="*Required"
 							persistent-hint
+							:rules="[rules.required]"
 						/>
 					</v-col>
 					<v-col cols="6">
@@ -44,7 +44,6 @@
 							item-value="id"
 							item-text="name"
 							v-model="requestData.variableIds"
-							required
 							hint="*Required"
 							multiple
 							chips
@@ -52,6 +51,7 @@
 							persistent-hint
 							deletable-chips
 							:disabled="!requestData.stationId"
+							:rules="[rules.required, rules.nonEmpty]"
 						/>
 					</v-col>
 				</v-row>
@@ -61,9 +61,9 @@
 							label="Select Start Year"
 							:items="availableStartYears"
 							v-model="requestData.startYear"
-							required
 							hint="*Required"
 							persistent-hint
+							:rules="[rules.required]"
 						/>
 					</v-col>	
 					<v-col cols="2">
@@ -71,58 +71,123 @@
 							label="Select End Year"
 							:items="availableEndYears"
 							v-model="requestData.endYear"
-							required
 							hint="*Required"
 							persistent-hint
 							:disabled="!requestData.startYear"
+							:rules="[rules.required]"
+
 						/>
 					</v-col>
 					<v-col cols="3" class="d-flex justify-center">
 						<v-switch
-							v-model="filters.is_season"
-							:label='filters.is_season?"Seasonal Summary":"Monthly Summary"'
+							v-model="filters.is_seasonal"
+							:label='filters.is_seasonal?"Seasonal Summary":"Monthly Summary"'
 							inset
 					  	/> 						  
 					</v-col>
-					<v-col cols="3" v-if="requestData.summaryType==='Monthly'">
+					<v-col cols="3" v-if="!filters.is_seasonal">
 						<v-autocomplete
 							label="Select Months"
 							:items="months"
 							item-value='id'
 							item-text="name"
 							v-model="requestData.months"
-							required
 							hint="*Required"
 							persistent-hint
 							multiple
 							clearable
 							chips
 							deletable-chips
+							:rules="[rules.required, rules.nonEmpty]"
 						/>
 					</v-col>					
-					<v-col cols="2" v-if="requestData.summaryType==='Monthly'">
+					<v-col cols="2" v-if="!filters.is_seasonal">
 						<v-autocomplete
 							label="Select Interval"
 							:items="intervals"
 							v-model="requestData.interval"
-							required
+							:rules="[rules.required]"
 							hint="*Required"
 							persistent-hint
 						/>
 					</v-col>
 				</v-row>
+				<v-row>
+					<v-col cols="2" class="d-flex justify-left">
+						<v-row>
+							<v-col cols="auto" class="d-flex align-center">
+							  <v-switch
+								v-model="requestData.validateData"
+								:label="requestData.validateData ? 'Validate Data' : 'All Data'"
+								inset
+							  />
+							</v-col>
+							<v-col cols="auto" class="d-flex align-center">
+							  <v-btn icon @click="showing_info=!showing_info"> <v-icon>mdi-information</v-icon> </v-btn>
+							</v-col>
+						  </v-row>
+					</v-col>
+					<v-col cols="2" v-if="requestData.validateData">
+						<v-text-field
+							v-model="requestData.maxHourPct"
+							:rules="[rules.required, rules.numeric, rules.percentage]"
+							label="Maximum Hour Percentage"
+							hint="*Required"
+							persistent-hint
+						/>
+					</v-col>
+					<v-col cols="2" v-if="requestData.validateData">
+						<v-text-field
+							v-model="requestData.maxDayPct"
+							:rules="[rules.required, rules.numeric, rules.percentage]"
+							label="Maximum Day Percentage"
+							hint="*Required"
+							persistent-hint
+						/>
+					</v-col>					
+					<v-col cols="2" v-if="requestData.validateData">
+						<v-text-field
+							v-model="requestData.maxDayGap"
+							:rules="[rules.required, rules.numeric, rules.positive]"
+							label="Maximum Day Gap"
+							hint="*Required"
+							persistent-hint
+						/>
+					</v-col>
+																	
+				</v-row>
+				<v-row>
+					<v-col cols="12">
+						<v-alert
+							v-if="showing_info"
+							type="info"
+							text
+							:dismissible="true"
+							outlined
+							@input="showing_info = false"
+						>
+							Data validation works as follows:
+							The first parameter defines the maximum allowable percentage
+							of missing data in the hourly summary to compute a valid day.
+							The second parameter sets the maximum percentage of missing 
+							valid days for a valid aggregation;
+							if exceeded, the aggregation returns null for that partition.
+							The third parameter specifies the maximum gap between consecutive days;
+							if the gap exceeds this limit,
+							the aggregation returns null for that partition.
+					  	</v-alert>					
+					</v-col>
+				</v-row>				
 				<v-row>				
 					<v-col cols="2" class="d-flex justify-left">
-						<v-btn
-							@click="getData"
-							:disabled="disableQuery"							
-							> Request Data <v-icon right>send</v-icon> </v-btn>
+						<v-btn @click="getData" :disabled="!isFormValid"> 
+							Request Data
+							<v-icon right>send</v-icon>
+						</v-btn>
 					</v-col>											
 				</v-row>					
-			</form>
+			</v-form>
 
-
-			
 			<div>				
 				<template>
 					<v-card v-if="requestedData.responseData && !loading_data">
@@ -138,7 +203,14 @@
 								<v-data-table
 									:headers="dataTable.headers"
 									:items="dataTable.data"
-								></v-data-table>
+									:items-per-page="-1"
+								>
+									<template v-for="header in dataTable.colorHeaders" v-slot:[`item.${header.value}`]="{ item }">
+											<span :style="{ color: getColor(header, item) }">
+												[[ item[header.value] ]]
+											</span>
+								 	 </template>						  
+								</v-data-table>
 							</template>
 						</v-card-text>
 						<v-card-actions>
@@ -157,18 +229,64 @@
  
 <script>
 	Vue.use(window.vuelidate.default);
-	const { required, minLength } = window.validators;
+	const { required, numeric } = window.validators;
 
 	new Vue({
 		el: "#app",
 		vuetify: new Vuetify(),
 		delimiters: ["[[", "]]"],
-		validations: {
-		},
+		{% comment %} validations: {
+			requestData: {
+				stationId: { 
+					required: value => !!value,
+				},
+				variableIds: { 
+					required: value => !!value,
+				},
+				startYear: { 
+					required: value => !!value,
+				},
+				endYear: { 
+					required: value => !!value,
+				},
+				maxHourPct: { 
+					numeric,
+					between: value =>  0 <= value && value <= 100,
+					requiredIf: value => this.requiredIfValidateData(value),
+				},
+				maxDayGap: { 
+					numeric,
+					positive: value => value >= 0,
+					requiredIf: value => this.requiredIfValidateData(value),
+				},
+				maxHourPct: { 
+					numeric,
+					between: value =>  0 <= value && value <= 100,
+					requiredIf: value => this.requiredIfValidateData(value),
+				},				
+				months: {
+					requiredIf: value => this.requiredIfMonthlySummary(value),
+				},
+				interval: {
+					requiredIf: value => this.requiredIfMonthlySummary(value),
+				},
+			},
+		}, {% endcomment %}
 		data: {
 			now: moment().format('YYYY-MM-DD'),
+			username: '{{username | safe}}',
+			rules: {
+				required: value => !!value || 'Required.',
+				nonEmpty: value => !!value && value.length>0 || 'Select at least one item.',
+				numeric: value => (!isNaN(value) ) || 'Parameter must be a Numeric.',
+				integer: value => (Number.isInteger(value) ) || 'Number must be an integer.',
+				percentage: value => (0 <= value && value <= 100) || 'Value must be between 0 and 100.',
+				positive: value => (0 <= value) || 'Value must greater than 0.',
+			},	
 			tab: null,
 			loading_data: false,
+			showing_info: false,
+			isFormValid: false,
 			requestData: {
 				stationId: {{station_id}},
 				variableIds: {{variable_ids | safe}},
@@ -177,6 +295,10 @@
 				interval: null,
 				startYear: null,
 				endYear: null,
+				validateData: true,
+				maxHourPct: 20,
+				maxDayPct: 20,
+				maxDayGap: 5,
 			},
 			requestedData: {
 				stationId: null,
@@ -187,10 +309,15 @@
 				startYear: null,
 				endYear: null,
 				responseData: null,
+				responseMinMaxData: null,
+				requestedAt: null,
+				maxHourPct: null,
+				maxDayPct: null,
+				maxDayGap: null,
 			},
 			filters: {
-				is_season: true,
-				is_automatic: true
+				is_seasonal: true,
+				is_automatic: true,
 			},
 			start_year_menu: false,
 			end_year_menu: false,
@@ -209,11 +336,18 @@
 				{id: 11, name: 'Nov'},
 				{id: 12, name: 'Dec'},
 			],
-			intervals: ['7 days', '10 days'],
+			intervals: ['7 days', '10 days', '1 month'],
 			variableList: {{ variable_list | safe }},
 			stationList: [
 				{% for station in station_list %}
-					{id: {{station.id}}, name: "{{station.name | safe }} - {{station.code}}", is_automatic:  {{station.is_automatic|yesno:"true,false"}}},
+					{
+						id: {{station.id}},
+						base_name: "{{station.name | safe }}",
+						name: "{{station.name | safe }} - {{station.code}}",
+						is_automatic:  {{station.is_automatic|yesno:"true,false"}},
+						latitude: {{station.latitude}},
+						longitude: {{station.longitude}}
+					},
 				{% endfor %}
 			]
 		},
@@ -224,7 +358,7 @@
 			'filters.is_automatic' (newValue, oldValue) {
 				this.requestData.stationId = null
 			},
-			'filters.is_season' (newValue, oldValue) {
+			'filters.is_seasonal' (newValue, oldValue) {
 				this.requestData.summaryType = newValue?'Seasonal':'Monthly'
 			},
 			'requestData.stationId' (newStationId, oldStationId) {
@@ -246,14 +380,6 @@
 				const max_year = moment().year()
 				return Array.from({ length: max_year - min_year + 1 }, (_, i) => max_year - i);
 			},
-			disableQuery (){
-				const { variableIds, summaryType, months, season, interval, ...rest } =  this.requestData
-				if (['stationId', 'startYear', 'endYear'].some(key => rest[key] === null)) return true
-				if ((variableIds === null) || (variableIds.length === 0)) return true;
-				if (summaryType === 'Monthly' && ((months === null) || (months.length === 0) || (interval === null))) return true;
-
-				return false
-			},
 			filteredStationList() {
 				return this.stationList.filter(station=>station.is_automatic===this.filters.is_automatic)
 			},
@@ -270,63 +396,51 @@
 				return variableList.filter(variable => stationVariableIds.includes(variable.id));
 			},
 			dataTable () {
+				
 				let selectedVariableId = null
 				let filteredData = []
 				if (!(this.tab===null)){
 					selectedVariableId = this.requestedData.variableIds[this.tab];
 					filteredData = this.requestedData.responseData.filter(entry => entry.variable_id===selectedVariableId);
 				}
-				
+
+				let baseKeys = []
+				let baseHeaders = []
 
 				if (this.requestedData.summaryType==='Seasonal'){
-					const baseKeys = ['station', 'variable_id', 'year']
-					const keys = filteredData.length? Object.keys(filteredData[0]).filter(item => !baseKeys.includes(item)): [];
+					baseKeys = ['station', 'variable_id', 'year']
+					baseHeaders = [{ text: 'Year', align: 'end', value: 'year', sortable: false}];
 					
-					const baseHeaders = [
-						{ text: 'Year', align: 'end', value: 'year' }
-					];
-					
-					const calcHeaders = keys.map(item => ({
-						text: item,
-						align: 'end',
-						value: item
-					}));
-					
-					return {
-						headers: [...baseHeaders, ...calcHeaders],
-						data: filteredData
-					};
 				}
 				else if (this.requestedData.summaryType==='Monthly'){
-					if (this.requestedData.interval==='7 days'){
-						return {
-							headers: [
-								{ text: 'Year', align: 'end', value: 'year' },
-								{ text: 'Monthly', align: 'end', value: 'monthly' },
-								{ text: 'days 01-07', align: 'end', value: 'agg_1' },
-								{ text: 'days 08-14', align: 'end', value: 'agg_2' },
-								{ text: 'days 15-21', align: 'end', value: 'agg_3' },
-								{ text: 'days 22-', align: 'end', value: 'agg_4' },
-							],
-							data: filteredData
-						}
-					}
-					else if (this.requestedData.interval==='10 days'){
-						return {
-							headers: [
-								{ text: 'Year', align: 'end', value: 'year' },
-								{ text: 'Monthly', align: 'end', value: 'monthly' },
-								{ text: 'days 01-10', align: 'end', value: 'agg_1' },
-								{ text: 'days 11-20', align: 'end', value: 'agg_2' },
-								{ text: 'days 21-', align: 'end', value: 'agg_3' },
-							],
-							data: filteredData
-						}
-					}
+					baseHeaders = [
+						{ text: 'Year', align: 'end', value: 'year', sortable: false},
+						{ text: 'Month', align: 'end', value: 'month', sortable: false}
+					];
+					baseKeys = ['station', 'variable_id', 'year', 'month']
 				}
+
+				const keys = filteredData.length? Object.keys(filteredData[0]).filter(item => !baseKeys.includes(item)): [];
+				const calcHeaders = keys.map(item => ({text: item, align: 'end', value: item, sortable: false}));
+
+				const colorHeaders = calcHeaders.filter(item => !item.value.endsWith('(% of days)'));
+				
+				return { headers: [...baseHeaders, ...calcHeaders], data: filteredData, colorHeaders: colorHeaders};		
 			},
+			filteredMinMaxData () {
+				const selectedVariableId = this.requestedData.variableIds[this.tab];
+				const station = this.stationList.find(station => station.id === this.requestedData.stationId)
+
+				return this.requestedData.responseMinMaxData[station.base_name][selectedVariableId]
+			}
 		},
-		methods: { 
+		methods: {
+			requiredIfMonthlySummary(value) {
+				return this.filters.is_seasonal? true : !!value;
+			},
+			requiredIfValidateData(value) {
+				return this.requestData.validateData? !!value : true;
+			},
 			clearSelectedVariables (){
 				this.requestData.variableIds = []
 			},
@@ -340,7 +454,13 @@
 				this.requestedData.startYear = this.requestData.startYear
 				this.requestedData.endYear = this.requestData.endYear
 				this.requestedData.summaryType = this.requestData.summaryType
+				this.requestedData.validateData = this.requestData.validateData
+				this.requestedData.maxHourPct = this.requestData.maxHourPct
+				this.requestedData.maxDayPct = this.requestData.maxDayPct
+				this.requestedData.maxDayGap = this.requestData.maxDayGap
 				this.requestedData.responseData = null
+				this.requestedData.responseMinMaxData = null
+				this.requestedData.requestedAt = moment().format('YYYY-MM-DD HH:mm')
 
 				const url = `/wx/agromet/summaries/get/`
 
@@ -351,12 +471,17 @@
 					interval: this.requestedData.interval,
 					start_year: this.requestedData.startYear,
 					end_year: this.requestedData.endYear,
-					summary_type: this.requestedData.summaryType
+					summary_type: this.requestedData.summaryType,
+					validate_data: this.requestedData.validateData,
+					max_hour_pct: this.requestedData.maxHourPct,
+					max_day_pct: this.requestedData.maxDayPct,
+					max_day_gap: this.requestedData.maxDayGap,
 				};
 
         		axios.get(url, { params })
 				.then(response => {
-					this.requestedData.responseData = response.data;
+					this.requestedData.responseData = response.data.tableData;
+					this.requestedData.responseMinMaxData = response.data.minMaxData;
 				})
 				.catch(error => {
 					console.error('Error fetching data:', error);
@@ -364,9 +489,27 @@
 				.finally(() => {
 					this.loading_data = false
 				});
-
 			},
 			convertToCSV(data) {
+				const { stationId, variableIds, summaryType, startYear, endYear, interval, requestedAt, months, ...rest } = this.requestedData;
+				
+				const selectedVariableId = variableIds[this.tab];
+				const station = this.stationList.find(station => station.id === stationId)
+				const variable = this.variableList.find(variable => variable.id === selectedVariableId)
+
+				const metadataList = [
+					`Description: Agromet ${summaryType} Summary\n`,
+					`Station Name: ${station?.name}\n`,
+					`Variable Name: ${variable?.name}\n`,
+					`${summaryType === 'Monthly' ? `Interval: ${interval}\nMonths: ${months}\n` : ''}`,
+					`Start/End Year: ${startYear}/${endYear}\n`,
+					`Station Lat/Lon: ${station?.latitude}/${station?.longitude}\n`,
+					`Request Datetime: ${requestedAt}\n`,
+					`UserName: ${this.username}`
+				]
+
+				const metadata = `"`+metadataList.join('')+`"\n\n`
+			  
 				const headers = data.headers.map(item => item.text).join(',') + '\n';
 
 				const indicesToRemove = [0,1] // Exclude the StationID and VariableID columns
@@ -377,7 +520,7 @@
 					.join(',')
 				).join('\n');
 
-				return headers + rows;
+				return metadata + headers + rows;
 			},
 			downloadCSV() {
 				const csvContent = this.convertToCSV(this.dataTable);
@@ -400,7 +543,18 @@
 				document.body.appendChild(link);
 				link.click();
 				document.body.removeChild(link);
-			}
+			},
+			getColor (header, item) {	
+				let item_entry = (this.requestedData.summaryType === 'Monthly')? {month: item.month, year: item.year} : {year: item.year}
+
+				const is_min = this.filteredMinMaxData[header.value].min.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
+				const is_max = this.filteredMinMaxData[header.value].max.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
+
+				if (is_min && is_max) return 'black'
+				else if (is_min) return 'blue'
+				else if (is_max) return 'red'
+				return 'black'
+			},			
 		},
 		mounted() {
 		}

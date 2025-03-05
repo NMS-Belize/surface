@@ -336,29 +336,6 @@ class WMORegion(BaseModel):
         return self.name
 
 
-class WMOReportingStatus(BaseModel):
-    name = models.CharField(max_length=256, unique=True)
-    description = models.CharField(max_length=256, null=True, blank=True)
-    notation = models.CharField(max_length=256, null=True, blank=True)
-
-    def __str__(self):
-        return self.name
-    
-class CountryISOCode(BaseModel):
-    name = models.CharField(max_length=256, unique=True)
-    description = models.CharField(max_length=256, null=True, blank=True)
-    notation = models.CharField(max_length=256, unique=True)
-
-    def __str__(self):
-        return self.name
-    
-class UTCOffsetMinutes (BaseModel):
-    hours = models.CharField(max_length=256, unique=True)
-    minutes = models.IntegerField()
-
-    def __str__(self):
-        return self.hours
-
 class WMOProgram(BaseModel):
     name = models.CharField(max_length=256, unique=True)
     description = models.CharField(max_length=512, null=True, blank=True)
@@ -379,394 +356,290 @@ class Watershed(models.Model):
 
 class Station(BaseModel):    
     name = models.CharField(max_length=256)
-    
     alias_name = models.CharField(max_length=256, null=True, blank=True)
-    
     begin_date = models.DateTimeField(null=True)
-    
     relocation_date = models.DateTimeField(null=True, blank=True)
-    
     end_date = models.DateTimeField(null=True, blank=True)
-    
     network = models.CharField(max_length=256, null=True, blank=True)
-    
     longitude = models.FloatField(validators=[
         MinValueValidator(-180.), MaxValueValidator(180.)
     ])
-    
     latitude = models.FloatField(validators=[
         MinValueValidator(-90.),
         MaxValueValidator(90.)
     ])
-    
     elevation = models.FloatField(null=True)
-    
     code = models.CharField(max_length=64)
-    
     reference_station = models.ForeignKey('self',
         on_delete=models.SET_NULL,
         null=True,
         blank=True)
-    
     wmo = models.IntegerField(
         null=True,
         blank=True
     )
-    
     wigos = models.CharField(
         null=True,
         max_length=64,
-        blank=True,
-    )
-
-    wigos_part_1 = models.IntegerField(
-        null=True,
-        blank=True,
-    )
-
-    wigos_part_2 = models.ForeignKey(
-        CountryISOCode,
-        on_delete=models.DO_NOTHING,
-        null=True,
-        blank=True,
-    )
-
-    wigos_part_3 = models.IntegerField(
-        null=True,
-        blank=True,
-        validators=[
-        MinValueValidator(0),
-        MaxValueValidator(65534)
-        ]
-    )
-
-    wigos_part_4 = models.CharField(
-        unique=True,
-        null=True,
-        blank=True,
-        max_length=16,
+        blank=True
     )
 
     is_active = models.BooleanField(default=False)
-    
-    is_automatic = models.BooleanField(default=False)
-
-    reporting_status = models.ForeignKey(
-        WMOReportingStatus,
-        on_delete=models.DO_NOTHING,
-        null=True,
-        blank=True,
-    )
-
-    international_station = models.BooleanField(default=False)
-    
+    is_automatic = models.BooleanField(default=True)
     organization = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     observer = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     watershed = models.CharField(
         max_length=256,
         null=True
     )
-    
     z = models.FloatField(
         null=True,
         blank=True
     )
-    
     datum = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     zone = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     ground_water_province = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     river_code = models.IntegerField(
         null=True,
         blank=True
     )
-    
     river_course = models.CharField(
         max_length=64,
         null=True,
         blank=True
     )
-    
     catchment_area_station = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     river_origin = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     easting = models.FloatField(
         null=True,
         blank=True
     )
-    
     northing = models.FloatField(
         null=True,
         blank=True
     )
-    
     river_outlet = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     river_length = models.IntegerField(
         null=True,
         blank=True
     )
-    
     local_land_use = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     soil_type = models.CharField(
         max_length=64,
         null=True,
         blank=True
     )
-    
     site_description = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     land_surface_elevation = models.FloatField(
         null=True,
         blank=True
     )
-    
     screen_length = models.FloatField(
         null=True,
         blank=True
     )
-    
     top_casing_land_surface = models.FloatField(
         null=True,
         blank=True
     )
-    
     depth_midpoint = models.FloatField(
         null=True,
         blank=True
     )
-    
     screen_size = models.FloatField(
         null=True,
         blank=True
     )
-    
     casing_type = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     casing_diameter = models.FloatField(
         null=True,
         blank=True
     )
-    
     existing_gauges = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     flow_direction_at_station = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     flow_direction_above_station = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     flow_direction_below_station = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     bank_full_stage = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     bridge_level = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     access_point = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     temporary_benchmark = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     mean_sea_level = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     data_type = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     frequency_observation = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     historic_events = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     other_information = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     profile = models.ForeignKey(
         StationProfile,
         on_delete=models.DO_NOTHING,
         null=True,
         blank=True
     )
-    
     hydrology_station_type = models.CharField(
         max_length=64,
         null=True,
         blank=True
     )
-    
     is_surface = models.BooleanField(default=True)  # options are surface or ground
-    
     station_details = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     remarks = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )        
-    
     country = models.ForeignKey(
         Country,
         on_delete=models.DO_NOTHING,
         null=True
     )
-    
     region = models.CharField(
         max_length=256,
         null=True
     )
-    
     data_source = models.ForeignKey(
         DataSource,
         on_delete=models.DO_NOTHING,
         null=True,
         blank=True
     )
-    
     communication_type = models.ForeignKey(
         StationCommunication,
         on_delete=models.DO_NOTHING,
         null=True
     )
-    
     utc_offset_minutes = models.IntegerField(
         validators=[
             MaxValueValidator(720),
             MinValueValidator(-720)
         ]
     )
-    
     alternative_names = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     wmo_station_type = models.ForeignKey(
         WMOStationType,
         on_delete=models.DO_NOTHING,
         null=True,
         blank=True
     )
-    
     wmo_region = models.ForeignKey(
         WMORegion,
         on_delete=models.DO_NOTHING,
         null=True,
-        blank=True,
+        blank=True
     )
-    
     wmo_program = models.ForeignKey(
         WMOProgram,
         on_delete=models.DO_NOTHING,
         null=True,
         blank=True
     )
-    
     wmo_station_plataform = models.CharField(
         max_length=256,
         null=True,
         blank=True
     )
-    
     operation_status = models.BooleanField(default=True)
 
     class Meta:

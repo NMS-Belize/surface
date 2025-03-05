@@ -1,20 +1,22 @@
 {% extends "wx/station_base.html" %}
 {% block station_content %}
 
-<div>
-  <div style="display: flex; justify-content: space-between; margin-bottom: 16px">
+<div class="srf-container">
+  <div
+    class="srf-flex d-flex flex-row align-items-center justify-content-between srf-padding"
+  >
     <span class="srf-display-1 text-uppercase">Delete station</span>
   </div>
   <div class="srf-layout flex-column srf-padding" style="width:100%;">
-    <p>Are you sure you want to <strong class="bold">delete</strong> the station: <strong class="bold">{{ station.name }}</strong>?</p>
+    <p>Are you sure you want to <strong class="bold">delete</strong> the station: <strong class="bold">{{ station }}</strong>?</p>
     <form action="" method="POST">
       {% csrf_token %}
-      <button class="btn-outline-default btn-small metadata-btn-danger" type="submit">
+      <button class="btn-outline-default btn-small" type="submit">
         Yes, delete
       </button>
       <a href="{% url 'station-detail' station.id %}">
         <button
-          class="btn-outline-default btn-small metadata-btn-success"
+          class="btn-outline-default btn-small"
           type="button"
         >
           Cancel

@@ -66,41 +66,6 @@
     {% include 'material/includes/material_css.html' %}
 
     <style>
-        /* main-overlay style start */
-  .main-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.306);
-    z-index: 1000;
-    backdrop-filter: blur(5px);
-  }
-
-  .main-spinner {
-    display: none;
-    border: 8px solid #f3f3f3;
-    border-top: 8px solid #3498db;
-    border-radius: 50%;
-    width: 70px;
-    height: 70px;
-    animation: spin 2s linear infinite;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    margin-left: -35px;
-    margin-top: -50px;
-    z-index: 1001;
-  }
-
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  /* main-overlay style end */
-
       html {
         overflow: auto;
       }
@@ -533,7 +498,7 @@
     {% block extrastyle %} {% endblock %}
   </head>
   <body>
-    <ul id="slide-out" class="sidenav sidenav-fixed collapsed-mode" onmouseover="hoverOpenSidebar()" onmouseout="hoverCloseSidebar()" onmouseleave="closeSidebarSubMenu()" style="z-index: 9999;">
+    <ul id="slide-out" class="sidenav sidenav-fixed collapsed-mode" onmouseover="hoverOpenSidebar()" onmouseout="hoverCloseSidebar()" onmouseleave="closeSidebarSubMenu()">
       <div style="display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -585,15 +550,13 @@
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                    <a id="stations-map" href="{% url 'stations-map' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">MAP<i class="material-icons secondary-content">map</i></a>
+                    <a id="stations-map" href="{% url 'stations-map' %}" class="hide-menu collection-item left-space ">MAP<i class="material-icons secondary-content">map</i></a>
 
                     {% if request.user.is_staff or request.user.is_superuser %}
 
-                    <a id="station-create" href="{% url 'station-create' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">CREATE A STATION<i class="material-icons secondary-content">donut_small</i></a>
-                    <a id="stations-list" href="{% url 'stations-list' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">donut_small</i></a>
-                    <a id="station-metadata" href="{% url 'station-metadata' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">donut_small</i></a>
-                    <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Export to OSCAR<i class="material-icons secondary-content">donut_small</i></a>
-                    <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">STATIONS MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
+                    <a id="stations-list" href="{% url 'stations-list' %}" class="hide-menu collection-item left-space ">LIST<i class="material-icons secondary-content">donut_small</i></a>
+                    <a id="station-metadata" href="{% url 'station-metadata' %}" class="hide-menu collection-item left-space ">METADATA<i class="material-icons secondary-content">donut_small</i></a>
+                    <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class="hide-menu collection-item left-space ">STATIONS MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
 
                     {% endif %}
                   </ul>
@@ -608,8 +571,8 @@
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                    <a id="equipement-inventory" href="{% url 'equipment-inventory' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Equipment Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
-                    <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Maintenance Reports<i class="material-icons secondary-content">build</i></a>
+                    <a id="equipement-inventory" href="{% url 'equipment-inventory' %}" class="hide-menu collection-item left-space">Equipment Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
+                    <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class="hide-menu collection-item left-space">Maintenance Reports<i class="material-icons secondary-content">build</i></a>
                   </ul>
                 </div>
               </div>
@@ -623,10 +586,10 @@
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                    <a id="daily-form" href="{% url 'daily-form' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Daily Capture Form<i class="material-icons secondary-content">keyboard</i></a>
-                    <a id="synop-capture" href="{% url 'synop-capture' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">SYNOP Capture Form<i class="material-icons secondary-content">keyboard</i></a>
-                    <a id="data-export" href="{% url 'data-export' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Export<i class="material-icons secondary-content">cloud_download</i></a>
-                    <a id="data-inventory" href="{% url 'data-inventory' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
+                    <a id="daily-form" href="{% url 'daily-form' %}" class="hide-menu collection-item left-space">Daily Capture Form<i class="material-icons secondary-content">keyboard</i></a>
+                    <a id="synop-capture" href="{% url 'synop-capture' %}" class="hide-menu collection-item left-space">SYNOP Capture Form<i class="material-icons secondary-content">keyboard</i></a>
+                    <a id="data-export" href="{% url 'data-export' %}" class="hide-menu collection-item left-space">Export<i class="material-icons secondary-content">cloud_download</i></a>
+                    <a id="data-inventory" href="{% url 'data-inventory' %}" class="hide-menu collection-item left-space">Data Inventory<i class="material-icons secondary-content">web</i></a>
                   </ul>
                 </div>
               </div>
@@ -640,10 +603,10 @@
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                    <a id="quality-control" href="{% url 'quality-control' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Data Validation<i class="material-icons secondary-content">done_all</i></a>
-                    <a id="range-threshold" href="{% url 'range-threshold' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
-                    <a id="step-threshold" href="{% url 'step-threshold' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
-                    <a id="persist-threshold" href="{% url 'persist-threshold' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
+                    <a id="quality-control" href="{% url 'quality-control' %}" class="hide-menu collection-item left-space">Data Validation<i class="material-icons secondary-content">done_all</i></a>
+                    <a id="range-threshold" href="{% url 'range-threshold' %}" class="hide-menu collection-item left-space">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
+                    <a id="step-threshold" href="{% url 'step-threshold' %}" class="hide-menu collection-item left-space">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
+                    <a id="persist-threshold" href="{% url 'persist-threshold' %}" class="hide-menu collection-item left-space">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
                   </ul>
                 </div>
               </div>
@@ -655,14 +618,14 @@
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                    <a id="station-report" href="{% url 'station-report' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Station Report<i class="material-icons secondary-content">people</i></a>
-                    <a id="variable-report" href="{% url 'variable-report' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Variable Report<i class="material-icons secondary-content">view_list</i></a>
-                    <a id="product-compare" href="{% url 'product-compare' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
-                    <!-- <a id="yearly-average" href="{% url 'yearly-average' %}" class="collection-item left-space">Yearly Average<i class="material-icons secondary-content" onclick="mainOverlayLoader()">timeline</i></a> -->
-                    <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
+                    <a id="station-report" href="{% url 'station-report' %}" class="hide-menu collection-item left-space">Station Report<i class="material-icons secondary-content">people</i></a>
+                    <a id="variable-report" href="{% url 'variable-report' %}" class="hide-menu collection-item left-space">Variable Report<i class="material-icons secondary-content">view_list</i></a>
+                    <a id="product-compare" href="{% url 'product-compare' %}" class="hide-menu collection-item left-space">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
+                    <!-- <a id="yearly-average" href="{% url 'yearly-average' %}" class="collection-item left-space">Yearly Average<i class="material-icons secondary-content">timeline</i></a> -->
+                    <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class="hide-menu collection-item left-space">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
                     {% if request.user.is_staff or request.user.is_superuser %}
-                    <a id="extremes-means" href="{% url 'extremes-means' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Extremes and Means<i class="material-icons secondary-content">equalizer</i></a>
-                    <a id="wave-data" href="{% url 'wave-data' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Wave data analysis<i class="material-icons secondary-content">water</i></a>
+                    <a id="extremes-means" href="{% url 'extremes-means' %}" class="hide-menu collection-item left-space">Extremes and Means<i class="material-icons secondary-content">equalizer</i></a>
+                    <a id="wave-data" href="{% url 'wave-data' %}" class="hide-menu collection-item left-space">Wave data analysis<i class="material-icons secondary-content">water</i></a>
                     {% endif %}
                   </ul>
                 </div>
@@ -683,12 +646,12 @@
 
             {% if request.user.is_staff or request.user.is_superuser %}
             <li class="collapsible-item">
-              <a href="{% url 'admin:index' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">people</i>ADMINISTRATIVE AREA</a>
+              <a href="{% url 'admin:index' %}" style="padding: 0px 16px;"><i class="material-icons">people</i>ADMINISTRATIVE AREA</a>
             </li>
             {% endif %}
 
             <li class="collapsible-item">
-              <a href="{% url 'logout' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">directions</i>LOGOUT</a>
+              <a href="{% url 'logout' %}" style="padding: 0px 16px;"><i class="material-icons">directions</i>LOGOUT</a>
             </li>
           </ul>
 
@@ -742,13 +705,8 @@
           </div>
 
           {% endif %}
-
           {% block content %}
           {% endblock %}
-
-          <!-- main-spinner and main-overlay -->
-          <div id="main-overlay" class="main-overlay"></div>
-          <div id="main-spinner" class="main-spinner"></div>
 
         </div>
 
@@ -798,7 +756,6 @@
     {% block js %}
     <script>
       $(document).ready(function(){
-
         $('.collapsible').collapsible();
         const menu = document.getElementById('slide-out');
         const closer = document.getElementById('menu-closer');
@@ -818,10 +775,8 @@
 
         const localMenus = [
           'stations-map',
-          'station-create',
           'stations-list',
           'station-metadata',
-          'station-oscar-export',
           'stations-monitoring',
           'daily-form',
           'synop-capture',
@@ -995,39 +950,6 @@
         //     instance.open([].slice.call(document.querySelector('.collapsible').children).indexOf(li));
         //   }
       });
-    
-      // JS for main-overlay loader
-      function mainOverlayLoader() {
-          // Show the main-spinner, text, and main-overlay
-          document.getElementById('main-overlay').style.display = 'block';
-          document.getElementById('main-spinner').style.display = 'block';
-      }
-
-      // Check if the overlay and spinner are displayed when the page is loaded
-      window.onload = function() {
-          var overlay = document.getElementById('main-overlay');
-          
-          // Check if the overlay display is currently 'block'
-          if (overlay.style.display === 'block') {
-              // Hide the overlay and spinner if display is 'block'
-              overlay.style.display = 'none';
-              document.getElementById('main-spinner').style.display = 'none';
-          }
-      };
-
-      // Hide the spinner and overlay when the page is restored from cache (e.g., when pressing back button)
-      window.addEventListener('pageshow', function(event) {
-          var overlay = document.getElementById('main-overlay');
-          
-          // Check if the event is triggered from cache
-          if (event.persisted) {
-              overlay.style.display = 'none';
-              document.getElementById('main-spinner').style.display = 'none';
-          }
-      });
-
-
-
     </script>
     {% endblock %}
     {% block localjavascript %}{% endblock %}

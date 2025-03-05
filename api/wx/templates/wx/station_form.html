@@ -2,462 +2,88 @@
 {% block station_content %}
 {% load material_form %}
 
+<h6>Select station location on the map</h6>
+
+<div id="mapid" class="map-small"></div>
+
+<form method="POST">
+    {% csrf_token %}
+    <div style="max-width: 622.50px;">
+      {% form %}
+        {% attr form.is_automatic 'group' class %}srf-field-checkbox{% endattr %}
+        {% attr form.is_active 'group' class %}srf-field-checkbox{% endattr %}
+        {% attr form.end_date 'widget' class %}srf-field-max-300{% endattr %}
+        {% attr form.zone 'widget' class %}srf-field-max-300{% endattr %}
+        {% attr form.watershed 'widget' list %}watersheds{% endattr %}
+        {% attr form.region 'widget' list %}regions{% endattr %}
+      {% endform %}
+    </div>
+
+    <button type="submit" class="btn-outline-default btn-small">Submit</button>
+
+    <a href="{% url 'stations-list' %}">
+
+      <button type="button" class="btn-outline-default btn-small">Cancel and back</button>
+
+    </a>
+</form>
 
 <style>
-  .oscar_fail_btn:hover {
-    color: white !important;
-  }
-
-  .hide_main_content {
-    opacity: 0; 
-    pointer-events: none; 
-    user-select: none;
-  }
-
-  .hide_content {
-    display: none;
-  }
-
-
-  #station-form {
-    max-width: 95%; 
-    margin: 0 auto;
-  }
-  
-  .oscar-options-container {
-    margin-top: 20px;
-    width: 50%;
-    /* gap: 20px; Adjusts the spacing between toggle items */
-    /* margin-bottom: 50px; */
-  }
-  .toggle-container {
-    display: flex;
-    gap: 20px; /* Adjusts the spacing between toggle items */
-    margin-bottom: 50px;
-  }
-  
-  .toggle-item {
+  .srf-field-checkbox label {
     display: flex;
     align-items: center;
+    height: 100%;
+    max-height: 76px;
+    padding-left: 11.25px;
+    padding-right: 11.25px;
   }
-  
-  .toggle-label {
-    padding-right: 15px; /* Adjusts the spacing between the label and the switch */
-    font-size: 14px;
-    font-weight: bold;
+  div.required label::before {
+    content: "** " !important;
+    color: red !important;
   }
-  
-  .toggle-switch {
-    position: relative;
-    width: 60px;
-    height: 34px;
-    background-color: #ccc;
-    border-radius: 34px;
-    cursor: pointer;
-    transition: background-color 0.4s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .map-small {
+    max-width: 622.50px; 
+    height: 311.25px !important;
   }
-  
-  .toggle-switch.no-toggle {
-    pointer-events: none; /* Disable interaction */
-    background-color: #2196F3; /* Permanently 'on' color */
+  .map-large {
+    max-width: 1022.50px; 
+    height: 622.50px !important;
   }
-  
-  .toggle-knob {
-    position: absolute;
-    width: 26px;
-    height: 26px;
+  .mouse-coordinates-box {
+    bottom: 5px;
+    left: 5px;
     background-color: white;
-    border-radius: 50%;
-    top: 4px;
-    left: 4px;
-    transition: transform 0.4s;
+    padding: 2px;
+    width: 185px;
+    font-size: 12px;
+    border-radius: 2px;
+    box-shadow: 0px 3px 10px -2px rgba(0, 0, 0, 0.2),
+      0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
   }
-  
-  /* Specific colors for each switch */
-  .oscar-switch.active {
-    background-color: #9C27B0; /* Purple color for OSCAR */
+  #mapid {
+    margin-bottom: 20px;
   }
-  
-  .export-switch.active {
-    background-color: #9C27B0; /* Purple color for OSCAR */
+  .fullscreen-button-width {
+    width: 100px !important;
   }
-  
-  .wis2box-switch.active {
-    background-color: #4CAF50 ; /* Green color for WIS2BOX */
+  .transparent-caret {
+    caret-color: transparent !important;
+    cursor: default;
   }
-  
-  .toggle-switch.active .toggle-knob {
-    transform: translateX(26px);
+  input::-webkit-calendar-picker-indicator {
+    display: none !important;
   }
-  
-  /* Hide options by default */
-  .form-item {
-    display: none;
+  h5 {
+    margin-bottom: 25px !important;
   }
-  
-    .srf-field-checkbox label {
-      display: flex;
-      align-items: center;
-      height: 100%;
-      max-height: 76px;
-      padding-left: 11.25px;
-      padding-right: 11.25px;
-      margin-bottom: 25px !important;
-    }
-    div.required label::before {
-      content: "** " !important;
-      color: red !important;
-    }
-    .map-small {
-      max-width: 80%; 
-      height: 511.25px !important;
-      border-radius: 20px;
-      border: 2px solid rgba(0, 0, 0, 0.628);
-      /* margin: 0 auto; */
-  }
-    .map-large {
-      max-width: 1022.50px; 
-      height: 622.50px !important;
-    }
-    .mouse-coordinates-box {
-      bottom: 5px;
-      left: 5px;
-      background-color: white;
-      padding: 2px;
-      width: 185px;
-      font-size: 12px;
-      border-radius: 2px;
-      box-shadow: 0px 3px 10px -2px rgba(0, 0, 0, 0.2),
-        0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
-    }
-    #mapid {
-      margin-bottom: 20px;
-    }
-    .fullscreen-button-width {
-      width: 100px !important;
-    }
-    .transparent-caret {
-      caret-color: transparent !important;
-      cursor: default;
-    }
-    input::-webkit-calendar-picker-indicator {
-      display: none !important;
-    }
-    h5 {
-      margin-bottom: 25px !important;
-    }
-  
-  
-    .spinner {
-        display: none;
-        border: 8px solid #f3f3f3;
-        border-top: 8px solid #3498db;
-        border-radius: 50%;
-        width: 70px;
-        height: 70px;
-        animation: spin 2s linear infinite;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        margin-left: -35px;
-        margin-top: -50px;
-        z-index: 1001;
-    }
-  
-  
-    .overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(255, 255, 255, 0.306);
-        z-index: 1000;
-        backdrop-filter: blur(5px);
-    }
-  
-  
-    .spinner-text {
-        display: none;
-        position: fixed;
-        top: 60%;
-        left: 50%;
-        transform: translateX(-50%);
-        color: #5a5a5a;
-        font-size: 20px !important;
-        text-align: center;
-        z-index: 1001;
-    }
-  
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-  
-    .subInfo {
-      text-align: center;
-      margin-bottom: 20px;
-      font-size: 16px;
-      margin-top: 0px;
-    }
-  
-    #additionalInfo {
-      margin-top: 30px !important;
-    }
-  
-    /* Style the tab links */
-    /* Style the tab links */
-    .tab {
-        display: inline-block;
-        cursor: pointer;
-        padding: 10px 20px;
-        border-bottom: 2px solid transparent;
-        transition: all 0.2s ease;
-        white-space: nowrap;
-        font-size: .875rem;
-        font-weight: 600;
-        color: #9e9e9e;
-        letter-spacing: .0892857143em;
-        text-transform: uppercase;
-    }
-  
-    .tab:hover {
-        background-color: #dddddda9;
-    }
-  
-    .active-tab {
-        border-bottom: 2px solid #1976d2 ;
-        color: #1976d2;
-    }
-  
-    .active-tab:hover {
-      background-color: #1976d24a ;
-    }
-  
-    /* Hide all sections by default */
-    .tab-content {
-        display: none;
-        border-top: none;
-    }
-  
-    /* Style visible content */
-    .show-tab {
-        display: block;
-    }
-  
-    /* Optional styling */
-    .tab-bar {
-        display: flex;
-        overflow-x: auto; /* Enables horizontal scrolling */
-        white-space: nowrap; /* Prevents breaking of text into new lines */
-        padding: 10px;
-    }
-  
-    /* Hide scrollbar but allow scrolling */
-    .tab-bar::-webkit-scrollbar {
-        display: none; /* For Chrome, Safari, and Opera */
-    }
-  
-    .tab-container {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        /* padding: 10px; */
-        margin-bottom: 0px;
-    }
-  
-    .tab-bar {
-        display: flex;
-        overflow-x: auto;
-        white-space: nowrap; /* Prevents breaking of text into new lines */
-        flex-grow: 1;
-        margin: 0 10px; /* Space between the arrows and tabs */
-    }
-  
-    .scroll-arrow {
-        cursor: pointer;
-        user-select: none;
-        padding: 10px;
-    }
-  
-    /* buttons styling */
-    .metadata-btn-danger {
-      color: red !important;
-      border-color: red !important;
-    }
-  
-    .metadata-btn-success {
-      color: #4CAF50 !important;
-      border-color: #4CAF50 !important;
-    }
-  
-    .metadata-btn-info {
-      color: #1976d2 !important;
-      border-color: #1976d2 !important;
-    }
 </style>
-
-  <form method="POST" id="station-form">
-
-    {% if is_oscar_error_msg %}
-      <!-- <div id="oscar_error_container">
-
-        <h6 style=" font-weight: bolder;">OSCAR Upload Failed!</h6>
-
-        <div style="color: rgb(255, 0, 0); width: 70%;">{{ oscar_error_msg|linebreaks }}</div>
-    
-        <h6>How would you like to proceed?</h6>
-      
-        <button class="btn-outline-default btn-small metadata-btn-success" type="submit">
-          Proceed Without OSCAR
-        </button>
-
-        <button class="btn-outline-default btn-small metadata-btn-info" type="button" onclick="show_main_content()">
-          Go Back to Edit
-        </button>
-      </div> -->
-      <div id="oscar_error_container" style="padding: 20px; background-color: #f8d7da; border-left: 5px solid #f44336; border-radius: 0px 20px 20px 0px;">
-
-        <h4 style="font-weight: bolder; color: #d32f2f;">
-            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> OSCAR Upload Failed!
-        </h4>
-
-        <div style="color: #d32f2f; font-size: 1rem; line-height: 1.5; white-space: pre-wrap;"> <!-- Preserves line breaks -->
-          {{ oscar_error_msg|linebreaks }}
-        </div>
-
-        <h6 style="font-weight: bolder; color: #d32f2f;">How would you like to proceed?</h6>
-
-        <button class="btn oscar_fail_btn" style="margin-right: 10px;" type="submit">
-          <i class="fa fa-exclamation-circle"></i> Proceed Without OSCAR
-        </button>
-        <button class="btn oscar_fail_btn" type="button" onclick="show_main_content()">
-            <i class="fa fa-edit"></i> Go Back to Edit
-        </button>
-
-        <!-- <button class="btn-outline-default btn-small metadata-btn-danger" type="submit">
-          Proceed Without OSCAR
-        </button>
-        <button class="btn-outline-default btn-small metadata-btn-success" type="button" onclick="show_main_content()">
-          Go Back to Edit
-        </button> -->
-
-      </div>
-    
-    {% endif %}
-
-    {% if is_oscar_error_msg %}
-    <div id="main_content" class="hide_main_content">
-    {% else %}
-    <div id="main_content" class="">
-    {% endif %}
-
-      <h6>Select all options the Station should support</h6>
-
-      <div class="toggle-container">
-        <div class="toggle-item">
-          <label class="toggle-label">SURFACE</label>
-          <div class="toggle-switch active no-toggle">
-            <div class="toggle-knob"></div>
-          </div>
-        </div>
-        <div class="toggle-item">
-          <label class="toggle-label" style="padding-left: 30px;">OSCAR</label>
-          <div class="toggle-switch oscar-switch" onclick="toggleOptions('oscar')">
-            <div class="toggle-knob"></div>
-          </div>
-        </div>
-        <div class="toggle-item">
-          <label class="toggle-label" style="padding-left: 30px;">WIS2BOX</label>
-          <div class="toggle-switch wis2box-switch" onclick="toggleOptions('wis2box')">
-            <div class="toggle-knob"></div>
-          </div>
-        </div>
-      </div>  
-      
-      {% csrf_token %}
-
-      <h6>Select station location on the map</h6>
-
-      <div id="mapid" class="map-small"></div>
-
-      <h6 style="color: #9e9e9e;">Options prefixed with <span style="color: red;">**</span> are required!</h6>
-
-      <div class="tab-container">
-        <div class="scroll-arrow" onclick="tabLeft()">
-          <i aria-hidden="true" class="v-icon notranslate mdi mdi-chevron-left theme--light"></i>
-        </div>
-        <div class="tab-bar">
-            <div class="tab active-tab" onclick="openTab('option1')">SURFACE Requirements</div>
-            <div id="oscar_specific_settings" class="tab" onclick="openTab('option2')">OSCAR SPECIFIC SETTINGS</div>
-            <div id="wis2box_specific_settings" class="tab" onclick="openTab('option3')">WIS2BOX SPECIFIC SETTINGS</div>
-        </div>
-        <div class="scroll-arrow" onclick="tabRight()">
-          <i aria-hidden="true" class="v-icon notranslate mdi mdi-chevron-right theme--light"></i>
-        </div>
-      </div>
-      
-        <div>
-          {% form %}
-            {% attr form.is_automatic 'group' class %}srf-field-checkbox{% endattr %}
-            {% attr form.is_active 'group' class %}srf-field-checkbox{% endattr %}
-            {% attr form.end_date 'widget' class %}srf-field-max-300{% endattr %}
-            {% attr form.zone 'widget' class %}srf-field-max-300{% endattr %}
-          {% endform %}
-        </div>
-
-        <div id="exportOptionsContainer" class="tab-content show-tab">
-          <div style="margin-bottom: 20px;" id="exportOptions">
-              
-            <div class="toggle-item">
-              <label class="toggle-label" style="font-weight: 500; font-size: 20px;">Export Station Metadata to OSCAR on Station Creation</label>
-              <div class="toggle-switch export-switch" onclick="toggleOptions('export')">
-                <div class="toggle-knob"></div>
-              </div>
-            </div>
-
-            <div id="token_option" style="width: 50%;">
-              <div>
-                <label for="oscar_api_token">API Token</label>
-                <input type="text" id="oscar_api_token" name="oscar_api_token"/>
-              </div>
-            </div>
-            
-          </div>
-        </div>
-
-        <button type="submit" class="btn-outline-default metadata-btn-success btn-small" onclick="overlayLoader()">Submit</button>
-
-        <a href="{% url 'stations-map' %}">
-
-          <button type="button" class="btn-outline-default metadata-btn-danger btn-small">Cancel</button>
-
-        </a>
-
-    </div>
-  </form>
-
-<!-- spinner and overlay -->
-<div id="overlay" class="overlay"></div>
-<div id="spinner" class="spinner"></div>
-<div id="spinner-text" class="spinner-text"><p style="font-size: 20px;">Attempting Station Creation....</p></div>
-
-
+  
   {% endblock %} {% block localjavascript %}
   <script>
-    
-    // map
     $(document).ready(function() {
-      // var tempLat = "{{ MAP_LATITUDE|safe }}";
-      // var tempLng = "{{ MAP_LONGITUDE|safe }}";
-      // var tempZoom = 8;
-      var tempLat = 0;
-      var tempLng = 0;
-      var tempZoom = 0;
+
+      var tempLat = 17.202212;
+      var tempLng = -88.429595;
 
       $('select').formSelect();
 
@@ -477,7 +103,7 @@
       // map js
       var mymap = L.map('mapid', {
         zoomControl: true
-      }).setView([tempLat, tempLng], tempZoom);
+      }).setView([tempLat, tempLng], 8);
 
       var osmUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
@@ -521,17 +147,6 @@
       // var to hold marker based on clicking action
       var newStationMarker;
 
-      // fxn to add a marker
-      function addNewMarker(lat, lng) {
-        // clearing existing marker
-        if (newStationMarker != undefined) {
-          mymap.removeLayer(newStationMarker);
-        }
-
-        // adding a marker to show where user clicked
-        newStationMarker = L.marker([lat,lng]).addTo(mymap).bindPopup('Location of new station').openPopup();
-      }
-
       // getting map coordinates based on clicking action and passing it to the latitude and longitude feild
       mymap.on('click',function(e){
 
@@ -543,8 +158,13 @@
         document.getElementById('id_latitude').value = e.latlng.lat;
         document.getElementById('id_longitude').value = e.latlng.lng;
 
-        // add a new marker
-        addNewMarker(e.latlng.lat, e.latlng.lng);
+        // clearing existing marker
+        if (newStationMarker != undefined) {
+          mymap.removeLayer(newStationMarker);
+        }
+
+        // adding a marker to show where user clicked
+        newStationMarker = L.marker([e.latlng.lat,e.latlng.lng]).addTo(mymap).bindPopup('Location of new station').openPopup();
       });
 
       // adding a resize button to the map
@@ -588,386 +208,30 @@
 
       L.control.mapResize({ position: 'topright' }).addTo(mymap);
 
-
-      // fxn to update map latitude
-      function updateLatitude(lat) {
-        var currentLng = mymap.getCenter().lng; // get the current longitude
-        
-        // set the map view
-        mymap.setView([lat, currentLng], 5);
-
-        // setting the marker
-        addNewMarker(lat, currentLng);
-      }
-
-      // fxn to update map longitude
-      function updateLongitude(lng) {
-        var currentLat = mymap.getCenter().lat; // get the current latitude
-        mymap.setView([currentLat, lng],5);
-
-        // setting the marker
-        addNewMarker(currentLat, lng);
-      }
-
-      // event listener to any changes to the latitude column
-      document.getElementById('id_latitude').addEventListener('input', function() {
-        var lat = parseFloat(this.value);
-        
-        // make sure the number is valid
-        if (!isNaN(lat)) {
-          updateLatitude(lat);
-        }
-      });
-
-      // event listener to any changes to the longitude column
-      document.getElementById('id_longitude').addEventListener('input', function() {
-        var lng = parseFloat(this.value);
-        
-        // make sure the number is valid
-        if (!isNaN(lng)) {
-          updateLongitude(lng);
-        }
-      });
-
     });
 
-    // js for overlay loader
-    function overlayLoader() {
-      // Show the spinner, text, and overlay
-      document.getElementById('overlay').style.display = 'block';
-      document.getElementById('spinner').style.display = 'block';
-      document.getElementById('spinner-text').style.display = 'block';
+    // autocomple for watershed
+    var watershedParent = document.getElementById("id_watershed_container");
 
-      // grab api token
-      var apiTkn = document.getElementById('oscar_api_token').value;
+    var watershedComplete = document.createElement("datalist");
 
-      // check if an api token is entered
-      if (apiTkn.length == 0) {
-        document.querySelector('#spinner-text p').textContent = "Attempting Station Creation...";
-      } else {
-        document.querySelector('#spinner-text p').textContent = "Attempting Station Creation and Metadata Export to OSCAR...";
-      }
-    }
-    // Check if the overlay and spinner are displayed when the page is loaded
-    window.onload = function() {
-        var overlay = document.getElementById('overlay');
-        
-        // Check if the overlay display is currently 'block'
-        if (overlay.style.display === 'block') {
-            // Hide the overlay and spinner if display is 'block'
-            overlay.style.display = 'none';
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('spinner-text').style.display = 'none';
-        }
-    };
-    // Hide the spinner and overlay when the page is restored from cache (e.g., when pressing back button)
-    window.addEventListener('pageshow', function(event) {
-        var overlay = document.getElementById('overlay');
-        
-        // Check if the event is triggered from cache
-        if (event.persisted) {
-            overlay.style.display = 'none';
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('spinner-text').style.display = 'none';
-        }
-    });
+    watershedComplete.setAttribute('id', 'watersheds');
 
-    // WIGOS information group heading
-    document.addEventListener('DOMContentLoaded', function() {
-      // Get the wigos row div by its ID
-      var wigosRowDiv = document.getElementById('id_wigos_part_1_container');
+    watershedParent.appendChild(watershedComplete);
 
-      if (wigosRowDiv) {  // Ensure the wigos row div exists
-        // Get the parent of the wigos div
-        var parentDiv = wigosRowDiv.parentNode.parentNode.parentNode;
+    document.getElementById("watersheds").innerHTML = '{% for watershed in watersheds %}<option value="{{ watershed.watershed }}"></option>{% endfor %}';
 
-        // Create a new <p> element
-        var pElement = document.createElement('p');
-        pElement.textContent = 'WIGOS INFORMATION';
+    // autocomple for region
+    var regionParent = document.getElementById("id_region_container");
 
-        // Set the id and class for the <p> element
-        pElement.setAttribute('id', 'wigosInfo');
-        pElement.className = 'subInfo';
+    var regionComplete = document.createElement("datalist");
 
-        // Insert the <p> element before the parent div
-        parentDiv.parentNode.insertBefore(pElement, parentDiv);
-      }
-    });
-    
-    // Other options group heading
-    document.addEventListener('DOMContentLoaded', function() {
-      // Get the current div by its ID
-      var wigosRowDiv = document.getElementById('id_wigos_part_4_container');
+    regionComplete.setAttribute('id', 'regions');
 
-      if (wigosRowDiv) {  // Ensure the wigos row div exists
-        // Get the parent of the wigos div
-        var parentDiv = wigosRowDiv.parentNode.parentNode.parentNode;
+    regionParent.appendChild(regionComplete);
 
-        // Create a new <p> element
-        var pElement = document.createElement('p');
-        pElement.textContent = 'ADDITIONAL OPTIONS';
+    document.getElementById("regions").innerHTML = '{% for region in regions %}<option value="{{ region.name }}"></option>{% endfor %}';
 
-        // Set the id and class for the <p> element
-        pElement.setAttribute('id', 'additionalInfo');
-        pElement.className = 'subInfo';
-
-        // Insert the <p> element after the parent div
-        parentDiv.insertAdjacentElement('afterend', pElement);
-      }
-    });
-
-
-    // additional options radio buttons control
-    document.addEventListener("DOMContentLoaded", function() {
-      // Automatically add IDs and classes to specific elements
-      var ids = [
-        'id_wigos_part_1_container',
-        'id_wigos_part_2_container',
-        'id_wigos_part_3_container',
-        'id_wigos_part_4_container',
-        'id_wmo_region_container',
-        'id_wmo_station_type_container',
-        'id_international_station_container',
-        'id_reporting_status_container'
-      ];
-
-      ids.forEach(function(id) {
-        var element = document.getElementById(id);
-        if (element) {
-          element.classList.add('form-item');
-        }
-      });
-
-      // Automatically assign ID to the <h5> element for "Additional Options"
-      var additionalRequirementsHeader = Array.from(document.getElementsByTagName('h5'))
-        .find(el => el.textContent.includes('Additional Options'));
-      if (additionalRequirementsHeader) {
-        additionalRequirementsHeader.id = 'additional-requirements';
-        additionalRequirementsHeader.classList.add('form-item');
-      }
-
-      // Initialize visibility based on toggle states
-      toggleOptions('oscar');
-      // toggleOptions('wis2box');
-    });
-
-    // radio buttons at the top of the page
-    function toggleOptions(toggleName) {
-      var toggleElement = document.querySelector('.' + toggleName + '-switch');
-      var isActive = toggleElement.classList.toggle('active');
-
-      var oscarActive = document.querySelector('.oscar-switch').classList.contains('active');
-      var wis2boxActive = document.querySelector('.wis2box-switch').classList.contains('active');
-      var exportActive = document.querySelector('.export-switch').classList.contains('active');
-
-      // Shared container and additional requirements
-      var sharedContainer1 = document.getElementById('id_wigos_part_1_container');
-      var sharedContainer2 = document.getElementById('id_wigos_part_2_container');
-      var sharedContainer3 = document.getElementById('id_wigos_part_3_container');
-      var sharedContainer4 = document.getElementById('id_wigos_part_4_container');
-      var additionalRequirements = document.getElementById('additional-requirements');
-      var wigosInfo = document.getElementById('wigosInfo');
-      var additionalInfo = document.getElementById('additionalInfo');
-
-      if (oscarActive || wis2boxActive) {
-        sharedContainer1.style.display = 'block';
-        sharedContainer2.style.display = 'block';
-        sharedContainer3.style.display = 'block';
-        sharedContainer4.style.display = 'block';
-        additionalRequirements.style.display = 'block';
-        wigosInfo.style.display = 'block';
-        additionalInfo.style.display = 'block';
-      } else {
-        sharedContainer1.style.display = 'none';
-        sharedContainer2.style.display = 'none';
-        sharedContainer3.style.display = 'none';
-        sharedContainer4.style.display = 'none';
-        additionalRequirements.style.display = 'none';
-        wigosInfo.style.display = 'none';
-        additionalInfo.style.display = 'none';
-      }
-
-      // OSCAR-specific containers
-      var exportOptions = document.getElementById('exportOptions');
-      var wmo_regionContainer = document.getElementById('id_wmo_region_container');
-      var reporting_statusContainer = document.getElementById('id_reporting_status_container');
-      var wmo_station_typeContainer = document.getElementById('id_wmo_station_type_container');
-      var oscar_settings_container = document.getElementById('oscar_specific_settings');
-      if (oscarActive) {
-        exportOptions.style.display = 'block';
-        wmo_regionContainer.style.display = 'block';
-        reporting_statusContainer.style.display = 'block';
-        wmo_station_typeContainer.style.display = 'block';
-        oscar_settings_container.style.display = 'block';
-      } else {
-        exportOptions.style.display = 'none';
-        wmo_regionContainer.style.display = 'none';
-        reporting_statusContainer.style.display = 'none';
-        wmo_station_typeContainer.style.display = 'none';
-        oscar_settings_container.style.display = 'none';
-      }
-
-      var tokenOption = document.getElementById('token_option');
-      var tokenInput = document.getElementById('oscar_api_token');
-      
-      if(exportActive) {
-        tokenOption.style.display = 'block';
-        // tokenInput.setAttribute('required', 'required');
-      } else {
-        tokenOption.style.display = 'none';
-        // tokenInput.removeAttribute('required');
-      }
-      
-      // WIS2BOX-specific containers
-      var wis2boxContainer = document.getElementById('id_international_station_container');
-      var wis2box_settings_container = document.getElementById('wis2box_specific_settings');
-      
-      if (wis2boxActive) {
-        wis2boxContainer.style.display = 'block';
-        wis2box_settings_container.style.display = 'block';
-      } else {
-        wis2boxContainer.style.display = 'none';
-        wis2box_settings_container.style.display = 'none';
-      }
-    }
-
-
-    //-------------------------wigos fields control start---------------------------//
-    // adding more information to the botton of the last 2 wigos sections
-    //for wigos_part_3
-    // Get the container div by its ID
-    const wigos3Container = document.getElementById('id_wigos_part_3_container');
-
-    // Create a new div element
-    const errorDivWigos3 = document.createElement('div');
-    errorDivWigos3.className = 'errors'; // Add the 'errors' class
-
-    // Create the small element
-    const errorTextWigos3 = document.createElement('small');
-    errorTextWigos3.className = 'error'; // Add the 'error' class
-    errorTextWigos3.textContent = 'Between 0 to 65534'; // Add the error message
-
-    // Append the small element to the div
-    errorDivWigos3.appendChild(errorTextWigos3);
-
-    // Append the errorDiv as the last child of the container
-    wigos3Container.appendChild(errorDivWigos3);
-
-    //for wigos_part_4
-    // Get the container div by its ID
-    const wigos4Container = document.getElementById('id_wigos_part_4_container');
-
-    // Create a new div element
-    const errorDivWigos4 = document.createElement('div');
-    errorDivWigos4.className = 'errors'; // Add the 'errors' class
-
-    // Create the small element
-    const errorTextWigos4 = document.createElement('small');
-    errorTextWigos4.className = 'error'; // Add the 'error' class
-    errorTextWigos4.textContent = '16 characters max'; // Add the error message
-
-    // Append the small element to the div
-    errorDivWigos4.appendChild(errorTextWigos4);
-
-    // Append the errorDiv as the last child of the container
-    wigos4Container.appendChild(errorDivWigos4);
-//-------------------------wigos fields control end---------------------------//
-
-    // adding the an event listener to modify the parent div of additional options to work with tab options
-    document.addEventListener('DOMContentLoaded', function() {
-      const h5Element = document.getElementById('additional-requirements');
-      if (h5Element) {
-        const parentDiv = h5Element.closest('div');
-        if (parentDiv) {
-          parentDiv.id = 'additional-requirements-container';
-          parentDiv.classList.add('show-tab', 'tab-content');
-        }
-      }
-      });
-
-
-    // control for tab options below map
-    function openTab(tabId) {
-        // Hide all tab content
-        var tabs = document.getElementsByClassName("tab-content");
-        for (var i = 0; i < tabs.length; i++) {
-            tabs[i].classList.remove("show-tab");
-        }
-
-        // Remove active class from all tabs
-        var tabLinks = document.getElementsByClassName("tab");
-        for (var i = 0; i < tabLinks.length; i++) {
-            tabLinks[i].classList.remove("active-tab");
-        }
-
-        // Show the selected tab content and set active tab
-        document.getElementById(tabId).classList.add("show-tab");
-        event.currentTarget.classList.add("active-tab");
-
-        //show the additional options and oscar api upload option along with SURFACE REQUIREMENTS
-        if (tabId == 'option1') {
-          document.getElementById('exportOptionsContainer').classList.add("show-tab");
-          document.getElementById('additional-requirements-container').classList.add("show-tab");
-        }
-    }
-
-    // scroll carets control for the tab bar
-    function tabLeft() {
-        document.querySelector('.tab-bar').scrollBy({
-            left: -300, // Adjust the scroll amount
-            behavior: 'smooth'
-        });
-    }
-
-    function tabRight() {
-        document.querySelector('.tab-bar').scrollBy({
-            left: 300, // Adjust the scroll amount
-            behavior: 'smooth'
-        });
-    }
-
-    // add the necessary attributes to the class options
-    window.addEventListener('DOMContentLoaded', function() {
-      // Find all h5 elements
-      const h5Tags = document.querySelectorAll('h5');
-      
-      // Loop through each h5 tag to find the tab options
-      h5Tags.forEach(function(h5) {
-          if (h5.textContent.trim() === "SURFACE Requirements") {
-              // Get the grandparent element of the h5 tag
-              const grandparent = h5.parentElement.parentElement;
-              
-              // Set the id and class attributes to the grandparent
-              grandparent.setAttribute('id', 'option1');
-              grandparent.setAttribute('class', 'tab-content show-tab');
-          }
-
-          else if (h5.textContent.trim() === "OSCAR Specific Settings") {
-              // Get the grandparent element of the h5 tag
-              const grandparent = h5.parentElement.parentElement;
-              
-              // Set the id and class attributes to the grandparent
-              grandparent.setAttribute('id', 'option2');
-              grandparent.setAttribute('class', 'tab-content');
-          }
-
-          else if (h5.textContent.trim() === "WIS2BOX Specific Settings") {
-              // Get the grandparent element of the h5 tag
-              const grandparent = h5.parentElement.parentElement;
-              
-              // Set the id and class attributes to the grandparent
-              grandparent.setAttribute('id', 'option3');
-              grandparent.setAttribute('class', 'tab-content');
-          }
-      });
-
-  });
-
-    //show the main content when the user decided to "go back to edit" after OSCAR push fails
-    function show_main_content() {
-      document.getElementById('main_content').classList.remove('hide_main_content');
-      document.getElementById('oscar_error_container').classList.add('hide_content');
-    }
   </script>
 </div>
 {% endblock %}

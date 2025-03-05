@@ -105,6 +105,10 @@ sudo rm -rf production.example.env
 
 Get real file
 
+ftp db.hydromet.gov.bz 5394
+Username: surfacefiles
+Password: surf@c3f!l3s
+
 get production.env
 ls (to check if the file is in the api directory)
 cd .. (exit api directory)

@@ -1,215 +1,2114 @@
-{% extends "wx/station_update.html" %}
-{% block station_detail_content %}
-{% load material_form %}
+{% extends "wx/station_base.html" %}
+{% block station_content %}
+{% load static %}
 
-<style>
-/* Apply dashed border to the parent of all select elements in the form */
-form select[disabled] {
-    border: none;  /* Remove any native borders from the disabled select */
-}
+<div id="app" v-cloak>
+  
+  <v-app>
+    <v-container style="width: 100%; padding-left: 0 !important; margin-left: 0 !important;">
 
-/* Apply dashed border to parent containers of disabled selects */
-form select[disabled] {
-    border-bottom: 1px dashed #949494 !important;  /* Dashed bottom border */
-    margin-bottom: 20px !important;
-    width: 100%;  /* Ensure select takes full width of container */
-}
+    <v-layout column mt-3 v-if="selectedStation">
+      {% if request.user.is_staff or request.user.is_superuser %}
+        <v-layout>
+          <v-col cols="6">
+                <v-btn
+                  v-if="isEditing"
+                  class="ml-2"
+                  outlined
+                  justify-end
+                  color="primary"
+                  @click="onSaveEdit();reloadPage();"
+                >SAVE</v-btn>  
+                <v-btn
+                  v-if="isEditing"
+                  class="ml-2"
+                  outlined
+                  justify-end
+                  color="red"
+                  @click="cancelEditing"
+                >CANCEL</v-btn>   
+          </v-col>
+        </v-layout>
+      {% endif %}
 
-/* Optionally, style other disabled form fields similarly if needed */
-form input[disabled], form textarea[disabled] {
-    border-bottom: 1px dashed #949494 !important;  /* Apply the same styling */
-    margin-bottom: 20px !important;
-}
+      <v-layout> 
+        <v-col cols="6">
+          <div style="height: 300px; width: 100%;">
+            <l-map
+              ref="myMap"
+              :zoom="zoom"
+              :center="center"
+              :options="options"
+              style="z-index: 0;"
+            >
+              <l-marker @load="onChangeStation" :lat-lng="markerPosition" draggable @dragend="onMarkerDragEnd($event)">
+                <l-icon :icon-size="iconSizeTest" :icon-anchor="iconAnchor">
+                  <img src="{% static 'images/placeholder.png' %}" />
+                </l-icon>
+              </l-marker>
+      
+              <l-tile-layer :url="url" :attribution="attribution"></l-tile-layer>
+              <l-control-zoom :position="zoomPosition"></l-control-zoom>
+            </l-map>
+          </div>
+        </v-col>
 
-#mapid {
-    pointer-events: none;
-    user-select: none;  /* Prevents text selection inside the div */
-    opacity: 0.8;
-}
+        <v-col cols="6">
+          <template v-if="stationImagesList.length">
+            <v-carousel
+              :key="carouselId"
+              cycle
+              height="auto"
+              show-arrows-on-hover
+            >
+              <v-carousel-item
+                eager
+                v-for="(image, i) in stationImagesList"
+                :key="i"
+              >
+                <v-img :src="image.path" min-height="300" max-height="300" contains></v-img>
+              </v-carousel-item>
+            </v-carousel>
+          </template>
+          <div style="margin: 0 auto;" v-if="!stationImagesList.length">No image available!</div>
+        </v-col>
+      </v-layout>
+
+      <template>
+        <v-tabs class="mt-3" @change="cancelEditing">
+          <v-tab :key="1">
+            Station Information
+          </v-tab>
+          <v-tab :key="4">
+            Local Environment
+          </v-tab>
+          <v-tab :key="5">
+            Instrumentation and Maintenance
+          </v-tab>
+          <v-tab :key="6">
+            Observing Practices
+          </v-tab>
+          <v-tab :key="7">
+            Data Processing
+          </v-tab>
+          <v-tab :key="8">
+            Historical Events
+          </v-tab>
+          <v-tab :key="9">
+            Other Metadata
+          </v-tab>
+
+          <!--Station information-->
+          <v-tab-item :key="1">
+          <form id="stationInformation" @submit="checkStationInformation">
+            <div class="row w-100 mt-3">
+            
+              <div class="col s4" v-tooltip="3-03">
+
+                  <v-text-field
+                    type="text"
+                    v-model="selectedStation.name"
+                    label="Station/Platform Name"
+                    required
+                    hint="*Required"
+                    persistent-hint
+                    :rules="simpleTextFieldsRules"
+                    :disabled="!isEditing"
+                    :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                    false
+                    {% else %}
+                    true
+                    {% endif %}"
+                  >
+                  <v-tooltip slot="append" right>
+                    <template v-slot:activator="{ on }">
+                      <v-icon 
+                      v-on="on" 
+                      color="primary" 
+                      dark
+                      >
+                      info
+                      </v-icon>
+                    </template>
+                    <span>WIGOS category 3-03</span>
+                  </v-tooltip>
+                  </v-text-field>
+
+              </div>
+            
+
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.alias_name"
+                  label="Alias Name"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                    false
+                    {% else %}
+                    true
+                    {% endif %}"
+                ></v-text-field>
+              </div>
+
+            </div>
+            
+            <div class="row w-100 mt-3">
+              
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.code"
+                  label="Local Station ID"
+                  disabled
+                ></v-text-field>
+              </div>
+
+              <div class="col s4">
+                
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.wigos"
+                  required
+                  hint="*Required"
+                  persistent-hint
+                  :rules="simpleTextFieldsRules"
+                  label="Station/Platform unique indetifier"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                    false
+                    {% else %}
+                    true
+                    {% endif %}"
+                >
+                   <v-tooltip slot="append" right>
+                      <template v-slot:activator="{ on }">
+                        <v-icon 
+                        v-on="on" 
+                        color="primary" 
+                        dark
+                        >
+                        info
+                        </v-icon>
+                      </template>
+                      <span>WIGOS category 3-06 (WIGOS ID)</span>
+                    </v-tooltip>
+                </v-text-field>
+                  
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-autocomplete
+                :items="wmoProgramList"
+                item-text="name"
+                item-value="id"
+                v-model="selectedStation.wmo"
+                label="WMO Program"
+                required
+                hint="*Required"
+                persistent-hint
+                :rules="simpleTextFieldsRules"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                    false
+                    {% else %}
+                    true
+                    {% endif %}"
+                autocomplete="off"
+              >
+              <v-tooltip slot="append" right>
+                <template v-slot:activator="{ on }">
+                  <v-icon 
+                  v-on="on" 
+                  color="primary" 
+                  dark
+                  >
+                  info
+                  </v-icon>
+                </template>
+                <span>WIGOS category 2-02</span>
+              </v-tooltip>
+              </v-autocomplete>
+              </div>
+              <div class="col s4">
+                <v-menu
+                  :close-on-content-click="false"
+                  v-model="begin_date_menu"
+                  transition="scale-transition"
+                  offset-y
+                >
+                  <template v-slot:activator="{ on }">
+                    <v-text-field
+                      v-model="selectedStation.begin_date"
+                      label="Begin Date"
+                      v-on="on"
+                      required
+                      prepend-icon="event"
+                      hint="*Required"
+                      :rules="dateSimpleRules"
+                      {% if request.user.is_staff or request.user.is_superuser %}
+                      clearable
+                      {% endif %}
+                      persistent-hint
+                      :disabled="!isEditing"
+                      :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                      false
+                      {% else %}
+                      true
+                      {% endif %}"
+                    ></v-text-field>
+                  </template>
+                  {% if request.user.is_staff or request.user.is_superuser %}
+                  <v-date-picker
+                    v-model="selectedStation.begin_date"
+                    @input="begin_date_menu = false"
+                    hint="*Required"
+                    required
+                    no-title
+                    persistent-hint
+                  ></v-date-picker>
+                  {% endif %}
+                </v-menu>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              
+              <div class="col s4">
+                <v-menu
+                  :close-on-content-click="false"
+                  v-model="end_date_menu"
+                  transition="scale-transition"
+                  offset-y
+                >
+                  <template v-slot:activator="{ on }">
+                    <v-text-field
+                      v-model="selectedStation.end_date"
+                      label="End date"
+                      v-on="on"
+                      prepend-icon="event"
+                      :disabled="!isEditing"
+                      {% if request.user.is_staff or request.user.is_superuser %}
+                      clearable
+                      {% endif %}
+                      :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                      false
+                      {% else %}
+                      true
+                      {% endif %}"
+                    ></v-text-field>
+                  </template>
+                  {% if request.user.is_staff or request.user.is_super %}
+                  <v-date-picker
+                    v-model="selectedStation.end_date"
+                    no-title
+                    @input="end_date_menu = false"
+                  ></v-date-picker>
+                  {% endif %}
+                </v-menu>
+              </div>
+
+              <div class="col s4">
+                <v-menu
+                  :close-on-content-click="false"
+                  v-model="relocation_date_menu"
+                  transition="scale-transition"
+                  offset-y
+                >
+                  <template v-slot:activator="{ on, attrs}">
+                    <v-text-field
+                      v-model="selectedStation.relocation_date"
+                      label="Date of relocation"
+                      v-on="on"
+                      v-bind="attrs"
+                      prepend-icon="event"
+                      :disabled="!isEditing"
+                      {% if request.user.is_staff or request.user.is_superuser %}
+                      clearable
+                      {% endif %}
+                      :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                      false
+                      {% else %}
+                      true
+                      {% endif %}"
+                    ></v-text-field>
+                  </template>
+                  {% if request.user.is_staff or request.user.is_super %}
+                  <v-date-picker
+                    :active-picker.sync="activePicker"
+                    v-model="selectedStation.relocation_date"
+                    no-title
+                    @input="relocation_date_menu = false"
+                  ></v-date-picker>
+                  {% endif %}
+                </v-menu>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <div class="srf-field">
+                  <span class="srf-field-header">Station operation Status (Active or Inactive)</span>
+                  <v-switch
+                    v-model="selectedStation.is_active"
+                    :disabled="!isEditing"
+                    :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                    false
+                    {% else %}
+                    true
+                    {% endif %}"
+                  >
+                  <v-tooltip slot="append" right>
+                    <template v-slot:activator="{ on }">
+                      <v-icon 
+                      v-on="on" 
+                      color="primary" 
+                      dark
+                      >
+                      info
+                      </v-icon>
+                    </template>
+                    <span>WIGOS category 3-09</span>
+                  </v-tooltip>
+                </div>
+              </div>
+              <div class="col s4">
+                <div class="srf-field">
+                  <span class="srf-field-header">Conventional or Automatic</span>
+                  <v-switch
+                    v-model="selectedStation.is_automatic"
+                    :disabled="!isEditing"
+                    :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                    false
+                    {% else %}
+                    true
+                    {% endif %}"
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Network (Local)"
+                v-model="selectedStation.network"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+              <div class="col s4">
+                <v-autocomplete
+                  :items="wmoStationTypeList"
+                  item-text="name"
+                  item-value="id"
+                  v-model="selectedStation.wmo_station_type"
+                  label="Station/Platform Type (WMO)"
+                  required
+                  hint="*Required"
+                  persistent-hint
+                  :rules="simpleTextFieldsRules"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                  autocomplete="off"
+                >
+                <v-tooltip slot="append" right>
+                  <template v-slot:activator="{ on }">
+                    <v-icon 
+                    v-on="on" 
+                    color="primary" 
+                    dark
+                    >
+                    info
+                    </v-icon>
+                  </template>
+                  <span>WIGOS category 3-04</span>
+                </v-tooltip>
+                </v-autocomplete>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-autocomplete
+                  :items="stationProfileList"
+                  item-text="name"
+                  item-value="id"
+                  v-model="selectedStation.profile"
+                  label="Type of Station (Local Profile)"
+                  required
+                  hint="*Required"
+                  persistent-hint
+                  :rules="simpleTextFieldsRules"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                  autocomplete="off"
+                ></v-autocomplete>
+              </div>
+              <div class="col s4">
+                <v-autocomplete
+                  :items="stationCommunicationList"
+                  item-text="name"
+                  item-value="id"
+                  v-model="selectedStation.communication_type"
+                  label="Communication"
+                  required
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                  autocomplete="off"
+                ></v-autocomplete>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.latitude"
+                  label="Latitude"
+                  required
+                  hint="*Required"
+                  persistent-hint
+                  :rules="simpleFloatFieldsRules"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                >
+                <v-tooltip slot="append" right>
+                  <template v-slot:activator="{ on }">
+                    <v-icon 
+                    v-on="on" 
+                    color="primary" 
+                    dark
+                    >
+                    info
+                    </v-icon>
+                  </template>
+                  <span>WIGOS category 3-07</span>
+                </v-tooltip>
+                </v-text-field>
+              </div>
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.longitude"
+                  required
+                  hint="*Required"
+                  persistent-hint
+                  :rules="simpleFloatFieldsRules"
+                  label="Longitude"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                >
+                <v-tooltip slot="append" right>
+                  <template v-slot:activator="{ on }">
+                    <v-icon 
+                    v-on="on" 
+                    color="primary" 
+                    dark
+                    >
+                    info
+                    </v-icon>
+                  </template>
+                  <span>WIGOS category 3-07</span>
+                </v-tooltip>
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.elevation"
+                  required
+                  hint="*Required"
+                  persistent-hint
+                  :rules="simpleFloatFieldsRules"
+                  label="Elevation"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                >
+                <v-tooltip slot="append" right>
+                  <template v-slot:activator="{ on }">
+                    <v-icon 
+                    v-on="on" 
+                    color="primary" 
+                    dark
+                    >
+                    info
+                    </v-icon>
+                  </template>
+                  <span>WIGOS category 3-07</span>
+                </v-tooltip>
+                </v-text-field>
+              </div>
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.country"
+                  required
+                  hint="*Required"
+                  persistent-hint
+                  :rules="simpleTextFieldsRules"
+                  label="Country"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                >
+                <v-tooltip slot="append" right>
+                  <template v-slot:activator="{ on }">
+                    <v-icon 
+                    v-on="on" 
+                    color="primary" 
+                    dark
+                    >
+                    info
+                    </v-icon>
+                  </template>
+                  <span>WIGOS category 3-02</span>
+                </v-tooltip>
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.region"
+                  label="Local Administrative Region(District)"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                ></v-text-field>
+              </div>
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.watershed"
+                  label="Basin"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                ></v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-autocomplete
+                  :items="wmoRegionList"
+                  item-text="name"
+                  item-value="id"
+                  v-model="selectedStation.wmo_region"
+                  label="WMO Region"
+                  required
+                  hint="*Required"
+                  persistent-hint
+                  :rules="simpleTextFieldsRules"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                  autocomplete="on"
+                >
+                <v-tooltip slot="append" right>
+                  <template v-slot:activator="{ on }">
+                    <v-icon 
+                    v-on="on" 
+                    color="primary" 
+                    dark
+                    >
+                    info
+                    </v-icon>
+                  </template>
+                  <span>WIGOS category 3-01</span>
+                </v-tooltip>
+                </v-autocomplete>
+              </div>
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.utc_offset_minutes"
+                  label="Time Zone (UTC offset in minutes)"
+                  required
+                  hint="*Required"
+                  persistent-hint
+                  :rules="timezoneRules"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                ></v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.wmo_station_plataform"
+                  label="Station/Platform model (WMO)"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                >
+                <v-tooltip slot="append" right>
+                  <template v-slot:activator="{ on }">
+                    <v-icon 
+                    v-on="on" 
+                    color="primary" 
+                    dark
+                    >
+                    info
+                    </v-icon>
+                  </template>
+                  <span>WIGOS category 3-05</span>
+                </v-tooltip>
+                </v-text-field>
+              </div>
+              <div class="col s4">
+                <v-text-field
+                  type="text"
+                  v-model="selectedStation.data_type"
+                  label="Data Communication Method"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                >
+                <v-tooltip slot="append" right>
+                  <template v-slot:activator="{ on }">
+                    <v-icon 
+                    v-on="on" 
+                    color="primary" 
+                    dark
+                    >
+                    info
+                    </v-icon>
+                  </template>
+                  <span>WIGOS category 3-08</span>
+                </v-tooltip>
+
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                  type="text"
+                  v-model="selectedStation.observer"
+                  label="Local Observer Name"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                >
+              </div>
+
+              <div class="col s4">
+                <v-text-field 
+                  type="text"
+                  v-model="selectedStation.organization"
+                  label="Responsible Organization (Local)"
+                  :disabled="!isEditing"
+                  :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                  false
+                  {% else %}
+                  true
+                  {% endif %}"
+                >
+              </div>
+            </div>
+            
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <v-btn
+              v-if="isEditing"
+              class="ml-2"
+              outlined
+              justify-end
+              color="primary"
+              @click="onSaveEdit"
+            >SAVE</v-btn>  
+            <v-btn
+              v-if="isEditing"
+              class="ml-2"
+              outlined
+              justify-end
+              color="red"
+              @click="cancelEditing"
+            >CANCEL</v-btn>  
+            {% endif %}
+          </form>  
+        </v-tab-item >
+
+          <!--Local Enviroment-->
+          <v-tab-item :key="2" >
+
+          <form id="localEnviroment" @submit="">
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text"
+                label="Local land use/land cover"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Instrument exposure"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Soil type"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+            
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Site conditions"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Photos"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Site plans"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+              
 
 
-  /* Metadata Styling Start */
-  .metadata-dropdown-container {
-      width: 30% !important;
-  }
+            <div class="row w-100 mt-3">
 
-  .metadata-label {
-      font-size: 24px;
-      font-weight: 500;
-      margin-bottom: 10px;
-      display: block;
-  }
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Skyline Diagrams"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
 
-  .metadata-dropdown {
-      position: relative;
-      width: 100%;
-      cursor: pointer;
-      font-size: 16px;
-  }
+            <div class="row w-100 mt-3">
 
-  .metadata-dropdown .metadata-dropdown-selected {
-      padding: 10px;
-      margin-top: 20px;
-      border-bottom: 2px solid #000000;
-      background-color: #fff;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-  }
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="WIGOS Metadata"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
 
-  .metadata-dropdown-selected i {
-      transition: transform 0.3s ease; /* Smooth rotation for the icon */
-  }
+            
+            {% if request.user.is_staff or request.user.is_superuser %}
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="primary"
+                @click="onSaveEdit"
+              >SAVE</v-btn>  
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="red"
+                @click="cancelEditing"
+              >CANCEL</v-btn>  
+            {% endif %}
+          </form>
+          </v-tab-item>
 
-  /* Initially hidden dropdown content */
-  .metadata-dropdown-items {
-      display: none;
-      position: absolute;
-      background-color: #fff;
-      width: 100%;
-      box-shadow: 0 4px 6px 0 rgba(32,33,36,.28);
-      z-index: 99;
-      overflow: hidden;
-      max-height: 0; /* Initially collapsed */
-      opacity: 0;
-      transition: max-height 0.3s ease, opacity 0.3s ease; /* Smooth open/close */
-  }
+          <!--Instrumentation and Maintenance-->
+          <v-tab-item :key="3" >
 
-  /* Show dropdown with animation */
-  .dropdown-open .metadata-dropdown-items {
-      display: block;
-      max-height: 400px; /* Set the max height to 50px */
-      opacity: 1;
-      overflow-y: auto; /* Allow scrolling */
-  }
+          <form id="instrumentationAndMaintenance" @submit="">
 
-  .metadata-dropdown-items div {
-      padding: 10px;
-      cursor: pointer;
-      transition: background-color 0.3s, color 0.3s; /* Smooth color transition */
-  }
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Type of instruments"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
 
-  .metadata-dropdown-items div:hover {
-        background-color: #1976d238 !important;
-        color: #1976d2 !important;
-  }
+            </div>
 
-  /* Class for the selected item */
-  .selected-item {
-      background-color: #1976d238 !important;
-      color: #1976d2 !important;
-  }
+            <div class="row w-100 mt-3">
 
-  .metadata-dropdown .metadata-dropdown-selected i {
-      transition: color 0.3s, transform 0.3s; /* Smooth transition for icon */
-  }
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Instrument comparisons"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
 
-  /* When the dropdown is active (clicked on) */
-  .metadata-dropdown.active {
-      border-color: #1976d2; /* Change border color */
-  }
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Start/end dates of instruments"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
 
-  .metadata-dropdown.active .metadata-dropdown-selected i {
-      color: #1976d2; /* Change icon color */
-  }
+            </div>
 
-  /* Override styles for the specific <a> tag inside this section */
-  a.no-style-link {
-      color: inherit;
-      text-decoration: none;
-  }
+            <div class="row w-100 mt-3">
 
-  /* Optionally, you can style the div inside the link as needed */
-  a.no-style-link div {
-      padding: 10px;
-      background-color: #fff; /* Your styling */
-  }
-</style>
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Condition of instruments"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const elements = document.querySelectorAll('body, body *'); // Search all elements inside the body
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Instrument sheltering and mounting"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
 
-    elements.forEach(function(element) {
-        if (element.childNodes && element.childNodes.length > 0) {
-            element.childNodes.forEach(function(node) {
-                if (node.nodeType === 3 && node.nodeValue.includes('Select station location on the map')) { // Check if the node is a text node
-                    node.nodeValue = node.nodeValue.replace('Select station location on the map', 'Station location on the map');
-                }
-            });
-        }
-    });
-});
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Type of recording"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Calibration results"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Special maintenance faults"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Modifications"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+            
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Barometer height"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="WIGOS"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
 
 
+            {% if request.user.is_staff or request.user.is_superuser %}
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="primary"
+                @click="onSaveEdit"
+              >SAVE</v-btn>  
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="red"
+                @click="cancelEditing"
+              >CANCEL</v-btn>  
+            {% endif %}
+          </form>
+          </v-tab-item>           
 
-// metadata dropdown control. Note that the html and css are in station_base.html
-// Metadata dropdown control
-document.getElementById("metadata-dropdown").addEventListener("click", function () {
-    this.classList.toggle("dropdown-open");
-    this.classList.toggle("active");  // Toggle the active class for color change
+          <!--Observing Practices-->
+          <v-tab-item :key="4" >
 
-    // Toggle the icon between menu-down and menu-up with rotation
-    var icon = this.querySelector("i");
-    if (this.classList.contains("dropdown-open")) {
-        icon.classList.remove("mdi-menu-down");
-        icon.classList.add("mdi-menu-up");
-        icon.style.transform = "rotate(180deg)"; // Rotate up
-    } else {
-        icon.classList.remove("mdi-menu-up");
-        icon.classList.add("mdi-menu-down");
-        icon.style.transform = "rotate(0deg)"; // Rotate back to down
-    }
-});
+          <form id="observingPratices" @submit="">
 
-// Handle item selection
-document.querySelectorAll(".metadata-dropdown-items div").forEach(function (item) {
-    item.addEventListener("click", function () {
-        // Remove the 'selected-item' class from all items
-        document.querySelectorAll('.metadata-dropdown-items div').forEach(function (el) {
-            el.classList.remove('selected-item');
-        });
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Observer Information"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
 
-        // Add the 'selected-item' class to the clicked item
-        this.classList.add('selected-item');
+            </div>
 
-        // Update the selected item text in the dropdown
-        var selectedItem = document.getElementById("metadata-selected-item");
-        selectedItem.firstChild.nodeValue = this.innerText + ' ';  // Update text only
+            <div class="row w-100 mt-3">
 
-        // Close the dropdown
-        var dropdown = document.getElementById("metadata-dropdown");
-        dropdown.classList.remove("dropdown-open");
-        dropdown.classList.remove("active");  // Remove the active class after selection
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Observer level of training"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
 
-        // Ensure the icon changes back to menu-down and resets rotation after selection
-        var icon = dropdown.querySelector("i");
-        icon.classList.remove("mdi-menu-up");
-        icon.classList.add("mdi-menu-down");
-        icon.style.transform = "rotate(0deg)"; // Rotate back to down
-    });
-});
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="List of observed elements"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
 
-// Close dropdown when clicking outside and reset border and icon color
-window.onclick = function(event) {
-    if (!event.target.closest('#metadata-dropdown')) {
-        var dropdowns = document.getElementsByClassName("metadata-dropdown");
-        for (var i = 0; i < dropdowns.length; i++) {
-            var openDropdown = dropdowns[i];
-            if (openDropdown.classList.contains('dropdown-open')) {
-                openDropdown.classList.remove('dropdown-open');
-                openDropdown.classList.remove('active');  // Remove active class on outside click
+            </div>
 
-                // Reset the icon to menu-down and rotation when closing
-                var icon = openDropdown.querySelector("i");
-                icon.classList.remove("mdi-menu-up");
-                icon.classList.add("mdi-menu-down");
-                icon.style.transform = "rotate(0deg)";
-            }
-        }
-    }
-};
+            <div class="row w-100 mt3">
 
-</script>
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Observing times"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
 
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text"
+                label="Units used"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Observation instructions"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Routine maintenance operations"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Disposable item replacement"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Corrections made by observer"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Observed Variable"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Purpose of observation"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            {% if request.user.is_staff or request.user.is_superuser %}
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="primary"
+                @click="onSaveEdit"
+              >SAVE</v-btn>  
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="red"
+                @click="cancelEditing"
+              >CANCEL</v-btn>  
+            {% endif %}
+          </form>
+          </v-tab-item>         
+
+          <!--Data Processing-->
+          <v-tab-item :key="5" >
+
+          <form id="dataProcessing" @submit="">
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Units"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Special codes"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Calculations"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Algorithms"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text"
+                label="QC applied?"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Homogenization applied?"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Data recovery efforts?"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Other data detail on data recovery"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Treatment of redundant data"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="WIGOS sampling"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="WIGOS data processing and reporting"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+
+            </div>
+
+            <div class="row w-100 mt-3">
+
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="WIGOS data quality"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+
+            {% if request.user.is_staff or request.user.is_superuser %}
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="primary"
+                @click="onSaveEdit"
+              >SAVE</v-btn>  
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="red"
+                @click="cancelEditing"
+              >CANCEL</v-btn>  
+            {% endif %}
+          </form>
+          </v-tab-item>
+
+          <!--Historical Events-->
+          <v-tab-item :key="6">
+          <form id="historicalEvents" @submit="">
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field 
+                type="text" 
+                label="Historic"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            {% if request.user.is_staff or request.user.is_superuser %}
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="primary"
+                @click="onSaveEdit"
+              >SAVE</v-btn>  
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="red"
+                @click="cancelEditing"
+              >CANCEL</v-btn>  
+            {% endif %}
+          </form>
+          </v-tab-item>
+
+          <!--Other metadata-->
+          <v-tab-item :key="7" >
+          <form id="otherMetadata" @submit="">
+
+            <div class="row w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Communication"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Ownership and data policy"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            <div class="col w-100 mt-3">
+              <div class="col s4">
+                <v-text-field
+                type="text"
+                label="Contact"
+                :disabled="!isEditing"
+                :readonly="{% if request.user.is_staff or request.user.is_superuser %}
+                false
+                {% else %}
+                true
+                {% endif %}"
+                >
+                </v-text-field>
+              </div>
+            </div>
+
+            {% if request.user.is_staff or request.user.is_superuser %}
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="primary"
+                @click="onSaveEdit"
+              >SAVE</v-btn>  
+              <v-btn
+                v-if="isEditing"
+                class="ml-2"
+                outlined
+                justify-end
+                color="red"
+                @click="cancelEditing"
+              >CANCEL</v-btn>  
+            {% endif %}
+          </form>
+          </v-tab-item>
+
+        </v-tabs>
+
+          </form>
+          </v-tab-item> 
+     
+        
+      </v-tabs>
+    </template>
+    </v-layout>
+    </v-container>
+  </v-app>
+  
+</div>
 {% endblock %}
+
+{% block localjavascript %}
+  <script>
+
+    var {
+      LMap,
+      LTileLayer,
+      LControlZoom,
+      LMarker,
+      LTooltip,
+      LControlLayers,
+      LGeoJson,
+      LImageOverlay,
+      LIcon
+    } = Vue2Leaflet;
+
+    Vue.use(window.vuelidate.default);
+    const { required, minLength } = window.validators;
+
+    vmtest = new Vue({
+      el: "#app",
+      vuetify: new Vuetify(),
+      delimiters: ["[[", "]]"],
+      components: {
+        LMap,
+        LTileLayer,
+        LControlZoom,
+        LMarker,
+        LTooltip,
+        LControlLayers,
+        LGeoJson,
+        LImageOverlay,
+        LIcon
+      },
+      data: {
+        iconSizeTest: [32, 32],
+        zoom: "{{ MAP_ZOOM|safe }}",
+        center: L.latLng("{{ MAP_LATITUDE|safe }}", "{{ MAP_LONGITUDE|safe }}"),
+        url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        attribution:
+          '&copy, <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+        options: { zoomControl: false },
+        zoomPosition: "bottomleft",
+        timezone: "{{ TIMEZONE_NAME|escapejs }}",
+        stationId: "{{ station.id }}",
+        iconAnchor: [16, 32],
+        selectedStation: "{{station}}",
+        backupStationObject: null,
+        stationList: [],
+        stationImagesList: [],
+        carouselId: 0,
+        begin_date_menu: false,
+        end_date_menu: false,
+        relocation_date_menu: false,
+        imageToUpload: {},
+        documentToUpload: {},
+        stationDocumentsList: [],
+        errors: [],
+        loading: false,
+        integerRegularExpression: /^[-+]?[0-9]+$/,
+        activePicker: null,
+        simpleTextFieldsRules: [
+          v => (v !== undefined && v !== "") || "This field is required"
+        ],
+        dateSimpleRules: [
+        v => (v !== null && v !== "") || "This field is required"
+        ],
+        simpleFloatFieldsRules: [
+          v => (v !== undefined && v !== "") || "This field is required",
+          v => (/^[-+]?[0-9]+([.][0-9]+)?$/.test(v)) || "Invalid input"
+        ],
+        timezoneRules: [
+          v => (v !== undefined && v !== "") || "This field is required",
+          v => (/^[-+]?[0-9]+$/.test(v)) || "Invalid input",
+          v => (v >= -720 && v <= 720) || "Value must be between -720 and 720"
+        ],
+        documents_headers: [
+          { text: "Name", value: "name", align: "left"},
+          { text: 'Actions', value: 'action', align: "center", sortable: false },
+        ],
+        isEditing: false,
+        wmoStationTypeList: [
+          "{% for wmo_station_type in wmo_station_type_list %}",
+          {id: "{{ wmo_station_type.id }}", name: "{{ wmo_station_type.name }}" },
+          "{% endfor %}"
+        ],
+        wmoRegionList: [
+          "{% for wmo_region in wmo_region_list %}",
+          {id: "{{ wmo_region.id }}", name: "{{ wmo_region.name }}" },
+          "{% endfor %}"
+        ],
+        wmoProgramList: [
+          "{% for wmo_program in wmo_program_list %}",
+          {id: "{{ wmo_program.id }}", name: "{{ wmo_program.name }}" },
+          "{% endfor %}"
+        ],
+        stationProfileList: [
+          "{% for station_profile in station_profile_list %}",
+          {id: "{{ station_profile.id }}", name: "{{ station_profile.name }}" },
+          "{% endfor %}"
+        ],
+        stationCommunicationList: [
+          "{% for station_communication in station_communication_list %}",
+          {id: "{{ station_communication.id }}", name: "{{ station_communication.name }}" },
+          "{% endfor %}"
+        ],
+      },
+      computed: {
+        baseURL() {
+          return "/";
+        },
+        
+        markerPosition(){
+          if(this.selectedStation){
+            this.center = L.latLng(this.selectedStation.latitude, this.selectedStation.longitude)
+            return {lat: "{{station.latitude}}", lng: "{{station.longitude}}"}
+          }
+        },
+
+      
+      },
+      methods: {
+        getStations(){
+          this.getAll("api/stations_metadata/").then(data => {
+            this.stationList = data;
+            this.onChangeStation();
+          });
+        },
+
+        getStationImages(station_id){
+          this.getAll(`api/station_images?station_id=${station_id}`).then(data => {
+            this.stationImagesList = data.map(stationImage => {
+              stationImage.show = false;
+              return stationImage;
+            });
+            this.carouselId++;
+          });
+        },
+
+        getStationDocuments(station_id){
+          this.getAll(`api/station_files?station_id=${station_id}`).then(data => {
+            this.stationDocumentsList = data;
+          });
+        },
+
+        getAll(path, url, oldData = []) {
+          return fetch(`${this.baseURL}${path}`)
+            .then(res => {
+              if (!res.body) {
+                return { next: null, results: [] };
+              }
+
+              return res.json();
+            })
+            .then(async data => {
+              const values = [...oldData, ...data.results];
+              if (!!data.next) {
+                return await getAll(
+                  context,
+                  path,
+                  `${this.baseURL}/${path}/${data.next.substr(
+                    data.next.indexOf(`/${path}`)
+                  )}`,
+                  values
+                );
+              }
+              return values;
+            });
+        },
+        removeImage(stationImage){
+          this.loading = true;
+          axios.delete(`/api/station_images/${stationImage.id}/`).then(data => {
+            this.stationImagesList = this.stationImagesList.filter(obj => obj.id != stationImage.id);
+            this.loading = false;
+          });
+        },
+        uploadImage(){
+          this.loading = true;
+          let requests = this.imageToUpload.path.map(file => {
+            let formData = new FormData();
+            formData.append("path", file, file.name);
+            formData.append("name", file.name);
+            formData.append("station", this.selectedStation.id);
+            return axios.post("/api/station_images/", formData);
+          })
+
+          axios.all(requests).then(responseArray => {
+            responseArray.forEach(res => {
+              res.data.show = false;
+              this.stationImagesList.unshift(res.data);
+            });
+            this.imageToUpload = {};
+            this.loading = false;
+          });
+        },
+        
+        uploadDocument(){
+          this.loading = true;
+          let requests = this.documentToUpload.path.map(file => {
+            let formData = new FormData();
+            formData.append("file", file, file.name);
+            formData.append("name", file.name);
+            formData.append("station", this.selectedStation.id);
+            return axios.post("/api/station_files/", formData);
+          });
+
+          axios.all(requests).then(responseArray => {
+            responseArray.forEach(res => this.stationDocumentsList.unshift(res.data));
+            this.documentToUpload = {};
+            this.loading = false;
+          });
+        },
+        showStationImage(stationImage){
+          stationImage.show = true;
+        },
+        hideStationImage(stationImage){
+          stationImage.show = false;
+        },
+        onMarkerDragEnd(event){
+          let marker = event.target;
+          let position = marker.getLatLng();
+          this.selectedStation.latitude = position.lat;
+          this.selectedStation.longitude = position.lng;
+        },
+        checkStationInformation(e){
+          this.errors = [];
+
+          if(!this.selectedStation.name) this.errors.push('Name required.')
+          if(!this.selectedStation.wigos) this.errors.push('WIGOS Station ID required.')
+          if(!this.selectedStation.wmo_program) this.errors.push('WMO Program required.')
+          if(!this.selectedStation.begin_date) this.errors.push('Established Date required.')
+          if(!this.selectedStation.profile) this.errors.push('Profile required.')
+          if(!this.selectedStation.wmo_station_type) this.errors.push('WMO Station Type required.')
+          if(!this.selectedStation.latitude) this.errors.push('Latitude required.')
+          if(!this.selectedStation.longitude) this.errors.push('Longitude required.')
+          if(!this.selectedStation.country) this.errors.push('Country required.')
+          if(!this.selectedStation.wmo_region) this.errors.push('WMO Region required.')
+          if(!this.selectedStation.utc_offset_minutes) this.errors.push('Country time Zone required.')
+
+          e.preventDefault();
+
+          return !!this.errors;
+        },
+
+        downloadDocument(item) {
+          window.open(item.file)
+        },
+
+        deleteItem(stationFile){
+          this.loading = true;
+          axios.delete(`/api/station_files/${stationFile.id}/`).then(data => {
+            this.stationDocumentsList = this.stationDocumentsList.filter(obj => obj.id != stationFile.id);
+            this.loading = false;
+          });
+        },
+
+        cancelEditing(){
+          this.isEditing = false;
+          this.selectedStation = {... this.backupStationObject};
+        },
+
+        onSaveEdit() {
+          
+          this.loading = true;
+          const payload = { ...this.selectedStation };
+
+          if(!!payload.relocation_date) {
+            payload.relocation_date = moment.utc(payload.relocation_date).format('YYYY-MM-DD[T]HH:mm:ss')
+          } else {
+            payload.relocation_date = null
+          } 
+
+          if(!!payload.end_date)
+          {  
+            payload.end_date = moment.utc(payload.end_date).format('YYYY-MM-DD[T]HH:mm:ss')
+          } else { 
+            payload.end_date = null
+          }
+
+          if (!!payload.begin_date) {
+            payload.begin_date = moment.utc(payload.begin_date).format('YYYY-MM-DD[T]HH:mm:ss');
+          }
+          
+          axios.put(`/api/stations_metadata/${this.selectedStation.id}/`, payload).then(data => {
+          console.log(data)
+          this.loading = false;
+          });
+        },
+
+        reloadPage() {
+          $( "#stationDetailHeader" ).load(window.location.href + " #stationDetailHeader" );
+          
+          location.reload(true);
+        },
+
+        finishEditing(){
+          this.isEditing = false;
+          this.backupStationObject = {... this.selectedStation};
+        },
+
+        toggleEditing(){
+          if (this.isEditing) {
+
+            this.isEditing = false;
+            
+          } 
+          else {
+            
+            this.isEditing = true;
+
+          }
+
+          this.backupStationObject = {... this.selectedStation};
+        },
+
+        onChangeStation() {
+
+          if(this.stationId != null){
+              // console.log(this.selectedStation.latitude);
+              this.selectedStation = this.stationList.find(station => station.id == this.stationId);
+              // console.log(this.selectedStation.latitude);
+              this.selectedStation.begin_date = moment.utc(this.selectedStation.begin_date).format('YYYY-MM-DD');
+
+              if(!!this.selectedStation.end_date) { 
+                this.selectedStation.end_date = moment.utc(this.selectedStation.end_date).format('YYYY-MM-DD')
+              }
+              if(!!this.selectedStation.relocation_date){
+                this.selectedStation.relocation_date = moment.utc(this.selectedStation.relocation_date).format('YYYY-MM-DD')
+              }
+
+              this.backupStationObject = {... this.selectedStation};
+              this.getStationImages(this.stationId);
+              this.getStationDocuments(this.stationId);
+            }
+        },
+
+        formatDate(datetime){
+          if(datetime != null)
+            return moment.utc(datetime).clone().format('YYYY-MM-DD');
+          return datetime;
+        }
+      },
+      mounted(){
+        axios.defaults.xsrfHeaderName = "X-CSRFToken"
+        axios.defaults.xsrfCookieName = 'csrftoken'
+        this.getStations();
+      }
+    })
+    
+    function consolePrint() {
+      console.log("it might work");
+    }
+  </script>
+
+  <style>
+    .image-overlay {
+      background-color: white;
+      opacity: .85;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    [v-cloak] { 
+      display: none;
+    }
+  </style>
+{% endblock %}
+
+

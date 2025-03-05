@@ -40,7 +40,6 @@ urlpatterns = [
     path('capture_forms_values/', views.capture_forms_values_get),
     path('capture_forms_values_patch/', views.capture_forms_values_patch),
     path('wx/stations/', views.StationListView.as_view(), name='stations-list'),
-    path('wx/stations/oscar_export/', views.StationOscarExportView.as_view(), name='station-oscar-export'),
     path('wx/stations/map/', views.StationsMapView.as_view(), name='stations-map'),
     path('wx/stations/<int:pk>/', views.StationDetailView.as_view(), name='station-detail'),
     path('wx/stations/metadata/', views.StationMetadataView.as_view(), name='station-metadata'),
