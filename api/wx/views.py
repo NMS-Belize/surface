@@ -6772,17 +6772,24 @@ def get_agromet_products_data(request):
         return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     agromet_variable_symbols = [
-        'AIRTEMP', # Air Temp
-        'PRECIP', # Rainfall
-        # Soil Moisture
-        'TSOIL1', # Soil Temp 1feet
-        'TSOIL4', # Soil Temp 4feet
-        'RH', # Relative HUumidity
-        'WNDSPD', # Wind Speed
-        'WNDDIR', # Wind Direction
-        'EVAPPAN', # Evaportaion
-        # Evapotranspiration
-        'SOLARRAD', # Solar Radiation
+        'TEMP',
+        'TEMPAVG',
+        'TEMPMAX',
+        'TEMPMIN',
+        'EVAPPAN',
+        'PRECIP',
+        'RH',
+        'RHAVG',
+        'RHMAX',
+        'RHMIN',
+        'TSOIL1',
+        'TSOIL4',
+        'SOLARRAD',
+        'WNDDIR',
+        'WNDSPD',
+        'WNDSPAVG',
+        'WNDSPMAX',
+        'WNDSPMIN'
     ]  
     
     config = settings.SURFACE_CONNECTION_STRING
@@ -6865,20 +6872,25 @@ def get_agromet_products_data(request):
 class AgroMetProductsView(LoginRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_products.html"
     agromet_variable_symbols = [
-        'TEMP', # Air Temp
-        'TEMPMIN', # Air Temp Min
-        'TEMPMAX', # Air Temp Max
-        'PRECIP', # Rainfall
-        # Soil Moisture
-        'TSOIL1', # Soil Temp 1feet
-        'TSOIL4', # Soil Temp 4feet
-        'RH', # Relative HUumidity
-        'WNDSPD', # Wind Speed
-        'WNDDIR', # Wind Direction
-        'EVAPPAN', # Evaportaion
-        # Evapotranspiration
-        'SOLARRAD', # Solar Radiation
-    ]  
+        'TEMP',
+        'TEMPAVG',
+        'TEMPMAX',
+        'TEMPMIN',
+        'EVAPPAN',
+        'PRECIP',
+        'RH',
+        'RHAVG',
+        'RHMAX',
+        'RHMIN',
+        'TSOIL1',
+        'TSOIL4',
+        'SOLARRAD',
+        'WNDDIR',
+        'WNDSPD',
+        'WNDSPAVG',
+        'WNDSPMAX',
+        'WNDSPMIN'
+    ]
 
     agromet_variable_ids = Variable.objects.filter(symbol__in=agromet_variable_symbols).values_list('id', flat=True)
 
