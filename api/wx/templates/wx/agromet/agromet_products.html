@@ -539,11 +539,16 @@
 				link.click();
 				document.body.removeChild(link);
 			},
-			getColor (header, item) {	
+			getColor (header, item) {
+				const station = this.stationList.find(station => station.id === this.requestedData.stationId)
+				let filteredMinMaxData = this.requestedData.responseMinMaxData[station.base_name]
+
+				if (Object.keys(filteredMinMaxData).length === 0) return 'black'
+
 				let item_entry = (this.requestedData.summaryType === 'Monthly')? {month: item.month, year: item.year} : {year: item.year}
 
-				const is_min = this.filteredMinMaxData[header.value].min.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
-				const is_max = this.filteredMinMaxData[header.value].max.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
+				const is_min = filteredMinMaxData[header.value].min.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
+				const is_max = filteredMinMaxData[header.value].max.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
 
 				if (is_min && is_max) return 'black'
 				else if (is_min) return 'blue'

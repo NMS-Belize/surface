@@ -6804,6 +6804,7 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
 
     return data
 
+
 def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
     """
     Generates a summary dictionary containing the minimum and maximum values for each variable
@@ -6872,6 +6873,7 @@ def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
                 minMaxDict[station][str(col)] = {'min': min_records, 'max': max_records}
     
     return minMaxDict
+
 
 @api_view(["GET"])
 def get_agromet_products_data(request):
@@ -6951,6 +6953,11 @@ def get_agromet_products_data(request):
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/degreedays'))
             context['base_temp'] = requestedData['numeric_param_1']
             context['upper_threshold'] = requestedData['numeric_param_2']
+        elif requestedData['product'] == 'Maximum and minimum statistics':
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/minmax_statistics'))
+        elif requestedData['product'] == 'Hours or days above or below selected temperature':
+            context['threshold'] = requestedData['numeric_param_1']
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/threshold_days'))
         else:
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp'))
     else:
@@ -6986,7 +6993,7 @@ def get_agromet_products_data(request):
     template = env.get_template(template_name)
     query = template.render(context)
 
-    # print(query)
+    print(query)
 
     config = settings.SURFACE_CONNECTION_STRING
     with psycopg2.connect(config) as conn:
@@ -6996,12 +7003,22 @@ def get_agromet_products_data(request):
         response = []
         return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
 
+
+    if requestedData['product'] in ['Degree days']:
+        tableData =  calculate_agromet_products_df_statistics(df)
+        minMaxData =  get_agromet_products_df_min_max(df)
+    else:
+        tableData = df.fillna('').to_dict('records')
+        minMaxData = {station.name: {}}
+
+
     response = {
-        'tableData': calculate_agromet_products_df_statistics(df),
-        'minMaxData': get_agromet_products_df_min_max(df)
+        'tableData': tableData,
+        'minMaxData': minMaxData
     }
 
     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)            
+
 
 class AgroMetProductsView(LoginRequiredMixin, TemplateView):
     template_name = "wx/agromet/agromet_products.html"

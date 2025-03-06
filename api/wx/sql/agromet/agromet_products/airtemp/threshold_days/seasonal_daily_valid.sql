@@ -2,7 +2,7 @@ WITH month_days AS (
     SELECT
         EXTRACT(MONTH FROM day) AS month,
         EXTRACT(YEAR FROM day) AS year,        
-        EXTRACT(DAY FROM (DATE_TRUNC('MONTH', day) + INTERVAL '1 MONTH' - INTERVAL '1 day')) AS days_in_month        
+        EXTRACT(DAY FROM (DATE_TRUNC('MONTH', day) + INTERVAL '1 MONTH' - INTERVAL '1 day')) AS days_in_month
     FROM
     (SELECT generate_series('{{ start_date }}'::date, '{{ end_date }}'::date, '1 MONTH'::interval)::date AS day) AS days
 )
@@ -49,26 +49,15 @@ WITH month_days AS (
         ,day
         ,EXTRACT(MONTH FROM day) AS month
         ,EXTRACT(YEAR FROM day) AS year
-        ,MIN(min_value) AS tmin
-        ,MAX(max_value) AS tmax
+        ,avg_value AS temp
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('TEMP', 'TEMPMIN', 'TEMPMAX')
+      AND vr.symbol = 'TEMPMIN'
       AND day >= '{{ start_date }}'
       AND day < '{{ end_date }}'
-    GROUP BY station_id, day
 )
-,gdd_calc AS (
-    SELECT
-        station_id,
-        day,
-        month,
-        year,
-        GREATEST(0, ((tmax + tmin) / 2.0) - {{base_temp}}) AS value
-    FROM daily_temps
-)
-,extended_gdd AS(
+,extended_data AS(
     SELECT
         station_id
         ,day
@@ -80,168 +69,198 @@ WITH month_days AS (
             WHEN month=12 THEN year+1
             WHEN month=1 THEN year-1
         END as year
-        ,value
-    FROM gdd_calc
+        ,temp
+    FROM daily_temps
     WHERE month in (1,12)
     UNION ALL
-    SELECT * FROM gdd_calc
+    SELECT * FROM daily_temps
 )
-,daily_lagged_gdd AS (
+,daily_lagged_data AS (
     SELECT
         *
         ,day - LAG(day) OVER (PARTITION BY station_id, year ORDER BY day) AS day_diff
-    FROM extended_gdd
+    FROM extended_data
     WHERE year BETWEEN {{start_year}} AND {{end_year}}  
 )
-,aggreated_gdd AS (
+,aggreated_data AS (
     SELECT
         st.name AS station
         ,year
-        ,ROUND(SUM(CASE WHEN month IN (1, 2, 3) THEN value END)::numeric, 2) AS "JFM"
+        ,COUNT(CASE WHEN (month IN (1, 2, 3) AND temp > {{threshold}}) THEN 1 END) AS "JFM_above"
+        ,COUNT(CASE WHEN (month IN (1, 2, 3) AND temp = {{threshold}}) THEN 1 END) AS "JFM_equal"
+        ,COUNT(CASE WHEN (month IN (1, 2, 3) AND temp < {{threshold}}) THEN 1 END) AS "JFM_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (1, 2, 3)) AND (day IS NOT NULL)) THEN day END) AS "JFM_count"
         ,MAX(CASE
                 WHEN ((month IN (1, 2, 3)) AND NOT (month = 1 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "JFM_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (2, 3, 4) THEN value END)::numeric, 2) AS "FMA"
+        ,COUNT(CASE WHEN (month IN (2, 3, 4) AND temp > {{threshold}}) THEN 1 END) AS "FMA_above"
+        ,COUNT(CASE WHEN (month IN (2, 3, 4) AND temp = {{threshold}}) THEN 1 END) AS "FMA_equal"
+        ,COUNT(CASE WHEN (month IN (2, 3, 4) AND temp < {{threshold}}) THEN 1 END) AS "FMA_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (2, 3, 4)) AND (day IS NOT NULL)) THEN day END) AS "FMA_count"
         ,MAX(CASE
                 WHEN ((month IN (2, 3, 4)) AND NOT (month = 2 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "FMA_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (3, 4, 5) THEN value END)::numeric, 2) AS "MAM"
+        ,COUNT(CASE WHEN (month IN (3, 4, 5) AND temp > {{threshold}}) THEN 1 END) AS "MAM_above"
+        ,COUNT(CASE WHEN (month IN (3, 4, 5) AND temp = {{threshold}}) THEN 1 END) AS "MAM_equal"
+        ,COUNT(CASE WHEN (month IN (3, 4, 5) AND temp < {{threshold}}) THEN 1 END) AS "MAM_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (3, 4, 5)) AND (day IS NOT NULL)) THEN day END) AS "MAM_count"
         ,MAX(CASE
                 WHEN ((month IN (3, 4, 5)) AND NOT (month = 3 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "MAM_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (4, 5, 6) THEN value END)::numeric, 2) AS "AMJ"
+        ,COUNT(CASE WHEN (month IN (4, 5, 6) AND temp > {{threshold}}) THEN 1 END) AS "AMJ_above"
+        ,COUNT(CASE WHEN (month IN (4, 5, 6) AND temp = {{threshold}}) THEN 1 END) AS "AMJ_equal"
+        ,COUNT(CASE WHEN (month IN (4, 5, 6) AND temp < {{threshold}}) THEN 1 END) AS "AMJ_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (4, 5, 6)) AND (day IS NOT NULL)) THEN day END) AS "AMJ_count"
         ,MAX(CASE
                 WHEN ((month IN (4, 5, 6)) AND NOT (month = 4 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "AMJ_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (5, 6, 7) THEN value END)::numeric, 2) AS "MJJ"
+        ,COUNT(CASE WHEN (month IN (5, 6, 7) AND temp > {{threshold}}) THEN 1 END) AS "MJJ_above"
+        ,COUNT(CASE WHEN (month IN (5, 6, 7) AND temp = {{threshold}}) THEN 1 END) AS "MJJ_equal"
+        ,COUNT(CASE WHEN (month IN (5, 6, 7) AND temp < {{threshold}}) THEN 1 END) AS "MJJ_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (5, 6, 7)) AND (day IS NOT NULL)) THEN day END) AS "MJJ_count"
         ,MAX(CASE
                 WHEN ((month IN (5, 6, 7)) AND NOT (month = 5 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "MJJ_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (6, 7, 8) THEN value END)::numeric, 2) AS "JJA"
+        ,COUNT(CASE WHEN (month IN (6, 7, 8) AND temp > {{threshold}}) THEN 1 END) AS "JJA_above"
+        ,COUNT(CASE WHEN (month IN (6, 7, 8) AND temp = {{threshold}}) THEN 1 END) AS "JJA_equal"
+        ,COUNT(CASE WHEN (month IN (6, 7, 8) AND temp < {{threshold}}) THEN 1 END) AS "JJA_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (6, 7, 8)) AND (day IS NOT NULL)) THEN day END) AS "JJA_count"
         ,MAX(CASE
                 WHEN ((month IN (6, 7, 8)) AND NOT (month = 6 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "JJA_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (7, 8, 9) THEN value END)::numeric, 2) AS "JAS"
+        ,COUNT(CASE WHEN (month IN (7, 8, 9) AND temp > {{threshold}}) THEN 1 END) AS "JAS_above"
+        ,COUNT(CASE WHEN (month IN (7, 8, 9) AND temp = {{threshold}}) THEN 1 END) AS "JAS_equal"
+        ,COUNT(CASE WHEN (month IN (7, 8, 9) AND temp < {{threshold}}) THEN 1 END) AS "JAS_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (7, 8, 9)) AND (day IS NOT NULL)) THEN day END) AS "JAS_count"
         ,MAX(CASE
                 WHEN ((month IN (7, 8, 9)) AND NOT (month = 7 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "JAS_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (8, 9, 10) THEN value END)::numeric, 2) AS "ASO"
+        ,COUNT(CASE WHEN (month IN (8, 9, 10) AND temp > {{threshold}}) THEN 1 END) AS "ASO_above"
+        ,COUNT(CASE WHEN (month IN (8, 9, 10) AND temp = {{threshold}}) THEN 1 END) AS "ASO_equal"
+        ,COUNT(CASE WHEN (month IN (8, 9, 10) AND temp < {{threshold}}) THEN 1 END) AS "ASO_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (8, 9, 10)) AND (day IS NOT NULL)) THEN day END) AS "ASO_count"
         ,MAX(CASE
                 WHEN ((month IN (8, 9, 10)) AND NOT (month = 8 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "ASO_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (9, 10, 11) THEN value END)::numeric, 2) AS "SON"
+        ,COUNT(CASE WHEN (month IN (9, 10, 11) AND temp > {{threshold}}) THEN 1 END) AS "SON_above"
+        ,COUNT(CASE WHEN (month IN (9, 10, 11) AND temp = {{threshold}}) THEN 1 END) AS "SON_equal"
+        ,COUNT(CASE WHEN (month IN (9, 10, 11) AND temp < {{threshold}}) THEN 1 END) AS "SON_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (9, 10, 11)) AND (day IS NOT NULL)) THEN day END) AS "SON_count"
         ,MAX(CASE
                 WHEN ((month IN (9, 10, 11)) AND NOT (month = 9 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "SON_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (10, 11, 12) THEN value END)::numeric, 2) AS "OND"
+        ,COUNT(CASE WHEN (month IN (10, 11, 12) AND temp > {{threshold}}) THEN 1 END) AS "OND_above"
+        ,COUNT(CASE WHEN (month IN (10, 11, 12) AND temp = {{threshold}}) THEN 1 END) AS "OND_equal"
+        ,COUNT(CASE WHEN (month IN (10, 11, 12) AND temp < {{threshold}}) THEN 1 END) AS "OND_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (10, 11, 12)) AND (day IS NOT NULL)) THEN day END) AS "OND_count"
         ,MAX(CASE
                 WHEN ((month IN (10, 11, 12)) AND NOT (month = 10 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "OND_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (11, 12, 13) THEN value END)::numeric, 2) AS "NDJ"
+        ,COUNT(CASE WHEN (month IN (11, 12, 13) AND temp > {{threshold}}) THEN 1 END) AS "NDJ_above"
+        ,COUNT(CASE WHEN (month IN (11, 12, 13) AND temp = {{threshold}}) THEN 1 END) AS "NDJ_equal"
+        ,COUNT(CASE WHEN (month IN (11, 12, 13) AND temp < {{threshold}}) THEN 1 END) AS "NDJ_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (11, 12, 13)) AND (day IS NOT NULL)) THEN day END) AS "NDJ_count"
         ,MAX(CASE
                 WHEN ((month IN (11, 12, 13)) AND NOT (month = 11 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "NDJ_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (0, 1, 2, 3, 4, 5) THEN value END)::numeric, 2) AS "DRY"
+        ,COUNT(CASE WHEN (month IN (0, 1, 2, 3, 4, 5) AND temp > {{threshold}}) THEN 1 END) AS "DRY_above"
+        ,COUNT(CASE WHEN (month IN (0, 1, 2, 3, 4, 5) AND temp = {{threshold}}) THEN 1 END) AS "DRY_equal"
+        ,COUNT(CASE WHEN (month IN (0, 1, 2, 3, 4, 5) AND temp < {{threshold}}) THEN 1 END) AS "DRY_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (0, 1, 2, 3, 4, 5)) AND (day IS NOT NULL)) THEN day END) AS "DRY_count"
         ,MAX(CASE
                 WHEN ((month IN (0, 1, 2, 3, 4, 5)) AND NOT (month = 0 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "DRY_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (6, 7, 8, 9, 10, 11) THEN value END)::numeric, 2) AS "WET"
+        ,COUNT(CASE WHEN (month IN (6, 7, 8, 9, 10, 11) AND temp > {{threshold}}) THEN 1 END) AS "WET_above"
+        ,COUNT(CASE WHEN (month IN (6, 7, 8, 9, 10, 11) AND temp = {{threshold}}) THEN 1 END) AS "WET_equal"
+        ,COUNT(CASE WHEN (month IN (6, 7, 8, 9, 10, 11) AND temp < {{threshold}}) THEN 1 END) AS "WET_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (6, 7, 8, 9, 10, 11)) AND (day IS NOT NULL)) THEN day END) AS "WET_count"
         ,MAX(CASE
                 WHEN ((month IN (6, 7, 8, 9, 10, 11)) AND NOT (month = 6 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "WET_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) THEN value END)::numeric, 2) AS "ANNUAL"
+        ,COUNT(CASE WHEN (month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 112) AND temp > {{threshold}}) THEN 1 END) AS "ANNUAL_above"
+        ,COUNT(CASE WHEN (month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 112) AND temp = {{threshold}}) THEN 1 END) AS "ANNUAL_equal"
+        ,COUNT(CASE WHEN (month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 112) AND temp > {{threshold}}) THEN 1 END) AS "ANNUAL_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)) AND (day IS NOT NULL)) THEN day END) AS "ANNUAL_count"
         ,MAX(CASE
                 WHEN ((month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)) AND NOT (month = 1 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "ANNUAL_max_day_diff"
-        ,ROUND(SUM(CASE WHEN month IN (0, 1, 2, 3) THEN value END)::numeric, 2) AS "DJFM"
+        ,COUNT(CASE WHEN (month IN (0, 1, 2, 3) AND temp > {{threshold}}) THEN 1 END) AS "DJFM_above"
+        ,COUNT(CASE WHEN (month IN (0, 1, 2, 3) AND temp = {{threshold}}) THEN 1 END) AS "DJFM_equal"
+        ,COUNT(CASE WHEN (month IN (0, 1, 2, 3) AND temp < {{threshold}}) THEN 1 END) AS "DJFM_below"
         ,COUNT(DISTINCT CASE WHEN ((month IN (0, 1, 2, 3)) AND (day IS NOT NULL)) THEN day END) AS "DJFM_count"
         ,MAX(CASE
                 WHEN ((month IN (0, 1, 2, 3)) AND NOT (month = 0 AND EXTRACT(DAY FROM day) <= ({{max_day_gap}}+1))) THEN day_diff
                 ELSE NULL
             END
         ) AS "DJFM_max_day_diff"
-    FROM daily_lagged_gdd dlg
-    JOIN wx_station st ON st.id = dlg.station_id
+    FROM daily_lagged_data dld
+    JOIN wx_station st ON st.id = dld.station_id
     GROUP BY st.name, year
 )
 ,aggregation_pct AS (
     SELECT
         station
-        ,ag.year
-        ,CASE WHEN "JFM_max_day_diff" <= ({{max_day_gap}}+1) THEN "JFM" ELSE NULL END AS "JFM"
+        ,ad.year
+        ,CASE WHEN "JFM_max_day_diff" <= ({{max_day_gap}}+1) THEN "JFM_below"||'/'||"JFM_equal"||'/'||"JFM_above" ELSE NULL END AS "JFM"
         ,ROUND(((100*(CASE WHEN "JFM_max_day_diff" <= ({{max_day_gap}}+1) THEN "JFM_count" ELSE 0 END))::numeric/"JFM_total"::numeric),2) AS "JFM (% of days)"
-        ,CASE WHEN "FMA_max_day_diff" <= ({{max_day_gap}}+1) THEN "FMA" ELSE NULL END AS "FMA"
+        ,CASE WHEN "FMA_max_day_diff" <= ({{max_day_gap}}+1) THEN "FMA_below"||'/'||"FMA_equal"||'/'||"FMA_above" ELSE NULL END AS "FMA"
         ,ROUND(((100*(CASE WHEN "FMA_max_day_diff" <= ({{max_day_gap}}+1) THEN "FMA_count" ELSE 0 END))::numeric/"FMA_total"::numeric),2) AS "FMA (% of days)"
-        ,CASE WHEN "MAM_max_day_diff" <= ({{max_day_gap}}+1) THEN "MAM" ELSE NULL END AS "MAM"
+        ,CASE WHEN "MAM_max_day_diff" <= ({{max_day_gap}}+1) THEN "MAM_below"||'/'||"MAM_equal"||'/'||"MAM_above" ELSE NULL END AS "MAM"
         ,ROUND(((100*(CASE WHEN "MAM_max_day_diff" <= ({{max_day_gap}}+1) THEN "MAM_count" ELSE 0 END))::numeric/"MAM_total"::numeric),2) AS "MAM (% of days)"
-        ,CASE WHEN "AMJ_max_day_diff" <= ({{max_day_gap}}+1) THEN "AMJ" ELSE NULL END AS "AMJ"
+        ,CASE WHEN "AMJ_max_day_diff" <= ({{max_day_gap}}+1) THEN "AMJ_below"||'/'||"AMJ_equal"||'/'||"AMJ_above" ELSE NULL END AS "AMJ"
         ,ROUND(((100*(CASE WHEN "AMJ_max_day_diff" <= ({{max_day_gap}}+1) THEN "AMJ_count" ELSE 0 END))::numeric/"AMJ_total"::numeric),2) AS "AMJ (% of days)"
-        ,CASE WHEN "MJJ_max_day_diff" <= ({{max_day_gap}}+1) THEN "MJJ" ELSE NULL END AS "MJJ"
+        ,CASE WHEN "MJJ_max_day_diff" <= ({{max_day_gap}}+1) THEN "MJJ_below"||'/'||"MJJ_equal"||'/'||"MJJ_above" ELSE NULL END AS "MJJ"
         ,ROUND(((100*(CASE WHEN "MJJ_max_day_diff" <= ({{max_day_gap}}+1) THEN "MJJ_count" ELSE 0 END))::numeric/"MJJ_total"::numeric),2) AS "MJJ (% of days)"
-        ,CASE WHEN "JJA_max_day_diff" <= ({{max_day_gap}}+1) THEN "JJA" ELSE NULL END AS "JJA"
+        ,CASE WHEN "JJA_max_day_diff" <= ({{max_day_gap}}+1) THEN "JJA_below"||'/'||"JJA_equal"||'/'||"JJA_above" ELSE NULL END AS "JJA"
         ,ROUND(((100*(CASE WHEN "JJA_max_day_diff" <= ({{max_day_gap}}+1) THEN "JJA_count" ELSE 0 END))::numeric/"JJA_total"::numeric),2) AS "JJA (% of days)"
-        ,CASE WHEN "JAS_max_day_diff" <= ({{max_day_gap}}+1) THEN "JAS" ELSE NULL END AS "JAS"
+        ,CASE WHEN "JAS_max_day_diff" <= ({{max_day_gap}}+1) THEN "JAS_below"||'/'||"JAS_equal"||'/'||"JAS_above" ELSE NULL END AS "JAS"
         ,ROUND(((100*(CASE WHEN "JAS_max_day_diff" <= ({{max_day_gap}}+1) THEN "JAS_count" ELSE 0 END))::numeric/"JAS_total"::numeric),2) AS "JAS (% of days)"
-        ,CASE WHEN "ASO_max_day_diff" <= ({{max_day_gap}}+1) THEN "ASO" ELSE NULL END AS "ASO"
+        ,CASE WHEN "ASO_max_day_diff" <= ({{max_day_gap}}+1) THEN "ASO_below"||'/'||"ASO_equal"||'/'||"ASO_above" ELSE NULL END AS "ASO"
         ,ROUND(((100*(CASE WHEN "ASO_max_day_diff" <= ({{max_day_gap}}+1) THEN "ASO_count" ELSE 0 END))::numeric/"ASO_total"::numeric),2) AS "ASO (% of days)"
-        ,CASE WHEN "SON_max_day_diff" <= ({{max_day_gap}}+1) THEN "SON" ELSE NULL END AS "SON"
+        ,CASE WHEN "SON_max_day_diff" <= ({{max_day_gap}}+1) THEN "SON_below"||'/'||"SON_equal"||'/'||"SON_above" ELSE NULL END AS "SON"
         ,ROUND(((100*(CASE WHEN "SON_max_day_diff" <= ({{max_day_gap}}+1) THEN "SON_count" ELSE 0 END))::numeric/"SON_total"::numeric),2) AS "SON (% of days)"
-        ,CASE WHEN "OND_max_day_diff" <= ({{max_day_gap}}+1) THEN "OND" ELSE NULL END AS "OND"
+        ,CASE WHEN "OND_max_day_diff" <= ({{max_day_gap}}+1) THEN "OND_below"||'/'||"OND_equal"||'/'||"OND_above" ELSE NULL END AS "OND"
         ,ROUND(((100*(CASE WHEN "OND_max_day_diff" <= ({{max_day_gap}}+1) THEN "OND_count" ELSE 0 END))::numeric/"OND_total"::numeric),2) AS "OND (% of days)"
-        ,CASE WHEN "NDJ_max_day_diff" <= ({{max_day_gap}}+1) THEN "NDJ" ELSE NULL END AS "NDJ"
+        ,CASE WHEN "NDJ_max_day_diff" <= ({{max_day_gap}}+1) THEN "NDJ_below"||'/'||"NDJ_equal"||'/'||"NDJ_above" ELSE NULL END AS "NDJ"
         ,ROUND(((100*(CASE WHEN "NDJ_max_day_diff" <= ({{max_day_gap}}+1) THEN "NDJ_count" ELSE 0 END))::numeric/"NDJ_total"::numeric),2) AS "NDJ (% of days)"
-        ,CASE WHEN "DRY_max_day_diff" <= ({{max_day_gap}}+1) THEN "DRY" ELSE NULL END AS "DRY"
+        ,CASE WHEN "DRY_max_day_diff" <= ({{max_day_gap}}+1) THEN "DRY_below"||'/'||"DRY_equal"||'/'||"DRY_above" ELSE NULL END AS "DRY"
         ,ROUND(((100*(CASE WHEN "DRY_max_day_diff" <= ({{max_day_gap}}+1) THEN "DRY_count" ELSE 0 END))::numeric/"DRY_total"::numeric),2) AS "DRY (% of days)"
-        ,CASE WHEN "WET_max_day_diff" <= ({{max_day_gap}}+1) THEN "WET" ELSE NULL END AS "WET"
+        ,CASE WHEN "WET_max_day_diff" <= ({{max_day_gap}}+1) THEN "WET_below"||'/'||"WET_equal"||'/'||"WET_above" ELSE NULL END AS "WET"
         ,ROUND(((100*(CASE WHEN "WET_max_day_diff" <= ({{max_day_gap}}+1) THEN "WET_count" ELSE 0 END))::numeric/"WET_total"::numeric),2) AS "WET (% of days)"
-        ,CASE WHEN "ANNUAL_max_day_diff" <= ({{max_day_gap}}+1) THEN "ANNUAL" ELSE NULL END AS "ANNUAL"
+        ,CASE WHEN "ANNUAL_max_day_diff" <= ({{max_day_gap}}+1) THEN "ANNUAL_below"||'/'||"ANNUAL_equal"||'/'||"ANNUAL_above" ELSE NULL END AS "ANNUAL"
         ,ROUND(((100*(CASE WHEN "ANNUAL_max_day_diff" <= ({{max_day_gap}}+1) THEN "ANNUAL_count" ELSE 0 END))::numeric/"ANNUAL_total"::numeric),2) AS "ANNUAL (% of days)"
-        ,CASE WHEN "DJFM_max_day_diff" <= ({{max_day_gap}}+1) THEN "DJFM" ELSE NULL END AS "DJFM"
+        ,CASE WHEN "DJFM_max_day_diff" <= ({{max_day_gap}}+1) THEN "DJFM_below"||'/'||"DJFM_equal"||'/'||"DJFM_above" ELSE NULL END AS "DJFM"
         ,ROUND(((100*(CASE WHEN "DJFM_max_day_diff" <= ({{max_day_gap}}+1) THEN "DJFM_count" ELSE 0 END))::numeric/"DJFM_total"::numeric),2) AS "DJFM (% of days)"
-    FROM aggreated_gdd ag
-    LEFT JOIN aggreation_total_days atd ON atd.year=ag.year
+    FROM aggreated_data ad
+    LEFT JOIN aggreation_total_days atd ON atd.year=ad.year
 )
 SELECT
     station
