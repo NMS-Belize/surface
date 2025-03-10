@@ -6958,6 +6958,10 @@ def get_agromet_products_data(request):
         elif requestedData['product'] == 'Hours or days above or below selected temperature':
             context['threshold'] = requestedData['numeric_param_1']
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/threshold_days'))
+        elif requestedData['product'] == 'Heat wave':
+            context['threshold'] = requestedData['numeric_param_1']
+            context['heat_wave_window'] = requestedData['numeric_param_2']
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/heat_wave'))
         else:
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp'))
     else:
