@@ -52,6 +52,7 @@ from wx.models import StationFileIngestion, StationDataFile, ManualStationDataFi
 from wx.models import HourlySummaryTask, DailySummaryTask
 from wx.models import HydroMLPredictionStation, HydroMLPredictionMapping
 from wx.models import HighFrequencyData, HFSummaryTask
+from wx.models import LocalWisCredentials, RegionalWisCredentials
 from wx.decoders.insert_raw_data import insert as insert_rd
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -3353,3 +3354,14 @@ def aws_transmit_wis2box():
     except psycopg2.Error as e:
         # Log the error if a psycopg2 error occurs
         logging.error(f"An error occured attempting to send AWS data to wis2box: {e}")
+
+
+@shared_task
+def totally_not_display_a_secret_password():
+    # how to access the encrypted password
+    task0 = RegionalWisCredentials.objects.first()  # Or filter by a specific task
+    task1 = LocalWisCredentials.objects.first()  # Or filter by a specific task
+    if task0:
+        decrypted_password = task0.get_regional_password()
+    if task1:
+        decrypted_password1 = task1.get_local_password()

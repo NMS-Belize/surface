@@ -1,0 +1,25 @@
+[
+    {"model": "wx.wis2publishoffset", 
+    "pk": 1, 
+    "fields": {"code": 5, "description": "5 min"}}, 
+
+    {"model": "wx.wis2publishoffset", 
+    "pk": 2, 
+    "fields": {"code": 10, "description": "10 min"}}, 
+
+    {"model": "wx.wis2publishoffset", 
+    "pk": 3, 
+    "fields": {"code": 15, "description": "15 min"}}, 
+
+    {"model": "wx.wis2publishoffset", 
+    "pk": 4, 
+    "fields": {"code": 20, "description": "20 min"}}, 
+
+    {"model": "wx.wis2publishoffset", 
+    "pk": 5, 
+    "fields": {"code": 30, "description": "30 min"}}, 
+
+    {"model": "wx.wis2publishoffset", 
+    "pk": 6, 
+    "fields": {"code": 45, "description": "45 min"}}
+]

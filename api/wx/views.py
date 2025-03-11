@@ -24,6 +24,7 @@ import pytz
 import django.conf
 from django.contrib import messages
 from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
@@ -43,7 +44,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.transforms import Bbox
 from metpy.interpolate import interpolate_to_grid
 from pandas import json_normalize
-from rest_framework import viewsets, status, generics, views
+from rest_framework import viewsets, status, generics, views, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import FileUploadParser
 from rest_framework.permissions import IsAuthenticated
@@ -60,7 +61,7 @@ from wx.forms import StationForm
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication, CombineDataFile, ManualStationDataFile
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, StationDataFileStatus,\
-    StationProfile, Document, Watershed, Interval, CountryISOCode
+    StationProfile, Document, Watershed, Interval, CountryISOCode, Wis2BoxPublish, Wis2PublishOffset, LocalWisCredentials, RegionalWisCredentials
 from wx.utils import get_altitude, get_watershed, get_district, get_interpolation_image, parse_float_value, \
     parse_int_value
 from .utils import get_raw_data, get_station_raw_data
@@ -77,6 +78,7 @@ import numpy as np
 
 from wx.models import Equipment, EquipmentType, Manufacturer, FundingSource, StationProfileEquipmentType
 from django.core.serializers import serialize
+from django.core.serializers.json import DjangoJSONEncoder
 from wx.models import MaintenanceReportEquipment
 from wx.models import QcRangeThreshold, QcStepThreshold, QcPersistThreshold
 from simple_history.utils import update_change_reason
@@ -8640,3 +8642,121 @@ class MonthlyFormView(LoginRequiredMixin, TemplateView):
         context['date'] = request.GET.get('date', datetime.date.today().strftime('%Y-%m'))
 
         return self.render_to_response(context)
+
+
+# wis2box dashboard page
+class WIS2DashboardView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/wis2dashboard/wis2dashboard.html"
+
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+
+        # context['station_list'] = Station.objects.filter(is_synoptic=True).values('id', 'name', 'code')
+        # context['handsontable_config'] = get_synop_table_config()
+        # # Get parameters from request or set default values
+        # station_id = request.GET.get('station_id', 'null')
+        # date = request.GET.get('date', datetime.date.today().isoformat())
+        # context['station_id'] = station_id
+        # context['date'] = date
+
+        return self.render_to_response(context) 
+
+
+# api to grap data for the wis2 dashboard
+def wis2dashboard_records_list(request):
+    try:
+        search_criteria = request.GET.get('search_criteria', '').strip().lower()
+        
+        if search_criteria == 'all':
+            queryset = Wis2BoxPublish.objects.select_related("station").all()
+        elif search_criteria == 'publishing':
+            queryset = Wis2BoxPublish.objects.select_related("station").filter(publishing=True)
+        elif search_criteria == 'publish_status':
+            queryset = Wis2BoxPublish.objects.select_related("station").filter(publishing=True)
+        else:
+            queryset = Wis2BoxPublish.objects.select_related("station").filter(publishing=False)
+        
+        if not queryset.exists():
+            logger.info("No records found!")
+            return JsonResponse({"error": "No records found"}, status=204)
+
+        records = list(queryset.values(
+            "id", 
+            "publishing", 
+            "station__name", 
+            "station__wigos", 
+            "station__is_automatic", 
+            "station__is_synoptic", 
+            "publish_success", 
+            "publish_fail",
+            "publish_logs_folder"
+        ))
+
+        # calculate the total success and fails to create the graph
+        publish_success_count = 0
+        publish_fail_count = 0
+
+        for record in records:
+            if not record['station__wigos']:
+                record['station__wigos'] = "WIGOS ID NOT FOUND"
+
+            station_status = []
+            # getting the publishing status
+            if record['publishing']:
+                station_status.append("Publishing")
+
+                # getting the automatic/manual status
+                if record['station__is_automatic']:
+                    station_status.append("Automatic")
+                else:
+                    station_status.append("Manual")
+
+                # getting the synoptic status
+                if record['station__is_synoptic']:
+                    station_status.append("Synoptic")
+                else:
+                    station_status.append("Not Synoptic")
+                    
+            else:
+                station_status.append("Not Publishing")
+
+            # adding the Status to the record object
+            record['status'] = station_status
+
+            publish_success_count += record['publish_success']
+            publish_fail_count += record['publish_fail']
+
+        if search_criteria == 'publish_status':
+            return JsonResponse({"items": records, "publish_success": publish_success_count, "publish_fail": publish_fail_count}, encoder=DjangoJSONEncoder)
+        
+        return JsonResponse({"items": records}, encoder=DjangoJSONEncoder)
+
+    except Exception as e:
+        logger.error(f"An error occured: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+class LocalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = LocalWisCredentials.objects.all()
+    serializer_class = serializers.LocalWisCredentialsSerializer
+    permission_classes = [permissions.IsAdminUser]  # Restrict access to admins only
+
+    def get_object(self):
+        try:
+            return LocalWisCredentials.load()  # Ensures only one instance is updated
+        except Exception as e:
+            logger.error(f'An error occurred while fetching LocalWisCredentials: {e}')
+            raise
+
+
+class RegionalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = RegionalWisCredentials.objects.all()
+    serializer_class = serializers.RegionalWisCredentialsSerializer
+    permission_classes = [permissions.IsAdminUser]  # Restrict access to admins only
+
+    def get_object(self):
+        try:
+            return RegionalWisCredentials.load()  # Ensures only one instance is updated
+        except Exception as e:
+            logger.error(f'An error occurred while fetching RegionalWisCredentials: {e}')
+            raise

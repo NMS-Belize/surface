@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/1.11/ref/settings/
 
 import os
 from datetime import timedelta
+from cryptography.fernet import Fernet
+
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,6 +23,22 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SURFACE_SECRET_KEY')
+
+# Load the encryption key from environment variables
+SECRET_ENCRYPTION_KEY = os.getenv("SURFACE_SECRET_ENCRYPTION_KEY")
+
+# If it's not set or empty, raise an error
+if not SECRET_ENCRYPTION_KEY:
+    raise ValueError("SECRET_ENCRYPTION_KEY is not set in environment variables!")
+
+# Convert string key to bytes (if stored as a string)
+SECRET_ENCRYPTION_KEY = SECRET_ENCRYPTION_KEY.encode()
+
+# Validate key length
+if len(SECRET_ENCRYPTION_KEY) != 44:
+    raise ValueError("SECRET_ENCRYPTION_KEY must be a 44-character Base64-encoded string!")
+
+CIPHER_SUITE = Fernet(SECRET_ENCRYPTION_KEY)  # Create a reusable cipher suite
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('SURFACE_DJANGO_DEBUG', False)

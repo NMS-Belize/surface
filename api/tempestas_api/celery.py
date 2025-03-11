@@ -70,9 +70,9 @@ app.conf.beat_schedule = {
         'task': 'wx.tasks.gen_toa5_file',
         'schedule': 900
     },    
-    # aws transmission to wis2box task
+    # transmission to wis2box task
     'aws_transmit_wis2box': {
-        'task': 'wx.tasks.aws_transmit_wis2box',
+        'task': 'wx.tasks.totally_not_display_a_secret_password',
         'schedule': 3600
     },    
 }

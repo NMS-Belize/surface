@@ -150,7 +150,11 @@ urlpatterns = [
     path('wx/reports/synop/form/load/', views.synop_load_form, name='load-synop-message-form'),
     path('wx/data/capture/monthly/', views.MonthlyFormView.as_view(), name='monthly-form'),
     path('wx/data/capture/monthly/load/', views.MonthlyFormLoad, name='load-monthly-form'),
-    path('wx/data/capture/monthly/update/', views.MonthlyFormUpdate, name='update-monthly-form'),    
+    path('wx/data/capture/monthly/update/', views.MonthlyFormUpdate, name='update-monthly-form'),   
+    path('wx/wis2dashboard/', views.WIS2DashboardView.as_view(), name='wis2-dashboard'), 
+    path("wx/wis2dashboard/records", views.wis2dashboard_records_list, name="wis2dashboard_records_list"), # for the wis2dashboard to grab data
+    path("api/local_wis_credentials/", views.LocalWisCredentialsUpdateView.as_view(), name='local-wis-credentials'),
+    path("api/regional_wis_credentials/", views.RegionalWisCredentialsUpdateView.as_view(), name='regional-wis-credentials'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

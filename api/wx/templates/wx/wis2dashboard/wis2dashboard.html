@@ -1,0 +1,725 @@
+{% extends "base.html" %} {% block content %}
+
+<div class="srf-container" style="max-height: 280px">
+    
+    <div class="srf-flex justify-content-between srf-padding" id="app" v-cloak>
+
+        <!-- heading -->
+        <v-row no-gutters>
+            <v-col class="d-flex" cols="12" sm="11">
+                <!-- title -->
+                <span class="srf-display-1 text-uppercase">WIS2 Publishing Dashboard</span>
+            </v-col>
+
+            <v-col class="d-flex align-center" cols="12" sm="1">
+                <!-- reload dropdown -->
+                <v-select
+                    v-model="selectedInterval"
+                    :items="intervalOptions"
+                    label="Reload"
+                    dense
+                    outlined
+                ></v-select>
+            </v-col>
+        </v-row>
+
+        <!-- transition station opptions and setting -->
+        <v-app-bar color="white" flat rounded>
+            <!-- settings button -->
+            <v-menu offset-y>
+            <!-- <v-menu offset-y open-on-hover> -->
+                <template v-slot:activator="{ on, attrs }">
+                    <v-btn color="grey" dark v-bind="attrs"  class="mr-5" v-on="on">
+
+                        <v-icon left>settings</v-icon>
+                        
+                        Publish Settings
+
+                        <v-icon right>mdi-menu-down</v-icon>
+                    </v-btn>
+                </template>
+                
+                <v-list>
+                    <v-list-item @click="openDialog()">
+                        <v-list-item-title>Update WIS2 Credentials</v-list-item-title>
+                    </v-list-item>
+                </v-list>
+            </v-menu>
+        
+            <!-- Transition stations button -->
+            <v-btn color="blue" dark>
+              <v-icon left>sync_alt</v-icon>
+              Transition Stations
+            </v-btn>
+        </v-app-bar>
+        
+
+        <!-- Fullscreen Dialog -->
+        <v-dialog v-model="dialog" max-width="750" persistent>
+            <v-card>
+                <v-card-title>Update WIS Credentials</v-card-title>
+        
+                <v-card-text>
+                    <!-- Tabs to switch between Local and Regional settings -->
+                    <v-tabs v-model="selectedTab" centered>
+                        <v-tab key="local">Local Wis2</v-tab>
+                        <v-tab key="regional">Regional Wis2</v-tab>
+                    </v-tabs>
+        
+                    <v-tabs-items v-model="selectedTab">
+                        <!-- Local Wis2 Form -->
+                        <v-tab-item key="local">
+                            <!-- Check if credentials exist before showing the form -->
+                            <v-card-text v-if="localCredentialsExist && !localForceCreate">
+                                <p>A Local WIS2 credential already exists. Do you want to replace it?</p>
+                                <v-btn color="primary" @click="localForceCreate = true">Yes, Create New</v-btn>
+                                <v-btn color="red" dark @click="closeDialog()">Cancel</v-btn>
+                            </v-card-text>
+
+                            <!-- Show the form if the user confirms they want to create a new one -->
+                            <v-form @submit.prevent="updateLocalCredentials" v-else>
+                                <h6 style="color: black !important;">Local Wis2</h6>
+                                <v-text-field 
+                                    append-icon="dns" 
+                                    v-model="localForm.local_wis2_ip_address" 
+                                    label="IP Address" 
+                                    type="text"
+                                    :error-messages="localIPError"
+                                    required
+                                    placeholder="xx.xx.xx.xx"
+                                ></v-text-field>
+                                <v-text-field append-icon="router" v-model="localForm.local_wis2_port" label="Port" type="number" required></v-text-field>
+                                <v-text-field append-icon="person" v-model="localForm.local_wis2_username" label="Username" type="text" required></v-text-field>
+                                <v-text-field append-icon="lock" v-model="localForm.local_password" label="Password" type="password" required></v-text-field>
+        
+                                <!-- Control buttons -->
+                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Close</v-btn>
+                                <v-btn type="submit" color="primary" :disabled="!isLocalFormValid">Update</v-btn>
+                            </v-form>
+                        </v-tab-item>
+        
+                        <!-- Regional Wis2 Form -->
+                        <v-tab-item key="regional">
+                            <!-- Check if credentials exist before showing the form -->
+                            <v-card-text v-if="regionalCredentialsExist && !regionalForceCreate">
+                                <p>A Regional WIS2 credential already exists. Do you want to replace it?</p>
+                                <v-btn color="primary" @click="regionalForceCreate = true">Yes, Create New</v-btn>
+                                <v-btn color="red" dark @click="closeDialog()">Cancel</v-btn>
+                            </v-card-text>
+
+                            <!-- Show the form if the user confirms they want to create a new one -->
+                            <v-form @submit.prevent="updateRegionalCredentials" v-else>
+                                <h6 style="color: black !important;">Regional Wis2</h6>
+                                <v-text-field 
+                                    append-icon="dns" 
+                                    v-model="regionalForm.regional_wis2_ip_address" 
+                                    label="IP Address" 
+                                    type="text"
+                                    :error-messages="regionalIPError"
+                                    placeholder="xx.xx.xx.xx"
+                                    required
+                                ></v-text-field>
+                                <v-text-field append-icon="router" v-model="regionalForm.regional_wis2_port" label="Port" type="number" required></v-text-field>
+                                <v-text-field append-icon="person" v-model="regionalForm.regional_wis2_username" label="Username" type="text" required></v-text-field>
+                                <v-text-field append-icon="lock" v-model="regionalForm.regional_password" label="Regional Password" type="password" required></v-text-field>
+        
+                                <!-- Control buttons -->
+                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Close</v-btn>
+                                <v-btn type="submit" color="primary" :disabled="!isRegionalFormValid">Update</v-btn>
+                            </v-form>
+                        </v-tab-item>
+                    </v-tabs-items>
+                </v-card-text>
+            </v-card>
+        </v-dialog>        
+            
+
+        <!-- status of the wis2 credential save -->
+        <v-snackbar v-model="snackbar.show" :timeout="3000" :color="snackbar.color">
+            [[ snackbar.message ]]
+        </v-snackbar>
+
+        <!-- pbulish status and graphs -->
+        <v-row>
+            <v-col cols="12" md="6">
+                <v-card class="pb-2" height="455.86">
+                    <h6 class="text-center pt-4">Station Data Publishing Status</h6>
+            
+                    <v-data-table
+                        :headers="publish_status_headers"
+                        :items="publish_status_records"
+                        :loading="loadingPublishStatus"
+                        :items-per-page="5"
+                        class="elevation-1"
+                        height="350"
+                    >
+                        <template v-slot:item.publish_success="{ item }">
+                            <v-chip :color="publishSuccessColour(item.publish_success)" dark>
+                                [[ item.publish_success ]]
+                            </v-chip>
+                        </template>
+        
+                        <template v-slot:item.publish_fail="{ item }">
+                            <v-chip :color="publishFailColour(item.publish_success)" dark>
+                                [[ item.publish_fail ]]
+                            </v-chip>
+                        </template>
+                    </v-data-table>
+                </v-card>
+            </v-col>
+
+            <!-- the graph -->
+            <v-col cols="12" md="6">
+                <v-card class="pb-2">
+                    <h6 class="text-center pt-4">All Station Data Publishing Status Last 24 Hrs</h6>
+            
+                    <highcharts :options="chartOptions"></highcharts>
+                    
+                </v-card>
+            </v-col>
+        </v-row>
+        
+        <!-- divider -->
+        <v-divider class="pa-3"></v-divider>
+
+        <!-- stations -->
+        <v-app>
+            <!-- station table options -->
+            <h6 class="">Select options to filter station by</h6>
+            <div class="d-flex align-center justify-space-between mb-10">
+                <!-- all stations switch -->
+                <v-switch 
+                    v-model="all_stations" 
+                    hide-details 
+                    class="bolder-v-switch-weight"
+                    inset
+                    label="All Stations" 
+                    color="green"
+                    :disabled="disable_all_stations ? true : false"
+                ></v-switch>
+
+                <!-- publishing switch -->
+                <v-switch 
+                    v-model="publishing" 
+                    hide-details 
+                    inset
+                    class="bolder-v-switch-weight"
+                    label="Publishing" 
+                    color="blue"
+                    :disabled="disable_publishing ? true : false"
+                ></v-switch>
+
+                <!-- not publishing switch -->
+                <v-switch 
+                    v-model="not_publishing" 
+                    hide-details 
+                    inset
+                    class="bolder-v-switch-weight"
+                    label="Not Publishing" 
+                    color="purple"
+                    :disabled="disable_not_publishing ? true : false"
+                ></v-switch>
+            
+                <!-- Transition stations button -->
+                <!-- <v-btn 
+                    color="primary" 
+                >
+                <v-icon left>sync_alt</v-icon>
+                Transition Stations
+                </v-btn> -->
+            </div>
+
+
+            <!-- The stations table -->
+            <v-container fluid>
+                <v-row dense justify="center">
+                    <v-card class="w-100" height="550">
+                        <v-card-title>
+                            <v-col cols="8">
+                                <h6>Stations</h6>
+                            </v-col>
+
+                            <v-col cols="4">
+                                <v-text-field
+                                    style="font-weight: normal;"
+                                    v-model="search"
+                                    append-icon="mdi-magnify"
+                                    label="Search"
+                                    single-line
+                                    hide-details
+                                ></v-text-field>
+                            </v-col>
+                        </v-card-title>
+
+                        <v-data-table
+                            :headers="headers"
+                            :items="records"
+                            :loading="loading"
+                            :items-per-page="5"
+                            class="elevation-1"
+                            :search="search"
+                            multi-sort
+                            height="500"
+                        >
+                    
+                            <template v-slot:item.status="{ item }">
+                                <v-chip
+                                    v-for="(status, index) in item.status"
+                                    :key="index"
+                                    :color="getColor(status)"
+                                    outlined
+                                    label
+                                    :style="{ marginLeft: index > 0 && index < item.status.length ? '5px' : '0' }"
+                                >
+                                    [[ status ]]
+                                </v-chip>
+                            </template>
+
+                            <template v-slot:item.station__wigos="{ value }">
+                                <span :style="{ color: /\d/.test(value) ? 'inherit' : 'red' }"> <!-- if the wigos id does not contain a number the turn it red -->
+                                [[ value ]]
+                                </span>
+                            </template>
+
+                        </v-data-table>
+                    </v-card>
+                </v-row>
+            </v-container>
+        </v-app>
+    </div>
+</div>
+
+{% endblock %} 
+{% block localjavascript %}
+
+<script>
+
+    Vue.use(HighchartsVue.default);
+    
+    (function() {
+        new Vue({
+            el: "#app",
+            vuetify: new Vuetify(),
+            delimiters: ["[[", "]]"],
+            data() {
+                return {
+                    records: [],
+                    publish_status_records: [],
+                    loading: false,
+                    loadingPublishStatus: false,
+                    search: "",
+                    headers: [
+                        { text: "Station Name", value: "station__name" },
+                        { text: "WSI", value: "station__wigos" },
+                        { text: "Status", value: "status"}
+                    ],
+                    all_stations: true,
+                    publishing: false,
+                    not_publishing: false,
+                    disable_all_stations: false,
+                    disable_publishing: true,
+                    disable_not_publishing: true,
+                    selectedInterval: '5s',
+                    intervalOptions: ['off', '5s', '10s', '15s', '30s', '1m', '5m', '15m'],
+                    timer: null,
+                    publish_status_timer: null,
+                    publish_status_headers: [
+                        { text: "WSI", value: "station__wigos", sortable: false },
+                        { text: "Publish last 24 hrs", value: "publish_success", sortable: false, align: "center" },
+                        { text: "Fail last 24 hrs", value: "publish_fail", sortable: false, align: "center" },
+                    ],
+                    chartOptions: {
+                        chart: {
+                            type: 'column'
+                        },
+                        title: {
+                            text: ''
+                        },
+                        xAxis: {
+                            categories: ['Success', 'Fail']
+                        },
+                        yAxis: {
+                            title: {
+                                text: 'Number of Pushes'
+                            }
+                        },
+                        series: [
+                            {
+                                name: 'Attempted Push',
+                                data: []
+                            }
+                        ]
+                    },
+                    dialog: false,
+                    snackbar: { show: false, message: '', color: '' },
+                    localForm: {
+                        local_wis2_ip_address: '',
+                        local_wis2_port: '',
+                        local_wis2_username: '',
+                        local_password: ''
+                    },
+                    regionalForm: {
+                        regional_wis2_ip_address: '',
+                        regional_wis2_port: '',
+                        regional_wis2_username: '',
+                        regional_password: ''
+                    },
+                    selectedTab: 0, // 0 = Local, 1 = Regional
+                    localCredentialsExist: false, // Will check if a local credential exists
+                    localForceCreate: false, // User confirmation to create new local entry
+                    regionalCredentialsExist: false, // Will check if a regional credential exists
+                    regionalForceCreate: false, // User confirmation to create new regional entry
+                };
+            },
+            methods: {
+                async loadItems(search_criteria) {
+                    this.loading = true;
+                    axios.get('records', { params: { search_criteria } })  // Send the simple string
+                        .then(response => {
+                            this.records = response.data.items;
+                        })
+                        .catch(error => {
+                            this.loading = false;
+                            this.records = [];
+                            console.warn("Error fetching data:", error.response?.data || error.message);
+                        })
+                        .finally(() => {
+                            this.loading = false;
+                        });
+                },
+                
+                async loadPublishStatusItems() {
+                    this.loadingPublishStatus = true;
+                    search_criteria = "publish_status"
+                    axios.get('records', { params: { search_criteria } })  // Send the simple string
+                        .then(response => {
+                            this.publish_status_records= response.data.items;
+
+                            // update the graph with random values
+                            // this.chartOptions.series[0].data = [
+                            //     { y: Math.floor(Math.random() * 100), color: 'green' },
+                            //     { y: Math.floor(Math.random() * 100), color: 'red' }
+                            // ];
+
+                            // update the graph
+                            this.chartOptions.series[0].data = [
+                                { y: response.data.publish_success, color: 'green' },
+                                { y: response.data.publish_fail, color: 'red' }
+                            ];
+                        })
+                        .catch(error => {
+                            this.loadingPublishStatus = false;
+                            this.publish_status_records = [];
+                            console.warn("Error fetching publishing status data:", error.response?.data || error.message);
+                        })
+                        .finally(() => {
+                            this.loadingPublishStatus = false;
+                        });
+                },
+                
+                // get color for stations status
+                getColor(status) {
+                    if(status == "Publishing") {
+                        return "green";
+                    }
+                    else if (status == "Automatic"){
+                        return "blue"
+                    }
+                    else if (status == "Synoptic"){
+                        return "purple"
+                    }
+                    else {
+                        return "orange";
+                    }
+                },
+                
+                // get color for publish fail chips
+                publishSuccessColour(value) {
+
+                    if (value <= 0) {
+                        return 'grey';
+                    }
+                    else if (value < 10) {
+                        return 'red';
+                    }
+                    else if (value >= 10 && value < 20) {
+                        return 'orange';
+                    }
+                    else {
+                        return 'green';
+                    }
+
+                },
+                
+                // get color for publish success chips
+                publishFailColour(value) {
+
+
+                    if (value <= 0) {
+                        return 'grey';
+                    }
+                    else if (value < 10) {
+                        return 'green';
+                    }
+                    else if (value >= 10 && value < 20) {
+                        return 'orange';
+                    }
+                    else {
+                        return 'red';
+                    }
+
+                },
+                
+                filterReloadControl() {
+                    if (this.all_stations == true) {
+                        // load all stations
+                        this.loadItems("all");
+                    }
+                    else if (this.publishing == true) {
+                        // load publishing stations
+                        this.loadItems("publishing");
+                    }
+                    else {
+                        // load not publishing stations
+                        this.loadItems("not publishing");
+                    }
+                },
+                
+                setTimer(value) {
+                    if (this.timer) {
+                        clearInterval(this.timer);
+                        this.timer = null;
+                    }
+                    if (this.publish_status_timer) {
+                        clearInterval(this.publish_status_timer);
+                        this.publish_status_timer = null;
+                    }
+                
+                    const timeMapping = {
+                        '5s': 5000,
+                        '10s': 10000,
+                        '15s': 15000,
+                        '30s': 30000,
+                        '1m': 60000,
+                        '5m': 300000,
+                        '15m': 900000,
+                    };
+                
+                    if (value !== 'off' && timeMapping[value]) {
+                        this.timer = setInterval(this.filterReloadControl, timeMapping[value]);
+                        this.publish_status_timer = setInterval(this.loadPublishStatusItems, timeMapping[value]);
+                    }
+                },
+
+                // set and update the credentials for local wi2push
+                async updateLocalCredentials() {
+                    if (!this.isLocalFormValid) {
+                        this.snackbar = { show: true, message: 'Please correct the errors before submitting.', color: 'orange' };
+                        return;
+                    }
+
+                    try {
+                        const csrftoken = document.cookie
+                        .split('; ')
+                        .find(row => row.startsWith('csrftoken='))
+                        ?.split('=')[1];
+
+                        await axios.patch('/api/local_wis_credentials/', this.localForm, {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrftoken  // Include CSRF token manually
+                            }
+                        });
+
+                        this.snackbar = { show: true, message: 'Password updated successfully', color: 'green' };
+                        this.localForm.local_password = '';
+                        this.closeDialog(); // close the dialog after a successfull add
+                    } catch (error) {
+                        this.snackbar = { show: true, message: 'Failed to update password', color: 'red' };
+                        console.warn(error);
+                    }
+                },
+                
+                // set and update the credentials for regional wi2push
+                async updateRegionalCredentials() {
+                    if (!this.isRegionalFormValid) {
+                        this.snackbar = { show: true, message: 'Please correct the errors before submitting.', color: 'orange' };
+                        return;
+                    }
+
+                    try {
+                        const csrftoken = document.cookie
+                        .split('; ')
+                        .find(row => row.startsWith('csrftoken='))
+                        ?.split('=')[1];
+
+                        await axios.patch('/api/regional_wis_credentials/', this.regionalForm, {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrftoken  // Include CSRF token manually
+                            }
+                        });
+
+                        this.snackbar = { show: true, message: 'Password updated successfully', color: 'green' };
+                        this.regionalForm.regional_password = '';
+                        this.closeDialog(); // close the dialog after a successfull add
+                    } catch (error) {
+                        this.snackbar = { show: true, message: 'Failed to update password', color: 'red' };
+                        console.warn(error);
+                    }
+                },
+
+                // Opens the dialog and checks if a WIS2 credential already exists.
+                async openDialog() {
+                    this.dialog = true;   // Show the dialog
+                    await this.checkExistingCredentials();  // Fetch credentials from the backend
+                },
+
+                // Fetches the current WIS2 credentials from the backend. If credentials exist, it sets `credentialsExist` to true.
+                async checkExistingCredentials() {
+                    try {
+                        const localResponse = await axios.get('/api/local_wis_credentials/');
+                        const regionalResponse = await axios.get('/api/regional_wis_credentials/');
+
+                        this.localCredentialsExist = true;
+                        for (item in localResponse.data) {
+                            if(!localResponse.data[item]) {
+                                this.localCredentialsExist = false;
+                                break; 
+                            }
+                        }
+
+                        this.regionalCredentialsExist = true;
+                        for (item in regionalResponse.data) {
+                            if(!regionalResponse.data[item]) {
+                                this.regionalCredentialsExist = false;
+                                break; 
+                            }
+                        }
+
+                    } catch (error) {
+                        console.warn('Error checking credentials:', error);
+                        this.localCredentialsExist = false;  // Assume no credentials if request fails
+                        this.regionalCredentialsExist = false;  // Assume no credentials if request fails
+                    }
+                },
+
+                // Closes the dialog and resets confirmation state.
+                closeDialog() {
+                    this.dialog = false;
+                    this.localForceCreate = false;  // Reset confirmation to avoid unnecessary form display
+                    this.regionalForceCreate = false;  // Reset confirmation to avoid unnecessary form display
+                },
+
+                // Validates an IPv4 address using regex.
+                // ip - The IP address to validate.
+                // returns True if valid, false otherwise.
+                isValidIPAddress(ip) {
+                    if (!ip) {
+                        return true;
+                    }
+                    const ipRegex = /^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}$/;
+                    return ipRegex.test(ip);
+                },
+
+            },
+            computed: {
+                // Validates the Local Wis2 IP address.
+                // Returns an error message if invalid, otherwise returns an empty string.
+                localIPError() {
+                    return this.isValidIPAddress(this.localForm.local_wis2_ip_address) ? '' : 'Invalid IP address format';
+                },
+
+                // Validates the Regional Wis2 IP address.
+                // Returns an error message if invalid, otherwise returns an empty string.
+                regionalIPError() {
+                    return this.isValidIPAddress(this.regionalForm.regional_wis2_ip_address) ? '' : 'Invalid IP address format';
+                },
+
+                // Determines if the local form is valid.
+                // Ensures all fields are filled and IP addresses are in the correct format.
+                isLocalFormValid() {
+                    return (
+                        this.localForm.local_wis2_ip_address &&
+                        this.localForm.local_wis2_port &&
+                        this.localForm.local_wis2_username &&
+                        this.localForm.local_password &&
+                        this.isValidIPAddress(this.localForm.local_wis2_ip_address)
+                    );
+                },
+
+                // Determines if the regional form is valid
+                // Ensures all fields are filled and IP addresses are in the correct format.
+                isRegionalFormValid() {
+                    return (
+                        this.regionalForm.regional_wis2_ip_address &&
+                        this.regionalForm.regional_wis2_port &&
+                        this.regionalForm.regional_wis2_username &&
+                        this.regionalForm.regional_password &&
+                        this.isValidIPAddress(this.regionalForm.regional_wis2_ip_address)
+                    );
+                },
+            },
+            watch: {
+                all_stations(newValue) {
+                    // only one filter can be selected at a time
+                    if (newValue == true) {
+                        this.disable_not_publishing = true;
+                        this.disable_publishing = true;
+                        this.filterReloadControl(); // assess the state of the filters and load an appropriate table
+                    } 
+                    else {
+                        this.disable_not_publishing = false;
+                        this.disable_all_stations = false;
+                        this.disable_publishing = false;
+                        this.publishing = true;
+                        this.filterReloadControl(); // assess the state of the filters and load an appropriate table
+                    }
+            
+                },
+                publishing(newValue) {
+                    // only one filter can be selected at a time
+                    if (newValue == true) {
+                        this.not_publishing = false; 
+                        this.all_stations = false; 
+                    } 
+                    else {
+                        this.not_publishing = true;
+                        this.filterReloadControl(); // assess the state of the filters and load an appropriate table
+                    }
+            
+                },
+                not_publishing(newValue) {
+                    // only one filter can be selected at a time
+                    if (newValue == true) {
+                        this.publishing = false; 
+                        this.all_stations = false;  
+                    } 
+                    else {
+                        this.publishing = true;
+                        this.filterReloadControl(); // assess the state of the filters and load an appropriate table
+                    }
+            
+                },
+                selectedInterval(newVal) {
+                    this.setTimer(newVal);
+                },
+            },
+            mounted() {
+                this.loadItems('all');
+                this.loadPublishStatusItems();
+                this.setTimer(this.selectedInterval);
+                this.checkExistingCredentials();
+            },
+        });
+    })();
+</script>
+
+<!-- CSS styling -->
+<style>
+.bolder-v-switch-weight {
+  font-weight: 500 !important;
+}
+</style>
+
+{% endblock %}

@@ -10,7 +10,10 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
 from django.utils.timezone import now
 from croniter import croniter
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+
+from cryptography.fernet import Fernet
+from django.conf import settings
 
 from wx.enums import FlashTypeEnum
 
@@ -795,9 +798,100 @@ class Station(BaseModel):
 
 
 
+# Specifies the minute offsets within the hour for triggering scheduled wis2box data pushes.
+class Wis2PublishOffset(models.Model):
+    code = models.IntegerField()
+    description = models.CharField(max_length=256)
+
+    def __str__(self):
+        return self.description
+
+# holds all stations which allow international exhange (internationa_exchange = True in the Station model)
 class Wis2BoxPublish(models.Model):
+    # dynamically getting the default publishing_offset
+    def get_default_wis2_publish_offset():
+        try:
+            return Wis2PublishOffset.objects.get(pk=1).pk
+        except ObjectDoesNotExist:
+            # Handle the case where the object doesn't exist.
+            # You might want to create it, raise an exception, or return None.
+            # Example: create it.
+            return Wis2PublishOffset.objects.create(code=5, description="5 min").pk
+
     station = models.ForeignKey(Station, on_delete=models.CASCADE)
     publishing = models.BooleanField(default=False)
+    publishing_offset = models.ForeignKey(Wis2PublishOffset, on_delete=models.DO_NOTHING, default=get_default_wis2_publish_offset)
+    publish_success = models.IntegerField(default=0)
+    publish_fail = models.IntegerField(default=0)
+    publish_logs_folder = models.CharField(max_length=1024, default="/data/documents/wis2publish/logs")
+    local_wis2 = models.BooleanField(default=False)
+    regional_wis2 = models.BooleanField(default=False)
+
+
+# holds the local wis credentials
+class LocalWisCredentials(models.Model):
+    """
+    A model that ensures only one instance exists, replacing old ones.
+    """
+
+    local_wis2_ip_address = models.CharField(max_length=255)
+    local_wis2_port = models.IntegerField()
+    local_wis2_username = models.CharField(max_length=255)
+    local_wis2_password = models.TextField()
+
+    def set_passwords(self, local_password):
+        self.local_wis2_password = settings.CIPHER_SUITE.encrypt(local_password.encode()).decode()
+        self.save()
+
+    def get_local_password(self):
+        return settings.CIPHER_SUITE.decrypt(self.local_wis2_password.encode()).decode()
+
+    def save(self, *args, **kwargs):
+        existing = LocalWisCredentials.objects.all()
+        if existing.exists():
+            existing.delete()  # Delete all existing instances
+        super(LocalWisCredentials, self).save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        return cls.objects.first() or cls()
+
+    def __str__(self):
+        return "Local WisCredentials Instance"
+    
+
+
+# holds the regional wis credentials
+class RegionalWisCredentials(models.Model):
+    """
+    A model that ensures only one instance exists, replacing old ones.
+    """
+
+    regional_wis2_ip_address = models.CharField(max_length=255)
+    regional_wis2_port = models.IntegerField()
+    regional_wis2_username = models.CharField(max_length=255)
+    regional_wis2_password = models.TextField()
+
+    def set_passwords(self, regional_password):
+        self.regional_wis2_password = settings.CIPHER_SUITE.encrypt(regional_password.encode()).decode()
+        self.save()
+    
+    def get_regional_password(self):
+        return settings.CIPHER_SUITE.decrypt(self.regional_wis2_password.encode()).decode()
+
+    def save(self, *args, **kwargs):
+        existing = RegionalWisCredentials.objects.all()
+        if existing.exists():
+            existing.delete()  # Delete all existing instances
+        super(RegionalWisCredentials, self).save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        return cls.objects.first() or cls()
+
+    def __str__(self):
+        return "Regional WisCredentials Instance"
+
 
 
 
