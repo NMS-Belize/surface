@@ -6964,6 +6964,17 @@ def get_agromet_products_data(request):
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/heat_wave'))
         else:
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp'))
+    elif requestedData['element'] == 'Rainfall':
+        if requestedData['product'] == 'Number of days with specified amount of rainfall':
+            context['threshold'] = requestedData['numeric_param_1']
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/rainfall/threshold_days'))
+        else:
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/rainfall'))
+    elif requestedData['element'] == 'Wind':
+        if requestedData['product'] == 'Wind Rose':
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/wind_rose'))
+        else:
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind'))            
     else:
         env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products'))
 

@@ -132,7 +132,7 @@
 					</v-col>
 				</v-row>
 				<v-row>
-					<v-col cols="2" class="d-flex justify-left">
+					<v-col cols="3" class="d-flex justify-left">
 						<v-row>
 							<v-col cols="auto" class="d-flex align-center">
 							  <v-switch
@@ -144,9 +144,9 @@
 							<v-col cols="auto" class="d-flex align-center">
 							  <v-btn icon @click="showing_info=!showing_info"> <v-icon>mdi-information</v-icon> </v-btn>
 							</v-col>
-						  </v-row>
+						</v-row>
 					</v-col>
-					<v-col cols="2" v-if="requestData.validateData">
+					<v-col cols="3" v-if="requestData.validateData">
 						<v-text-field
 							v-model="requestData.maxHourPct"
 							:rules="[rules.required, rules.numeric, rules.percentage]"
@@ -155,7 +155,7 @@
 							persistent-hint
 						/>
 					</v-col>
-					<v-col cols="2" v-if="requestData.validateData">
+					<v-col cols="3" v-if="requestData.validateData">
 						<v-text-field
 							v-model="requestData.maxDayPct"
 							:rules="[rules.required, rules.numeric, rules.percentage]"
@@ -164,7 +164,7 @@
 							persistent-hint
 						/>
 					</v-col>					
-					<v-col cols="2" v-if="requestData.validateData">
+					<v-col cols="3" v-if="requestData.validateData">
 						<v-text-field
 							v-model="requestData.maxDayGap"
 							:rules="[rules.required, rules.numeric, rules.positive]"
@@ -173,7 +173,6 @@
 							persistent-hint
 						/>
 					</v-col>
-																	
 				</v-row>
 				<v-row>
 					<v-col cols="12">
@@ -318,7 +317,8 @@
 					'Maximum Wind and Average Wind speed',
 					'Diurnal variation',
 					'Hours of wind less than a selected speed',
-					'Sunshine/Radiation',
+				],
+				'Sunshine/Radiation':[
 					'Amounts of global and net radiation',
 					'Sunshine and radiation hours',
 				],
@@ -402,6 +402,7 @@
 					'Degree days',
 					'Hours or days above or below selected temperature',
 					'Heat wave',
+					'Number of days with specified amount of rainfall',
 				]
 				return productList.includes(this.requestData.product)
 			},
