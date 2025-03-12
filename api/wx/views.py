@@ -6973,6 +6973,11 @@ def get_agromet_products_data(request):
     elif requestedData['element'] == 'Wind':
         if requestedData['product'] == 'Wind Rose':
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/wind_rose'))
+        elif requestedData['product'] == 'Maximum Wind and Average Wind speed':
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/maxavg_wind_speed'))
+        elif requestedData['product'] == 'Hours of wind less than a selected speed':
+            context['threshold'] = requestedData['numeric_param_1']
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/wind_speed_threshold'))
         else:
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind'))            
     else:
@@ -6980,7 +6985,7 @@ def get_agromet_products_data(request):
 
     pgia_code = '8858307' # Phillip Goldson Int'l Synop
     station = Station.objects.get(pk=requestedData['station_id'])
-    is_hourly_summary = station.is_automatic or station.code == pgia_code
+    is_hourly_summary = station.is_automatic # or station.code == pgia_code
 
     if requestedData['summary_type'] == 'Seasonal':
         if requestedData['validate_data']:

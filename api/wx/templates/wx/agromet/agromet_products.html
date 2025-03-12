@@ -263,13 +263,13 @@
 			showing_info: false,
 			isFormValid: false,
 			requestData: {
-				stationId: 6,
-                element: 'Air Temperature',
-				product: 'Degree days',
+				stationId: 4,
+                element: 'Wind',
+				product: 'Maximum Wind and Average Wind speed',
 				numericParam1: 15,
 				numericParam2: 45,
-				startYear: 2000,
-				endYear: 2010,
+				startYear: 2021,
+				endYear: 2025,
 				summaryType: 'Seasonal',
 				months: [],
 				interavl: null,
@@ -403,6 +403,7 @@
 					'Hours or days above or below selected temperature',
 					'Heat wave',
 					'Number of days with specified amount of rainfall',
+					'Hours of wind less than a selected speed',
 				]
 				return productList.includes(this.requestData.product)
 			},
