@@ -6980,6 +6980,12 @@ def get_agromet_products_data(request):
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/wind_speed_threshold'))
         else:
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind'))            
+    elif requestedData['element'] == 'Relative Humidity':
+        if requestedData['product'] == 'Duration of a specified threshold of humidity':
+            context['threshold'] = requestedData['numeric_param_1']
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/relative_humidity/duration_threshold'))
+        else:
+            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/relative_humidity'))
     else:
         env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products'))
 

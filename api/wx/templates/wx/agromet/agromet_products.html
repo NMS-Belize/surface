@@ -264,8 +264,8 @@
 			isFormValid: false,
 			requestData: {
 				stationId: 4,
-                element: 'Wind',
-				product: 'Maximum Wind and Average Wind speed',
+                element: 'Relative Humidity',
+				product: 'Duration of a specified threshold of humidity',
 				numericParam1: 15,
 				numericParam2: 45,
 				startYear: 2021,
@@ -404,6 +404,7 @@
 					'Heat wave',
 					'Number of days with specified amount of rainfall',
 					'Hours of wind less than a selected speed',
+					'Duration of a specified threshold of humidity',
 				]
 				return productList.includes(this.requestData.product)
 			},
