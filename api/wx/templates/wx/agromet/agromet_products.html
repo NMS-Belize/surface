@@ -50,7 +50,7 @@
 					<v-col cols="2">
                         <v-autocomplete
 							label="Select Product"
-							:items="elements[requestData.element]"
+							:items="Object.keys(elements[requestData.element])"
 							v-model="requestData.product"
 							required
 							hint="*Required"
@@ -59,20 +59,20 @@
 					</v-col>
 				</v-row>
 				<v-row>
-					<v-col cols="2" v-if="requireNumericParam">
+					<v-col cols="2" v-if="parameterLabels.numericParam1">
 						<v-text-field
 							v-model="requestData.numericParam1"
 							:rules="[rules.required, rules.numeric]"
-							label="Numeric Parameter"
+							:label="parameterLabels.numericParam1"
 						/>
 					</v-col>
-					<v-col cols="2" v-if="requireNumericParam">
+					<v-col cols="2" v-if="parameterLabels.numericParam2">
 						<v-text-field
 							v-model="requestData.numericParam2"
 							:rules="[rules.required, rules.numeric]"
-							label="Numeric Parameter"
+							:label="parameterLabels.numericParam2"
 						/>
-					</v-col>					
+					</v-col>				
 				</v-row>
 				<v-row>
 					<v-col cols="2">
@@ -265,9 +265,9 @@
 			requestData: {
 				stationId: 4,
                 element: 'Relative Humidity',
-				product: 'Duration of a specified threshold of humidity',
-				numericParam1: 15,
-				numericParam2: 45,
+				product: null,
+				numericParam1: null,
+				numericParam2: null,
 				startYear: 2021,
 				endYear: 2025,
 				summaryType: 'Seasonal',
@@ -300,43 +300,85 @@
 				is_seasonal: true
 			},			
 			elements: {
-				'Air Temperature': [
-					'Degree days',
-					'Maximum and minimum statistics',
-					'Hours or days above or below selected temperature',
-					'Growing season statistics',
-					'Heat wave',
-				],
-			   'Rainfall': [
-					'Number of days with specified amount of rainfall',
-					'Drought indices ',
-					'Flood and excess rainfall',
-			   ],
-				'Wind': [
-					'Wind Rose',
-					'Maximum Wind and Average Wind speed',
-					'Diurnal variation',
-					'Hours of wind less than a selected speed',
-				],
-				'Sunshine/Radiation':[
-					'Amounts of global and net radiation',
-					'Sunshine and radiation hours',
-				],
-				'Relative Humidity': [
-					'Duration of a specified threshold of humidity',
-				],
-				'Free Water Evaporation / Evapotranspiration': [
-					'Total amount',
-					'Diurnal variation of evaporation',
-					'Evapotranspiration',
-				],
-				'Soil Temperature':[
-					'Mean and standard deviation at standard depth;',
-					'Dates when threshold values of temperature (germination, vegetation) are reached.',
-					'Soil Moisture',
-					'Soil Moisture at regular depths',
-					'Leaf area index',
-				]
+				'Air Temperature': {
+					'Degree days': {
+						'numeric_param_1': {
+							value: 30,
+							label: 'Base Temperature',
+						},
+						'numeric_param_2': {
+							value: 45,
+							label: 'Upper Threshold',
+						},
+					},
+					'Maximum and minimum statistics': {},
+					'Hours or days above or below selected temperature': {
+						'numeric_param_1': {
+							value: 30,
+							label: 'Threshold temperature',
+						},
+					},
+					'Growing season statistics': {},
+					'Heat wave': {
+						'numeric_param_1': {
+							value: 30,
+							label: 'Threshold temperature',
+						},
+						'numeric_param_2': {
+							value: 5,
+							label: 'Heat wave window (days)',
+						},
+					},
+				},
+			   'Rainfall': {
+					'Number of days with specified amount of rainfall': {
+						'numeric_param_1': {
+							value: 30,
+							label: 'Amount of rainfall',
+						},
+					},
+					'Drought indices ': {},
+					'Flood and excess rainfall': {},
+			   },
+				'Wind': {
+					'Wind Rose': {},
+					'Maximum Wind and Average Wind speed': {},
+					'Diurnal variation': {},
+					'Hours of wind less than a selected speed': {
+						'numeric_param_1': {
+							value: 10,
+							label: 'Threshold speed',
+						},
+					},
+				},
+				'Sunshine/Radiation':{
+					'Amounts of global and net radiation': {},
+					'Sunshine and radiation hours': {},
+				},
+				'Relative Humidity': {
+					'Duration of a specified threshold of humidity': {
+						'numeric_param_1': {
+							value: 80,
+							label: 'Threshold humidity',
+						},
+					},
+				},
+				'Free Water Evaporation / Evapotranspiration': {
+					'Total amount': {},
+					'Diurnal variation of evaporation': {},
+					'Evapotranspiration': {},
+				},
+				'Soil Temperature':{
+					'Mean and standard deviation at standard depth;': {},
+					'Dates when threshold values of temperature (germination, vegetation) are reached.': {},
+					'Soil Moisture': {},
+					'Soil Moisture at regular depths': {},
+					'Leaf area index': {},
+				}
+			},
+			parameterLabels: {
+				numericParam1: null,
+				numericParam2: null,
 			},
 			start_year_menu: false,
 			end_year_menu: false,
@@ -378,11 +420,30 @@
 			'filters.is_seasonal' (newValue, oldValue) {
 				this.requestData.summaryType = newValue?'Seasonal':'Monthly'
 			},
+			'requestData.element' (newElement, oldElement){
+				this.requestData.product = null
+			},
+			'requestData.product' (newProduct, oldProduct){
+				const { element, product, ...rest } = this.requestData;
+				if (this.requestData.product) {
+					this.requestData.numericParam1 = this.elements[element][product].numeric_param_1?.value || null
+					this.requestData.numericParam2 = this.elements[element][product].numeric_param_2?.value || null
+
+					this.parameterLabels.numericParam1 = this.elements[element][product].numeric_param_1?.label || null
+					this.parameterLabels.numericParam2 = this.elements[element][product].numeric_param_2?.label || null
+				}
+				else {
+					this.requestData.numericParam1 = null
+					this.requestData.numericParam2 = null
+					this.parameterLabels.numericParam1 = null
+					this.parameterLabels.numericParam2 = null
+				}
+			},
 			'requestData.summaryType' (newSummaryType, oldSummaryType){
 				this.requestData.months = []
 			},
 		},	
-		computed: {
+		computed: {		
 			availableStartYears () {
 				const min_year = 1900
 				const max_year = moment().year()
@@ -396,17 +457,6 @@
 			},			
 			filteredStationList() {
 				return this.stationList.filter(station=>station.is_automatic===this.filters.is_automatic)
-			},			
-			requireNumericParam (){
-				const productList = [
-					'Degree days',
-					'Hours or days above or below selected temperature',
-					'Heat wave',
-					'Number of days with specified amount of rainfall',
-					'Hours of wind less than a selected speed',
-					'Duration of a specified threshold of humidity',
-				]
-				return productList.includes(this.requestData.product)
 			},
 			dataTable () {
 				let filteredData = this.requestedData.responseData
