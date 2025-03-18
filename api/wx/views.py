@@ -7030,7 +7030,15 @@ def get_agromet_products_data(request):
         return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
 
 
-    if requestedData['product'] in ['Degree days']:
+    products_with_statistics = [
+        'Degree days',
+        'Heat wave',
+        'Number of days with specified amount of rainfall',
+        'Duration of a specified threshold of humidity',
+        'Hours of wind less than a selected speed',
+    ]
+
+    if requestedData['product'] in products_with_statistics:
         tableData =  calculate_agromet_products_df_statistics(df)
         minMaxData =  get_agromet_products_df_min_max(df)
     else:
