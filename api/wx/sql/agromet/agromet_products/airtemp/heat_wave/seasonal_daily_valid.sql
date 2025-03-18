@@ -50,7 +50,7 @@ WITH RECURSIVE month_days AS (
         ,EXTRACT(DAY FROM day) AS day_of_month
         ,EXTRACT(MONTH FROM day) AS month
         ,EXTRACT(YEAR FROM day) AS year
-        ,MIN(min_value) AS tmin
+        ,MIN(min_value) AS min_value
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     WHERE station_id = {{station_id}}
@@ -65,7 +65,7 @@ WITH RECURSIVE month_days AS (
         ,day_of_month
         ,month
         ,year
-        ,CASE WHEN tmin > {{threshold}} THEN 1 ELSE 0 END AS is_heat_day
+        ,CASE WHEN min_value > {{threshold}} THEN 1 ELSE 0 END AS is_heat_day
     FROM daily_data
 )
 ,extended_data AS(
