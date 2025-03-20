@@ -97,9 +97,9 @@ WITH month_days AS (
         ,CASE WHEN ("agg_1_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_1" ELSE NULL END AS "Days 1-7"
         ,ROUND(((100*(CASE WHEN ("agg_1_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_1_count" ELSE 0 END))::numeric/7),2) AS "Days 1-7 (% of days)"
         ,CASE WHEN ("agg_2_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_2" ELSE NULL END AS "Days 8-14"
-        ,ROUND(((100*(CASE WHEN ("agg_2_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_2_count" ELSE 0 END))::numeric/7),2) AS "Days 8-15 (% of days)"
+        ,ROUND(((100*(CASE WHEN ("agg_2_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_2_count" ELSE 0 END))::numeric/7),2) AS "Days 8-14 (% of days)"
         ,CASE WHEN ("agg_3_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_3" ELSE NULL END AS "Days 15-21"
-        ,ROUND(((100*(CASE WHEN ("agg_3_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_3_count" ELSE 0 END))::numeric/7),2) AS "Days 16-21 (% of days)"
+        ,ROUND(((100*(CASE WHEN ("agg_3_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_3_count" ELSE 0 END))::numeric/7),2) AS "Days 15-21 (% of days)"
         ,CASE WHEN ("agg_4_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_4" ELSE NULL END AS "Days 22-"
         ,ROUND(((100*(CASE WHEN ("agg_4_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_4_count" ELSE 0 END))::numeric/(days_in_month-21)::numeric),2) AS "Days 22- (% of days)"
     FROM aggreated_data ad
@@ -118,5 +118,5 @@ SELECT
     ,"Days 15-21 (% of days)"
     ,CASE WHEN ("Days 22- (% of days)" >= (100-{{max_day_pct}})) THEN "Days 22-" ELSE NULL END AS "Days 22-"
     ,"Days 22- (% of days)"
-FROM aggreated_data
+FROM aggregation_pct
 ORDER BY year, month
