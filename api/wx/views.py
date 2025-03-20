@@ -6952,10 +6952,10 @@ def get_agromet_products_data(request):
         if requestedData['product'] == 'Degree days':
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/degreedays'))
             context['base_temp'] = requestedData['numeric_param_1']
-            context['upper_threshold'] = requestedData['numeric_param_2']
+            # context['upper_threshold'] = requestedData['numeric_param_2']
         elif requestedData['product'] == 'Maximum and minimum statistics':
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/minmax_statistics'))
-        elif requestedData['product'] == 'Hours or days above or below selected temperature':
+        elif requestedData['product'] == 'Days above or below selected temperature':
             context['threshold'] = requestedData['numeric_param_1']
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/threshold_days'))
         elif requestedData['product'] == 'Heat wave':
@@ -6975,7 +6975,7 @@ def get_agromet_products_data(request):
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/wind_rose'))
         elif requestedData['product'] == 'Maximum Wind and Average Wind speed':
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/maxavg_wind_speed'))
-        elif requestedData['product'] == 'Hours of wind less than a selected speed':
+        elif requestedData['product'] == 'Days of wind less than a selected speed':
             context['threshold'] = requestedData['numeric_param_1']
             env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/wind_speed_threshold'))
         else:
@@ -7034,8 +7034,8 @@ def get_agromet_products_data(request):
         'Degree days',
         'Heat wave',
         'Number of days with specified amount of rainfall',
-        'Duration of a specified threshold of humidity',
-        'Hours of wind less than a selected speed',
+        # 'Duration of a specified threshold of humidity',
+        'Days of wind less than a selected speed',
     ]
 
     if requestedData['product'] in products_with_statistics:

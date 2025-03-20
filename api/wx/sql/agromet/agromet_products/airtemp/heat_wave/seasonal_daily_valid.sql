@@ -54,7 +54,7 @@ WITH RECURSIVE month_days AS (
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('TEMP', 'TEMPMIN', 'TEMPMAX')
+      AND vr.symbol IN ('TEMP', 'TEMPMIN')
       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
     GROUP BY station_id, day
 )

@@ -50,8 +50,14 @@ WITH month_days AS (
         ,EXTRACT(DAY FROM day) AS day_of_month
         ,EXTRACT(MONTH FROM day) AS month
         ,EXTRACT(YEAR FROM day) AS year
-        ,MIN(min_value) AS min_value
-        ,MAX(max_value) AS max_value
+        ,COALESCE(
+            MIN(CASE WHEN vr.symbol = 'TEMPMIN' THEN min_value ELSE NULL END),
+            MIN(CASE WHEN vr.symbol = 'TEMP' THEN min_value ELSE NULL END) 
+        ) AS min_value
+        ,COALESCE(
+            MAX(CASE WHEN vr.symbol = 'TEMPMAX' THEN max_value ELSE NULL END),
+            MAX(CASE WHEN vr.symbol = 'TEMP' THEN max_value ELSE NULL END) 
+        ) AS max_value
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     WHERE station_id = {{station_id}}

@@ -50,12 +50,20 @@ WITH month_days AS (
         ,EXTRACT(DAY FROM day) AS day_of_month
         ,EXTRACT(MONTH FROM day) AS month
         ,EXTRACT(YEAR FROM day) AS year
-        ,avg_value AS value
+        ,COALESCE(
+            MIN(CASE WHEN vr.symbol = 'TEMPMIN' THEN min_value ELSE NULL END),
+            MIN(CASE WHEN vr.symbol = 'TEMP' THEN min_value ELSE NULL END) 
+        ) AS min_value
+        ,COALESCE(
+            MAX(CASE WHEN vr.symbol = 'TEMPMAX' THEN max_value ELSE NULL END),
+            MAX(CASE WHEN vr.symbol = 'TEMP' THEN max_value ELSE NULL END) 
+        ) AS max_value
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     WHERE station_id = {{station_id}}
-      AND vr.symbol = 'TEMP'
+      AND vr.symbol IN ('TEMP', 'TEMPMIN', 'TEMPMAX')
       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
+    GROUP BY station_id, day
 )
 ,extended_data AS(
     SELECT
@@ -70,7 +78,8 @@ WITH month_days AS (
             WHEN month=12 THEN year+1
             WHEN month=1 THEN year-1
         END as year
-        ,value
+        ,min_value
+        ,max_value
     FROM daily_data
     WHERE month in (1,12)
     UNION ALL
@@ -102,79 +111,79 @@ WITH month_days AS (
     SELECT
         st.name AS station
         ,year
-        ,COUNT(CASE WHEN (is_jfm AND value > {{threshold}}) THEN 1 END) AS "JFM_above"
-        ,COUNT(CASE WHEN (is_jfm AND value = {{threshold}}) THEN 1 END) AS "JFM_equal"
-        ,COUNT(CASE WHEN (is_jfm AND value < {{threshold}}) THEN 1 END) AS "JFM_below"
+        ,COUNT(CASE WHEN (is_jfm AND min_value > {{threshold}}) THEN 1 END) AS "JFM_above"
+        ,COUNT(CASE WHEN ((is_jfm AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "JFM_equal"
+        ,COUNT(CASE WHEN (is_jfm AND max_value < {{threshold}}) THEN 1 END) AS "JFM_below"
         ,COUNT(DISTINCT CASE WHEN ((is_jfm) AND (day IS NOT NULL)) THEN day END) AS "JFM_count"
         ,MAX(CASE WHEN ((is_jfm) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JFM_max_day_gap"
-        ,COUNT(CASE WHEN (is_fma AND value > {{threshold}}) THEN 1 END) AS "FMA_above"
-        ,COUNT(CASE WHEN (is_fma AND value = {{threshold}}) THEN 1 END) AS "FMA_equal"
-        ,COUNT(CASE WHEN (is_fma AND value < {{threshold}}) THEN 1 END) AS "FMA_below"
+        ,COUNT(CASE WHEN (is_fma AND min_value > {{threshold}}) THEN 1 END) AS "FMA_above"
+        ,COUNT(CASE WHEN ((is_fma AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "FMA_equal"
+        ,COUNT(CASE WHEN (is_fma AND max_value < {{threshold}}) THEN 1 END) AS "FMA_below"
         ,COUNT(DISTINCT CASE WHEN ((is_fma) AND (day IS NOT NULL)) THEN day END) AS "FMA_count"
         ,MAX(CASE WHEN ((is_fma) AND NOT (month = 2 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "FMA_max_day_gap"
-        ,COUNT(CASE WHEN (is_mam AND value > {{threshold}}) THEN 1 END) AS "MAM_above"
-        ,COUNT(CASE WHEN (is_mam AND value = {{threshold}}) THEN 1 END) AS "MAM_equal"
-        ,COUNT(CASE WHEN (is_mam AND value < {{threshold}}) THEN 1 END) AS "MAM_below"
+        ,COUNT(CASE WHEN (is_mam AND min_value > {{threshold}}) THEN 1 END) AS "MAM_above"
+        ,COUNT(CASE WHEN ((is_mam AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "MAM_equal"
+        ,COUNT(CASE WHEN (is_mam AND max_value < {{threshold}}) THEN 1 END) AS "MAM_below"
         ,COUNT(DISTINCT CASE WHEN ((is_mam) AND (day IS NOT NULL)) THEN day END) AS "MAM_count"
         ,MAX(CASE WHEN ((is_mam) AND NOT (month = 3 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MAM_max_day_gap"
-        ,COUNT(CASE WHEN (is_amj AND value > {{threshold}}) THEN 1 END) AS "AMJ_above"
-        ,COUNT(CASE WHEN (is_amj AND value = {{threshold}}) THEN 1 END) AS "AMJ_equal"
-        ,COUNT(CASE WHEN (is_amj AND value < {{threshold}}) THEN 1 END) AS "AMJ_below"
+        ,COUNT(CASE WHEN (is_amj AND min_value > {{threshold}}) THEN 1 END) AS "AMJ_above"
+        ,COUNT(CASE WHEN ((is_amj AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "AMJ_equal"
+        ,COUNT(CASE WHEN (is_amj AND max_value < {{threshold}}) THEN 1 END) AS "AMJ_below"
         ,COUNT(DISTINCT CASE WHEN ((is_amj) AND (day IS NOT NULL)) THEN day END) AS "AMJ_count"
         ,MAX(CASE WHEN ((is_amj) AND NOT (month = 4 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "AMJ_max_day_gap"
-        ,COUNT(CASE WHEN (is_mjj AND value > {{threshold}}) THEN 1 END) AS "MJJ_above"
-        ,COUNT(CASE WHEN (is_mjj AND value = {{threshold}}) THEN 1 END) AS "MJJ_equal"
-        ,COUNT(CASE WHEN (is_mjj AND value < {{threshold}}) THEN 1 END) AS "MJJ_below"
+        ,COUNT(CASE WHEN (is_mjj AND min_value > {{threshold}}) THEN 1 END) AS "MJJ_above"
+        ,COUNT(CASE WHEN ((is_mjj AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "MJJ_equal"
+        ,COUNT(CASE WHEN (is_mjj AND max_value < {{threshold}}) THEN 1 END) AS "MJJ_below"
         ,COUNT(DISTINCT CASE WHEN ((is_mjj) AND (day IS NOT NULL)) THEN day END) AS "MJJ_count"
         ,MAX(CASE WHEN ((is_mjj) AND NOT (month = 5 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MJJ_max_day_gap"
-        ,COUNT(CASE WHEN (is_jja AND value > {{threshold}}) THEN 1 END) AS "JJA_above"
-        ,COUNT(CASE WHEN (is_jja AND value = {{threshold}}) THEN 1 END) AS "JJA_equal"
-        ,COUNT(CASE WHEN (is_jja AND value < {{threshold}}) THEN 1 END) AS "JJA_below"
+        ,COUNT(CASE WHEN (is_jja AND min_value > {{threshold}}) THEN 1 END) AS "JJA_above"
+        ,COUNT(CASE WHEN ((is_jja AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "JJA_equal"
+        ,COUNT(CASE WHEN (is_jja AND max_value < {{threshold}}) THEN 1 END) AS "JJA_below"
         ,COUNT(DISTINCT CASE WHEN ((is_jja) AND (day IS NOT NULL)) THEN day END) AS "JJA_count"
         ,MAX(CASE WHEN ((is_jja) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JJA_max_day_gap"
-        ,COUNT(CASE WHEN (is_jas AND value > {{threshold}}) THEN 1 END) AS "JAS_above"
-        ,COUNT(CASE WHEN (is_jas AND value = {{threshold}}) THEN 1 END) AS "JAS_equal"
-        ,COUNT(CASE WHEN (is_jas AND value < {{threshold}}) THEN 1 END) AS "JAS_below"
+        ,COUNT(CASE WHEN (is_jas AND min_value > {{threshold}}) THEN 1 END) AS "JAS_above"
+        ,COUNT(CASE WHEN ((is_jas AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "JAS_equal"
+        ,COUNT(CASE WHEN (is_jas AND max_value < {{threshold}}) THEN 1 END) AS "JAS_below"
         ,COUNT(DISTINCT CASE WHEN ((is_jas) AND (day IS NOT NULL)) THEN day END) AS "JAS_count"
         ,MAX(CASE WHEN ((is_jas) AND NOT (month = 7 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JAS_max_day_gap"
-        ,COUNT(CASE WHEN (is_aso AND value > {{threshold}}) THEN 1 END) AS "ASO_above"
-        ,COUNT(CASE WHEN (is_aso AND value = {{threshold}}) THEN 1 END) AS "ASO_equal"
-        ,COUNT(CASE WHEN (is_aso AND value < {{threshold}}) THEN 1 END) AS "ASO_below"
+        ,COUNT(CASE WHEN (is_aso AND min_value > {{threshold}}) THEN 1 END) AS "ASO_above"
+        ,COUNT(CASE WHEN ((is_aso AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "ASO_equal"
+        ,COUNT(CASE WHEN (is_aso AND max_value < {{threshold}}) THEN 1 END) AS "ASO_below"
         ,COUNT(DISTINCT CASE WHEN ((is_aso) AND (day IS NOT NULL)) THEN day END) AS "ASO_count"
         ,MAX(CASE WHEN ((is_aso) AND NOT (month = 8 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ASO_max_day_gap"
-        ,COUNT(CASE WHEN (is_son AND value > {{threshold}}) THEN 1 END) AS "SON_above"
-        ,COUNT(CASE WHEN (is_son AND value = {{threshold}}) THEN 1 END) AS "SON_equal"
-        ,COUNT(CASE WHEN (is_son AND value < {{threshold}}) THEN 1 END) AS "SON_below"
+        ,COUNT(CASE WHEN (is_son AND min_value > {{threshold}}) THEN 1 END) AS "SON_above"
+        ,COUNT(CASE WHEN ((is_son AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "SON_equal"
+        ,COUNT(CASE WHEN (is_son AND max_value < {{threshold}}) THEN 1 END) AS "SON_below"
         ,COUNT(DISTINCT CASE WHEN ((is_son) AND (day IS NOT NULL)) THEN day END) AS "SON_count"
         ,MAX(CASE WHEN ((is_son) AND NOT (month = 9 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "SON_max_day_gap"
-        ,COUNT(CASE WHEN (is_ond AND value > {{threshold}}) THEN 1 END) AS "OND_above"
-        ,COUNT(CASE WHEN (is_ond AND value = {{threshold}}) THEN 1 END) AS "OND_equal"
-        ,COUNT(CASE WHEN (is_ond AND value < {{threshold}}) THEN 1 END) AS "OND_below"
+        ,COUNT(CASE WHEN (is_ond AND min_value > {{threshold}}) THEN 1 END) AS "OND_above"
+        ,COUNT(CASE WHEN ((is_ond AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "OND_equal"
+        ,COUNT(CASE WHEN (is_ond AND max_value < {{threshold}}) THEN 1 END) AS "OND_below"
         ,COUNT(DISTINCT CASE WHEN ((is_ond) AND (day IS NOT NULL)) THEN day END) AS "OND_count"
         ,MAX(CASE WHEN ((is_ond) AND NOT (month = 10 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "OND_max_day_gap"
-        ,COUNT(CASE WHEN (is_ndj AND value > {{threshold}}) THEN 1 END) AS "NDJ_above"
-        ,COUNT(CASE WHEN (is_ndj AND value = {{threshold}}) THEN 1 END) AS "NDJ_equal"
-        ,COUNT(CASE WHEN (is_ndj AND value < {{threshold}}) THEN 1 END) AS "NDJ_below"
+        ,COUNT(CASE WHEN (is_ndj AND min_value > {{threshold}}) THEN 1 END) AS "NDJ_above"
+        ,COUNT(CASE WHEN ((is_ndj AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "NDJ_equal"
+        ,COUNT(CASE WHEN (is_ndj AND max_value < {{threshold}}) THEN 1 END) AS "NDJ_below"
         ,COUNT(DISTINCT CASE WHEN ((is_ndj) AND (day IS NOT NULL)) THEN day END) AS "NDJ_count"
         ,MAX(CASE WHEN ((is_ndj) AND NOT (month = 11 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "NDJ_max_day_gap"
-        ,COUNT(CASE WHEN (is_dry AND value > {{threshold}}) THEN 1 END) AS "DRY_above"
-        ,COUNT(CASE WHEN (is_dry AND value = {{threshold}}) THEN 1 END) AS "DRY_equal"
-        ,COUNT(CASE WHEN (is_dry AND value < {{threshold}}) THEN 1 END) AS "DRY_below"
+        ,COUNT(CASE WHEN (is_dry AND min_value > {{threshold}}) THEN 1 END) AS "DRY_above"
+        ,COUNT(CASE WHEN ((is_dry AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "DRY_equal"
+        ,COUNT(CASE WHEN (is_dry AND max_value < {{threshold}}) THEN 1 END) AS "DRY_below"
         ,COUNT(DISTINCT CASE WHEN ((is_dry) AND (day IS NOT NULL)) THEN day END) AS "DRY_count"
         ,MAX(CASE WHEN ((is_dry) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DRY_max_day_gap"
-        ,COUNT(CASE WHEN (is_wet AND value > {{threshold}}) THEN 1 END) AS "WET_above"
-        ,COUNT(CASE WHEN (is_wet AND value = {{threshold}}) THEN 1 END) AS "WET_equal"
-        ,COUNT(CASE WHEN (is_wet AND value < {{threshold}}) THEN 1 END) AS "WET_below"
+        ,COUNT(CASE WHEN (is_wet AND min_value > {{threshold}}) THEN 1 END) AS "WET_above"
+        ,COUNT(CASE WHEN ((is_wet AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "WET_equal"
+        ,COUNT(CASE WHEN (is_wet AND max_value < {{threshold}}) THEN 1 END) AS "WET_below"
         ,COUNT(DISTINCT CASE WHEN ((is_wet) AND (day IS NOT NULL)) THEN day END) AS "WET_count"
         ,MAX(CASE WHEN ((is_wet) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "WET_max_day_gap"
-        ,COUNT(CASE WHEN (is_annual AND value > {{threshold}}) THEN 1 END) AS "ANNUAL_above"
-        ,COUNT(CASE WHEN (is_annual AND value = {{threshold}}) THEN 1 END) AS "ANNUAL_equal"
-        ,COUNT(CASE WHEN (is_annual AND value < {{threshold}}) THEN 1 END) AS "ANNUAL_below"
+        ,COUNT(CASE WHEN (is_annual AND min_value > {{threshold}}) THEN 1 END) AS "ANNUAL_above"
+        ,COUNT(CASE WHEN ((is_annual AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "ANNUAL_equal"
+        ,COUNT(CASE WHEN (is_annual AND max_value < {{threshold}}) THEN 1 END) AS "ANNUAL_below"
         ,COUNT(DISTINCT CASE WHEN ((is_annual) AND (day IS NOT NULL)) THEN day END) AS "ANNUAL_count"
         ,MAX(CASE WHEN ((is_annual) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ANNUAL_max_day_gap"
-        ,COUNT(CASE WHEN (is_djfm AND value > {{threshold}}) THEN 1 END) AS "DJFM_above"
-        ,COUNT(CASE WHEN (is_djfm AND value = {{threshold}}) THEN 1 END) AS "DJFM_equal"
-        ,COUNT(CASE WHEN (is_djfm AND value < {{threshold}}) THEN 1 END) AS "DJFM_below"
+        ,COUNT(CASE WHEN (is_djfm AND min_value > {{threshold}}) THEN 1 END) AS "DJFM_above"
+        ,COUNT(CASE WHEN ((is_djfm AND ({{threshold}}) BETWEEN min_value AND max_value)) THEN 1 END) AS "DJFM_equal"
+        ,COUNT(CASE WHEN (is_djfm AND max_value < {{threshold}}) THEN 1 END) AS "DJFM_below"
         ,COUNT(DISTINCT CASE WHEN ((is_djfm) AND (day IS NOT NULL)) THEN day END) AS "DJFM_count"
         ,MAX(CASE WHEN ((is_djfm) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DJFM_max_day_gap"
     FROM daily_lagged_data dld

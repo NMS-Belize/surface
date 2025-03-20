@@ -102,6 +102,7 @@
 							v-model="filters.is_seasonal"
 							:label='filters.is_seasonal?"Seasonal Summary":"Monthly Summary"'
 							inset
+							disabled
 					  	/> 						  
 					</v-col>
 					<v-col cols="3" v-if="!filters.is_seasonal">
@@ -139,6 +140,7 @@
 								v-model="requestData.validateData"
 								:label="requestData.validateData ? 'Validate Data' : 'All Data'"
 								inset
+								disabled
 							  />
 							</v-col>
 							<v-col cols="auto" class="d-flex align-center">
@@ -274,8 +276,8 @@
 				months: [],
 				interavl: null,
 				validateData: true,
-				maxHourPct: 80,
-				maxDayPct: 80,
+				maxHourPct: 20,
+				maxDayPct: 20,
 				maxDayGap: 5,
 			},
 			requestedData: {
@@ -306,19 +308,19 @@
 							value: 30,
 							label: 'Base Temperature',
 						},
-						'numeric_param_2': {
+						{% comment %} 'numeric_param_2': {
 							value: 45,
 							label: 'Upper Threshold',
-						},
+						}, {% endcomment %}
 					},
 					'Maximum and minimum statistics': {},
-					'Hours or days above or below selected temperature': {
+					'Days above or below selected temperature': {
 						'numeric_param_1': {
 							value: 30,
 							label: 'Threshold temperature',
 						},
 					},
-					'Growing season statistics': {},
+					// 'Growing season statistics': {},
 					'Heat wave': {
 						'numeric_param_1': {
 							value: 30,
@@ -337,24 +339,24 @@
 							label: 'Amount of rainfall',
 						},
 					},
-					'Drought indices ': {},
-					'Flood and excess rainfall': {},
+					// 'Drought indices ': {},
+					// 'Flood and excess rainfall': {},
 			   },
 				'Wind': {
 					'Wind Rose': {},
 					'Maximum Wind and Average Wind speed': {},
-					'Diurnal variation': {},
-					'Hours of wind less than a selected speed': {
+					// 'Diurnal variation': {},
+					'Days of wind less than a selected speed': {
 						'numeric_param_1': {
 							value: 10,
 							label: 'Threshold speed',
 						},
 					},
 				},
-				'Sunshine/Radiation':{
-					'Amounts of global and net radiation': {},
-					'Sunshine and radiation hours': {},
-				},
+				// 'Sunshine/Radiation':{
+					// 'Amounts of global and net radiation': {},
+					// 'Sunshine and radiation hours': {},
+				// },
 				'Relative Humidity': {
 					'Duration of a specified threshold of humidity': {
 						'numeric_param_1': {
@@ -363,18 +365,18 @@
 						},
 					},
 				},
-				'Free Water Evaporation / Evapotranspiration': {
-					'Total amount': {},
-					'Diurnal variation of evaporation': {},
-					'Evapotranspiration': {},
-				},
-				'Soil Temperature':{
-					'Mean and standard deviation at standard depth;': {},
-					'Dates when threshold values of temperature (germination, vegetation) are reached.': {},
-					'Soil Moisture': {},
-					'Soil Moisture at regular depths': {},
-					'Leaf area index': {},
-				}
+				// 'Free Water Evaporation / Evapotranspiration': {
+					// 'Total amount': {},
+					// 'Diurnal variation of evaporation': {},
+					// 'Evapotranspiration': {},
+				// },
+				// 'Soil Temperature':{
+					// 'Mean and standard deviation at standard depth;': {},
+					// 'Dates when threshold values of temperature (germination, vegetation) are reached.': {},
+					// 'Soil Moisture': {},
+					// 'Soil Moisture at regular depths': {},
+					// 'Leaf area index': {},
+				// }
 			},
 			parameterLabels: {
 				numericParam1: null,
