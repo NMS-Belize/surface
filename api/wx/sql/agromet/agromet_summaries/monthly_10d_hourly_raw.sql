@@ -74,11 +74,11 @@ SELECT
     ,atd.year
     ,atd.month
     ,"agg_1" AS "Days 1-10"
-    ,ROUND(((100*"agg_1_count")::numeric/10),2) AS "Days 1-10 Day (%)"
+    ,ROUND(((100*"agg_1_count")::numeric/10),2) AS "Days 1-10 (% of days)"
     ,"agg_2" AS "Days 11-20"
-    ,ROUND(((100*"agg_2_count")::numeric/10),2) AS "Days 11-20 Day (%)"
+    ,ROUND(((100*"agg_2_count")::numeric/10),2) AS "Days 11-20 (% of days)"
     ,"agg_3" AS "Days 21-"
-    ,ROUND(((100*"agg_3_count")::numeric/(days_in_month-21)::numeric),2) AS "Days 21- Day (%)"
+    ,ROUND(((100*"agg_3_count")::numeric/(days_in_month-21)::numeric),2) AS "Days 21- (% of days)"
 FROM aggreated_data ad
 LEFT JOIN month_days atd ON (atd.year=ad.year AND atd.month=ad.month) 
 ORDER BY year, month

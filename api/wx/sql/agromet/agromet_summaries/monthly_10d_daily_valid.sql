@@ -85,11 +85,11 @@ WITH month_days AS (
         ,atd.year
         ,atd.month
         ,CASE WHEN ("agg_1_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_1" ELSE NULL END AS "Days 1-10"
-        ,ROUND(((100*(CASE WHEN ("agg_1_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_1_count" ELSE 0 END))::numeric/10),2) AS "Days 1-10 Day (%)"
+        ,ROUND(((100*(CASE WHEN ("agg_1_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_1_count" ELSE 0 END))::numeric/10),2) AS "Days 1-10 (% of days)"
         ,CASE WHEN ("agg_2_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_2" ELSE NULL END AS "Days 11-20"
-        ,ROUND(((100*(CASE WHEN ("agg_2_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_2_count" ELSE 0 END))::numeric/10),2) AS "Days 11-20 Day (%)"
+        ,ROUND(((100*(CASE WHEN ("agg_2_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_2_count" ELSE 0 END))::numeric/10),2) AS "Days 11-20 (% of days)"
         ,CASE WHEN ("agg_3_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_3" ELSE NULL END AS "Days 21-"
-        ,ROUND(((100*(CASE WHEN ("agg_3_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_3_count" ELSE 0 END))::numeric/(days_in_month-21)::numeric),2) AS "Days 21- Day (%)"
+        ,ROUND(((100*(CASE WHEN ("agg_3_max_day_diff" <= ({{max_day_gap}}+1)) THEN "agg_3_count" ELSE 0 END))::numeric/(days_in_month-21)::numeric),2) AS "Days 21- (% of days)"
     FROM aggreated_data ad
     LEFT JOIN month_days atd ON (atd.year=ad.year AND atd.month=ad.month) 
 ORDER BY year, month
@@ -99,11 +99,11 @@ SELECT
     ,variable_id
     ,year
     ,month
-    ,CASE WHEN ("Days 1-10 Day (%)" >= (100-{{max_day_pct}})) THEN "Days 1-10" ELSE NULL END AS "Days 1-10"
-    ,"Days 1-10 Day (%)"
-    ,CASE WHEN ("Days 11-20 Day (%)" >= (100-{{max_day_pct}})) THEN "Days 11-20" ELSE NULL END AS "Days 11-20"
-    ,"Days 11-20 Day (%)"
-    ,CASE WHEN ("Days 21- Day (%)" >= (100-{{max_day_pct}})) THEN "Days 21-" ELSE NULL END AS "Days 21-"
-    ,"Days 21- Day (%)"
+    ,CASE WHEN ("Days 1-10 (% of days)" >= (100-{{max_day_pct}})) THEN "Days 1-10" ELSE NULL END AS "Days 1-10"
+    ,"Days 1-10 (% of days)"
+    ,CASE WHEN ("Days 11-20 (% of days)" >= (100-{{max_day_pct}})) THEN "Days 11-20" ELSE NULL END AS "Days 11-20"
+    ,"Days 11-20 (% of days)"
+    ,CASE WHEN ("Days 21- (% of days)" >= (100-{{max_day_pct}})) THEN "Days 21-" ELSE NULL END AS "Days 21-"
+    ,"Days 21- (% of days)"
 FROM aggregation_pct
 ORDER BY year, month
