@@ -209,11 +209,17 @@
 				</v-row>					
 			</v-form>
 			
-			<div>				
+
+
+			<div>
 				<template>
 					<v-card v-if="requestedData.responseData && !loading_data">
 						<v-card-title class="text-center"> [[ requestedData.product ]] </v-card-title>
+						
 						<v-card-text>
+							<v-tabs v-if="productVariables"  v-model="tab" bg-color="primary" class="justify-center">
+								<v-tab v-for="item in productVariables" :key="item"> [[ item ]] </v-tab>
+							</v-tabs>
 							<template>
 								<v-data-table
 									:headers="dataTable.headers"
@@ -261,17 +267,18 @@
 				integer: value => (Number.isInteger(value) ) || 'Number must be an integer.',
 				percentage: value => (0 <= value && value <= 100) || 'Value must be between 0 and 100.',
 				positive: value => (0 <= value) || 'Value must greater than 0.',
-			},	
+			},
+			tab: null,
 			loading_data: false,
 			showing_info: false,
 			isFormValid: false,
 			requestData: {
-				stationId: 4,
-                element: 'Relative Humidity',
+				stationId: 4, // 6, 
+                element: 'Air Temperature', //'Relative Humidity',
 				product: null,
 				numericParam1: null,
 				numericParam2: null,
-				startYear: 2021,
+				startYear: 2010,
 				endYear: 2025,
 				summaryType: 'Seasonal',
 				months: [],
@@ -461,8 +468,33 @@
 			filteredStationList() {
 				return this.stationList.filter(station=>station.is_automatic===this.filters.is_automatic)
 			},
+			selectedVariableSymbol() {
+				return this.productVariables?  this.productVariables[this.tab]:null
+				// return this.productVariables.length === 1
+				// 	?this.productVariables[0]
+				// 	:this.productVariables[this.tab]
+			},
 			dataTable () {
+				const {product, ...rest} = this.requestData
+
+				const multivariableProducts = [
+					'Degree days',
+					'Maximum and minimum statistics',
+					'Days above or below selected temperature',
+					'Heat wave',
+					'Number of days with specified amount of rainfall',
+					'Duration of a specified threshold of humidity',
+					'Wind Rose',
+				]
+
 				let filteredData = this.requestedData.responseData
+				if (product===null) return {headers:[], data:[]}
+
+				// const selectedVariableSymbol = this.productVariables[this.tab]
+
+				filteredData = filteredData
+					.filter(entry => entry.variable_symbol === this.selectedVariableSymbol)
+					.map(({ variable_symbol, ...rest }) => rest);
 
 				let baseKeys = []
 				let baseHeaders = []
@@ -488,9 +520,17 @@
 				return { headers: [...baseHeaders, ...calcHeaders], data: filteredData, colorHeaders: colorHeaders};		
 			},
 			filteredMinMaxData () {
+				const selectedVariableId = this.productVariables[this.tab];
 				const station = this.stationList.find(station => station.id === this.requestedData.stationId)
-				return this.requestedData.responseMinMaxData[station.base_name]
-			}			
+				if (Object.keys(this.requestedData.responseMinMaxData[station.base_name]).length === 0) return {}
+				return this.requestedData.responseMinMaxData[station.base_name][selectedVariableId]
+			},	
+			productVariables (){
+				if (!this.requestedData.responseData) return null
+				const variables = this.requestedData.responseData.map(({ variable_symbol }) => variable_symbol);
+				return variables.some(value => value !== undefined)? [...new Set(variables)].sort(): null
+			}
+			
 		},
 		methods: {
             getData(){
@@ -556,6 +596,7 @@
 					`Station Name: ${station?.name}\n`,
 					`Element: ${element}\n`,
 					`Product: ${product}\n`,
+					`Variable: ${this.selectedVariableSymbol}\n`,
 					`${summaryType === 'Monthly' ? `Interval: ${interval}\nMonths: ${months}\n` : ''}`,
 					`Start/End Year: ${startYear}/${endYear}\n`,
 					`Station Lat/Lon: ${station?.latitude}/${station?.longitude}\n`,
@@ -587,8 +628,8 @@
 				const station = this.stationList.find(station => station.id === stationId)
 						
 				const filename = summaryType === 'Monthly' 
-  					? `agromet-summary-(${summaryType})-${station?.name}-${element}-${product}-${startYear}-${endYear}-[${interval}].csv`
-  					: `agromet-summary-(${summaryType})-${station?.name}-${element}-${product}-${startYear}-${endYear}.csv`;
+  					? `agromet-products-(${summaryType})-${station?.name}-${element}-${product}-${startYear}-${endYear}-[${interval}].csv`
+  					: `agromet-products-(${summaryType})-${station?.name}-${element}-${product}-${startYear}-${endYear}.csv`;
 			
 				link.href = URL.createObjectURL(blob);
 				link.download = filename;
@@ -598,15 +639,15 @@
 				document.body.removeChild(link);
 			},
 			getColor (header, item) {
-				const station = this.stationList.find(station => station.id === this.requestedData.stationId)
-				let filteredMinMaxData = this.requestedData.responseMinMaxData[station.base_name]
+				// const station = this.stationList.find(station => station.id === this.requestedData.stationId)
+				// let filteredMinMaxData = this.requestedData.responseMinMaxData[station.base_name]
 
-				if (Object.keys(filteredMinMaxData).length === 0) return 'black'
+				if (Object.keys(this.filteredMinMaxData).length === 0) return 'black'
 
 				let item_entry = (this.requestedData.summaryType === 'Monthly')? {month: item.month, year: item.year} : {year: item.year}
 
-				const is_min = filteredMinMaxData[header.value].min.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
-				const is_max = filteredMinMaxData[header.value].max.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
+				const is_min = this.filteredMinMaxData[header.value].min.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
+				const is_max = this.filteredMinMaxData[header.value].max.some(item => JSON.stringify(item) === JSON.stringify(item_entry));
 
 				if (is_min && is_max) return 'black'
 				else if (is_min) return 'blue'

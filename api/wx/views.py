@@ -6774,9 +6774,9 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
               for 'MIN', 'MAX', 'AVG', and 'STD' values. The calculated statistics symbols are present in the 'year' column. 
     """
 
-    index = ['station', 'month', 'year']
+    index = ['station', 'variable_symbol', 'month', 'year']
     agg_cols = [col for col in df.columns if (col not in index) and not col.endswith("(%% of days)")]
-    grouped = df.groupby(['station'])
+    grouped = df.groupby(['station', 'variable_symbol'])
     
     def calculate_stats(group):
         min_values = group[agg_cols].min()
@@ -6790,6 +6790,7 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
         
         # Add metadata for the new rows
         stats_dict['station'] = group.name[0]  # Station name from the group key
+        stats_dict['variable_symbol'] = group.name[1]  # Variable symbol from the group key
         stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD']  # Labels for the new rows
         
         new_rows = pd.DataFrame(stats_dict)
@@ -6802,7 +6803,7 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
     result_df = result_df.fillna('')
     data = result_df.to_dict(orient='records')
 
-    return data
+    return result_df
 
 
 def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
@@ -6836,22 +6837,25 @@ def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
     """
 
     index = ['month', 'year'] if 'month' in df.columns else ['year']
-    grouped = df.groupby(['station'] + index)
+    grouped = df.groupby(['station', 'variable_symbol'] + index)
     agg_df = grouped.agg(['min', 'max']).reset_index()
     # Flatten the MultiIndex columns
     agg_df.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in agg_df.columns]
     
     # Initialize the result dictionary
     minMaxDict = {}
-    for (station), group in agg_df.groupby(['station']):
+    for (station, variable_symbol), group in agg_df.groupby(['station', 'variable_symbol']):
         station = str(station)
+        variable_symbol = str(variable_symbol)
         
-        if station not in minMaxDict:
+        if station not in minMaxDict: 
             minMaxDict[station] = {}
+        if variable_symbol not in minMaxDict[station]: 
+            minMaxDict[station][variable_symbol] = {}
         
         # Iterate over each column (excluding index columns)
         for col in df.columns:
-            if col not in ['station'] + index:
+            if col not in ['station', 'variable_symbol'] + index:
                 col_min = group[f"{col}_min"].min()
                 col_max = group[f"{col}_max"].max()
                 
@@ -6870,10 +6874,11 @@ def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
                 min_records = convert_types(min_records)
                 max_records = convert_types(max_records)
                 
-                minMaxDict[station][str(col)] = {'min': min_records, 'max': max_records}
+                minMaxDict[station][variable_symbol][str(col)] = {'min': min_records, 'max': max_records}
     
     return minMaxDict
 
+import re
 
 @api_view(["GET"])
 def get_agromet_products_data(request):
@@ -7038,12 +7043,35 @@ def get_agromet_products_data(request):
         'Days of wind less than a selected speed',
     ]
 
-    if requestedData['product'] in products_with_statistics:
-        tableData =  calculate_agromet_products_df_statistics(df)
-        minMaxData =  get_agromet_products_df_min_max(df)
-    else:
-        tableData = df.fillna('').to_dict('records')
-        minMaxData = {station.name: {}}
+    aggregations = [
+        "JFM", "FMA", "MAM", "AMJ",
+        "MJJ", "JJA", "JAS", "ASO",
+        "SON", "OND", "NDJ", "DRY",
+        "WET", "ANNUAL", "DJFM"
+    ]
+
+    index_cols = ['station', 'variable_symbol', 'year']
+    calc_cols = [col for agg in aggregations for col in [agg, agg + ' (% of days)']]
+    final_cols = index_cols + calc_cols
+
+    # df = df.fillna('')
+    df = calculate_agromet_products_df_statistics(df)
+
+    for aggregation in aggregations:
+        pattern = rf"^{aggregation}_\d+$"
+        aggregation_cols = [col for col in df.columns if re.fullmatch(pattern, col)]
+        df[aggregation] = df[aggregation_cols].astype(str).agg('/'.join, axis=1)
+    df = df[final_cols]
+
+    tableData = df.fillna('').to_dict('records')
+    minMaxData = {station.name: {}}
+
+    # if requestedData['product'] in products_with_statistics:
+    #     tableData =  calculate_agromet_products_df_statistics(df)
+    #     minMaxData =  get_agromet_products_df_min_max(df)
+    # else:
+    #     tableData = df.fillna('').to_dict('records')
+    #     minMaxData = {station.name: {}}
 
 
     response = {
