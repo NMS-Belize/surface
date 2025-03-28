@@ -214,10 +214,15 @@
 			<div>
 				<template>
 					<v-card v-if="requestedData.responseData && !loading_data">
-						<v-card-title class="text-center"> [[ requestedData.product ]] </v-card-title>
+						<v-card-title class="text-center"> 
+							[[ requestedData.product ]]
+							<span v-if="requestedData.product==='Heat wave'"> 
+								&nbsp;(threshold temperature [[ requestedData.responseContext.threshold ]])
+							</span>
+						</v-card-title>
 						
 						<v-card-text>
-							<v-tabs v-if="productVariables"  v-model="tab" bg-color="primary" class="justify-center">
+							<v-tabs v-if="productVariables"  v-model="tab" bg-color="primary" class="justify-center my-5">
 								<v-tab v-for="item in productVariables" :key="item"> [[ item ]] </v-tab>
 							</v-tabs>
 							<template>
@@ -273,12 +278,12 @@
 			showing_info: false,
 			isFormValid: false,
 			requestData: {
-				stationId: 4, // 6, 
+				stationId: 59, //4, // 6, 
                 element: 'Air Temperature', //'Relative Humidity',
 				product: null,
 				numericParam1: null,
 				numericParam2: null,
-				startYear: 2010,
+				startYear: 2000,
 				endYear: 2025,
 				summaryType: 'Seasonal',
 				months: [],
@@ -297,6 +302,8 @@
 				startYear: null,
 				endYear: null,
 				responseData: null,
+				responseContext: null,
+				responseMinMaxData: null,
 				summaryType: 'Seasonal',
 				months: [],
 				interavl: null,				
@@ -316,10 +323,6 @@
 							value: 30,
 							label: 'Base Temperature',
 						},
-						{% comment %} 'numeric_param_2': {
-							value: 45,
-							label: 'Upper Threshold',
-						}, {% endcomment %}
 					},
 					'Maximum and minimum statistics': {},
 					'Days above or below selected temperature': {
@@ -331,11 +334,11 @@
 					// 'Growing season statistics': {},
 					'Heat wave': {
 						'numeric_param_1': {
-							value: 30,
-							label: 'Threshold temperature',
+							value: 90,
+							label: 'Percentile threshold',
 						},
 						'numeric_param_2': {
-							value: 5,
+							value: 2,
 							label: 'Heat wave window (days)',
 						},
 					},
@@ -352,7 +355,7 @@
 			   },
 				'Wind': {
 					'Wind Rose': {},
-					'Maximum Wind and Average Wind speed': {},
+					'Maximum and Average Wind speed': {},
 					// 'Diurnal variation': {},
 					'Days of wind less than a selected speed': {
 						'numeric_param_1': {
@@ -361,10 +364,11 @@
 						},
 					},
 				},
-				// 'Sunshine/Radiation':{
+				'Sunshine/Radiation':{
 					// 'Amounts of global and net radiation': {},
-					// 'Sunshine and radiation hours': {},
-				// },
+					'Sunshine hours': {},
+					// 'Radiation hours': {},
+				},
 				'Relative Humidity': {
 					'Duration of a specified threshold of humidity': {
 						'numeric_param_1': {
@@ -373,15 +377,21 @@
 						},
 					},
 				},
-				// 'Free Water Evaporation / Evapotranspiration': {
-					// 'Total amount': {},
+				'Free Water Evaporation / Evapotranspiration': {
+					'Total amount': {},
 					// 'Diurnal variation of evaporation': {},
 					// 'Evapotranspiration': {},
-				// },
-				// 'Soil Temperature':{
-					// 'Mean and standard deviation at standard depth;': {},
-					// 'Dates when threshold values of temperature (germination, vegetation) are reached.': {},
-					// 'Soil Moisture': {},
+				},
+				'Soil Temperature':{
+					'Mean and standard deviation at standard depth': {},
+					'Dates when threshold values of temperature (germination, vegetation) are reached': {
+						'numeric_param_1': {
+							value: 30,
+							label: 'Threshold temperature',
+						},
+					},
+				}
+				// 'Soil Moisture': {},
 					// 'Soil Moisture at regular depths': {},
 					// 'Leaf area index': {},
 				// }
@@ -493,8 +503,8 @@
 				// const selectedVariableSymbol = this.productVariables[this.tab]
 
 				filteredData = filteredData
-					.filter(entry => entry.variable_symbol === this.selectedVariableSymbol)
-					.map(({ variable_symbol, ...rest }) => rest);
+					.filter(entry => entry.product === this.selectedVariableSymbol)
+					.map(({ product, ...rest }) => rest);
 
 				let baseKeys = []
 				let baseHeaders = []
@@ -527,7 +537,7 @@
 			},	
 			productVariables (){
 				if (!this.requestedData.responseData) return null
-				const variables = this.requestedData.responseData.map(({ variable_symbol }) => variable_symbol);
+				const variables = this.requestedData.responseData.map(({ product }) => product);
 				return variables.some(value => value !== undefined)? [...new Set(variables)].sort(): null
 			}
 			
@@ -577,6 +587,7 @@
         		axios.get(url, { params })
 				.then(response => {
 					this.requestedData.responseData = response.data.tableData;
+					this.requestedData.responseContext = response.data.context;
 					this.requestedData.responseMinMaxData = response.data.minMaxData;
 				})
 				.catch(error => {

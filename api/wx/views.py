@@ -6774,9 +6774,11 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
               for 'MIN', 'MAX', 'AVG', and 'STD' values. The calculated statistics symbols are present in the 'year' column. 
     """
 
-    index = ['station', 'variable_symbol', 'month', 'year']
-    agg_cols = [col for col in df.columns if (col not in index) and not col.endswith("(%% of days)")]
-    grouped = df.groupby(['station', 'variable_symbol'])
+    index = ['station', 'product', 'month', 'year']
+    agg_cols = [col for col in df.columns if (col not in index) and not col.endswith("(% of days)")]
+    agg_cols = df[agg_cols].select_dtypes(include=['number']).columns.tolist()
+
+    grouped = df.groupby(['station', 'product'])
     
     def calculate_stats(group):
         min_values = group[agg_cols].min()
@@ -6790,7 +6792,7 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
         
         # Add metadata for the new rows
         stats_dict['station'] = group.name[0]  # Station name from the group key
-        stats_dict['variable_symbol'] = group.name[1]  # Variable symbol from the group key
+        stats_dict['product'] = group.name[1]  # Variable symbol from the group key
         stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD']  # Labels for the new rows
         
         new_rows = pd.DataFrame(stats_dict)
@@ -6837,25 +6839,25 @@ def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
     """
 
     index = ['month', 'year'] if 'month' in df.columns else ['year']
-    grouped = df.groupby(['station', 'variable_symbol'] + index)
+    grouped = df.groupby(['station', 'product'] + index)
     agg_df = grouped.agg(['min', 'max']).reset_index()
     # Flatten the MultiIndex columns
     agg_df.columns = [f"{col[0]}_{col[1]}" if col[1] else col[0] for col in agg_df.columns]
     
     # Initialize the result dictionary
     minMaxDict = {}
-    for (station, variable_symbol), group in agg_df.groupby(['station', 'variable_symbol']):
+    for (station, product), group in agg_df.groupby(['station', 'product']):
         station = str(station)
-        variable_symbol = str(variable_symbol)
+        product = str(product)
         
         if station not in minMaxDict: 
             minMaxDict[station] = {}
-        if variable_symbol not in minMaxDict[station]: 
-            minMaxDict[station][variable_symbol] = {}
+        if product not in minMaxDict[station]: 
+            minMaxDict[station][product] = {}
         
         # Iterate over each column (excluding index columns)
         for col in df.columns:
-            if col not in ['station', 'variable_symbol'] + index:
+            if col not in ['station', 'product'] + index:
                 col_min = group[f"{col}_min"].min()
                 col_max = group[f"{col}_max"].max()
                 
@@ -6874,11 +6876,112 @@ def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
                 min_records = convert_types(min_records)
                 max_records = convert_types(max_records)
                 
-                minMaxDict[station][variable_symbol][str(col)] = {'min': min_records, 'max': max_records}
+                minMaxDict[station][product][str(col)] = {'min': min_records, 'max': max_records}
     
     return minMaxDict
 
 import re
+
+def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> dict:
+    element = requestedData['element']
+    product = requestedData['product']
+
+    timezone = pytz.timezone(settings.TIMEZONE_NAME)
+    context = {
+        'station_id': requestedData['station_id'],
+        'timezone': timezone,
+        'start_date': requestedData['start_date'],
+        'end_date': requestedData['end_date'],
+        'start_year': requestedData['start_year'],
+        'end_year': requestedData['end_year'],
+        'months': requestedData['months'],
+        'max_hour_pct': float(requestedData['max_hour_pct']),
+        'max_day_pct': float(requestedData['max_day_pct']),
+        'max_day_gap': float(requestedData['max_day_gap'])
+    }
+
+    if product == 'Heat wave':
+        prev_template = env.get_template('percentile.sql')
+        prev_context = {
+            'station_id': requestedData['station_id'],
+            'percentile': requestedData['numeric_param_1']
+        }
+        prev_query = prev_template.render(prev_context)
+
+        config = settings.SURFACE_CONNECTION_STRING
+        with psycopg2.connect(config) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(prev_query)
+                result = cursor.fetchone()
+                context['threshold'] = result[0] if (result and result[0] is not None) else 0
+
+        
+
+    context_mapping = {
+        'Air Temperature': {
+            'Degree days': {'base_temp': 'numeric_param_1'},
+            'Days above or below selected temperature': {'threshold': 'numeric_param_1'},
+            'Heat wave': {'heat_wave_window': 'numeric_param_2'}
+        },
+        'Rainfall': {
+            'Number of days with specified amount of rainfall': {'threshold': 'numeric_param_1'}
+        },
+        'Wind': {
+            'Days of wind less than a selected speed': {'threshold': 'numeric_param_1'}
+        },
+        'Relative Humidity': {
+            'Duration of a specified threshold of humidity': {'threshold': 'numeric_param_1'}
+        },
+        'Soil Temperature': {
+            'Dates when threshold values of temperature (germination, vegetation) are reached': {'threshold': 'numeric_param_1'}
+        }
+    }
+
+
+    if element in context_mapping.keys():
+        if product in context_mapping[element].keys():
+            append_context = context_mapping[element][product]
+            for key in append_context.keys():
+                context[key] = requestedData[append_context[key]]
+
+    return context
+
+def get_agromet_products_sql_env(requestedData: dict):
+    products_dir = {
+        'Air Temperature': {
+            'Degree days': 'airtemp/degreedays',
+            'Maximum and minimum statistics': 'airtemp/minmax_statistics',
+            'Days above or below selected temperature': 'airtemp/threshold_days',
+            'Heat wave': 'airtemp/heat_wave',
+        },
+        'Rainfall': {
+            'Number of days with specified amount of rainfall': 'rainfall/threshold_days',
+        },
+        'Wind': {
+            'Wind Rose': 'wind/wind_rose',
+            'Maximum and Average Wind speed': 'wind/maxavg_wind_speed',
+            'Days of wind less than a selected speed': 'wind/wind_speed_threshold',
+        },
+        'Relative Humidity': {
+            'Duration of a specified threshold of humidity': 'relative_humidity/duration_threshold',
+        },
+        'Free Water Evaporation / Evapotranspiration': {
+            'Total amount': 'evaporation/total_amount',
+        },
+        'Sunshine/Radiation': {
+            'Sunshine hours': 'sunshine/sunshine_hours',
+        },
+        'Soil Temperature': {
+            'Mean and standard deviation at standard depth': 'soiltemp/meanstd_statistics',
+            'Dates when threshold values of temperature (germination, vegetation) are reached': 'soiltemp/threshold_dates',
+        },
+    }
+
+    base_path = '/surface/wx/sql/agromet/agromet_products'
+    sub_path = products_dir[requestedData["element"]][requestedData["product"]]
+    env_path = os.path.join(base_path,sub_path)
+    return Environment(loader=FileSystemLoader(env_path))
+
 
 @api_view(["GET"])
 def get_agromet_products_data(request):
@@ -6936,67 +7039,14 @@ def get_agromet_products_data(request):
     ]  
     
     config = settings.SURFACE_CONNECTION_STRING
-
     station = Station.objects.get(pk=requestedData['station_id'])
-
-    timezone = pytz.timezone(settings.TIMEZONE_NAME)
-    context = {
-        'station_id': requestedData['station_id'],
-        'timezone': timezone,
-        'start_date': requestedData['start_date'],
-        'end_date': requestedData['end_date'],
-        'start_year': requestedData['start_year'],
-        'end_year': requestedData['end_year'],
-        'months': requestedData['months'],
-        'max_hour_pct': float(requestedData['max_hour_pct']),
-        'max_day_pct': float(requestedData['max_day_pct']),
-        'max_day_gap': float(requestedData['max_day_gap'])
-    }
-
-    if requestedData['element'] == 'Air Temperature':
-        if requestedData['product'] == 'Degree days':
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/degreedays'))
-            context['base_temp'] = requestedData['numeric_param_1']
-            # context['upper_threshold'] = requestedData['numeric_param_2']
-        elif requestedData['product'] == 'Maximum and minimum statistics':
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/minmax_statistics'))
-        elif requestedData['product'] == 'Days above or below selected temperature':
-            context['threshold'] = requestedData['numeric_param_1']
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/threshold_days'))
-        elif requestedData['product'] == 'Heat wave':
-            context['threshold'] = requestedData['numeric_param_1']
-            context['heat_wave_window'] = requestedData['numeric_param_2']
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp/heat_wave'))
-        else:
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/airtemp'))
-    elif requestedData['element'] == 'Rainfall':
-        if requestedData['product'] == 'Number of days with specified amount of rainfall':
-            context['threshold'] = requestedData['numeric_param_1']
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/rainfall/threshold_days'))
-        else:
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/rainfall'))
-    elif requestedData['element'] == 'Wind':
-        if requestedData['product'] == 'Wind Rose':
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/wind_rose'))
-        elif requestedData['product'] == 'Maximum Wind and Average Wind speed':
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/maxavg_wind_speed'))
-        elif requestedData['product'] == 'Days of wind less than a selected speed':
-            context['threshold'] = requestedData['numeric_param_1']
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind/wind_speed_threshold'))
-        else:
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/wind'))            
-    elif requestedData['element'] == 'Relative Humidity':
-        if requestedData['product'] == 'Duration of a specified threshold of humidity':
-            context['threshold'] = requestedData['numeric_param_1']
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/relative_humidity/duration_threshold'))
-        else:
-            env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products/relative_humidity'))
-    else:
-        env = Environment(loader=FileSystemLoader('/surface/wx/sql/agromet/agromet_products'))
 
     pgia_code = '8858307' # Phillip Goldson Int'l Synop
     station = Station.objects.get(pk=requestedData['station_id'])
     is_hourly_summary = station.is_automatic # or station.code == pgia_code
+
+    env = get_agromet_products_sql_env(requestedData)
+    context = get_agromet_products_sql_context(requestedData, env)
 
     if requestedData['summary_type'] == 'Seasonal':
         if requestedData['validate_data']:
@@ -7024,7 +7074,7 @@ def get_agromet_products_data(request):
     template = env.get_template(template_name)
     query = template.render(context)
 
-    print(query)
+    # print(query)
 
     config = settings.SURFACE_CONNECTION_STRING
     with psycopg2.connect(config) as conn:
@@ -7050,7 +7100,7 @@ def get_agromet_products_data(request):
         "WET", "ANNUAL", "DJFM"
     ]
 
-    index_cols = ['station', 'variable_symbol', 'year']
+    index_cols = ['station', 'product', 'year']
     calc_cols = [col for agg in aggregations for col in [agg, agg + ' (% of days)']]
     final_cols = index_cols + calc_cols
 
@@ -7073,9 +7123,12 @@ def get_agromet_products_data(request):
     #     tableData = df.fillna('').to_dict('records')
     #     minMaxData = {station.name: {}}
 
+    filtered_context = {key: value for key, value in context.items() if key not in ['timezone']}
+
 
     response = {
         'tableData': tableData,
+        'context': filtered_context,
         'minMaxData': minMaxData
     }
 

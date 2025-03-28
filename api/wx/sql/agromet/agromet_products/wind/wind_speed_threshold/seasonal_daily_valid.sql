@@ -46,7 +46,7 @@ WITH month_days AS (
 ,daily_data AS (
     SELECT
         station_id 
-        ,vr.symbol AS variable_symbol
+        ,'NUMBER OF DAYS' AS product
         ,day
         ,EXTRACT(DAY FROM day) AS day_of_month
         ,EXTRACT(MONTH FROM day) AS month
@@ -61,7 +61,7 @@ WITH month_days AS (
 ,extended_data AS(
     SELECT
         station_id
-        ,variable_symbol
+        ,product
         ,day
         ,day_of_month
         ,CASE 
@@ -96,14 +96,14 @@ WITH month_days AS (
         ,CASE WHEN month IN (6, 7, 8, 9, 10, 11) THEN TRUE ELSE FALSE END AS is_wet
         ,CASE WHEN month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) THEN TRUE ELSE FALSE END AS is_annual
         ,CASE WHEN month IN (0, 1, 2, 3) THEN TRUE ELSE FALSE END AS is_djfm        
-        ,day - 1 - LAG(day) OVER (PARTITION BY station_id, variable_symbol, year ORDER BY day) AS day_gap
+        ,day - 1 - LAG(day) OVER (PARTITION BY station_id, product, year ORDER BY day) AS day_gap
     FROM extended_data
     WHERE year BETWEEN {{start_year}} AND {{end_year}}  
 )
 ,aggreated_data AS (
     SELECT
         st.name AS station
-        ,variable_symbol
+        ,product
         ,year
         ,SUM(CASE WHEN is_jfm THEN value END) AS "JFM"
         ,COUNT(DISTINCT CASE WHEN ((is_jfm) AND (day IS NOT NULL)) THEN day END) AS "JFM_count"
@@ -152,12 +152,12 @@ WITH month_days AS (
         ,MAX(CASE WHEN ((is_djfm) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DJFM_max_day_gap"
     FROM daily_lagged_data dld
     JOIN wx_station st ON st.id = dld.station_id
-    GROUP BY st.name, variable_symbol, year
+    GROUP BY st.name, product, year
 )
 ,aggregation_pct AS (
     SELECT
         station
-        ,variable_symbol
+        ,product
         ,ad.year
         ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM" ELSE NULL END AS "JFM"
         ,ROUND(((100*(CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_count" ELSE 0 END))::numeric/"JFM_total"::numeric),2) AS "JFM (% of days)"
@@ -194,7 +194,7 @@ WITH month_days AS (
 )
 SELECT
     station
-    ,variable_symbol
+    ,product
     ,year
     ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM" ELSE NULL END AS "JFM_1"
     ,"JFM (% of days)" 
