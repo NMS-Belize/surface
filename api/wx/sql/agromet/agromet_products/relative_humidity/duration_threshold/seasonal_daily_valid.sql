@@ -171,36 +171,36 @@ WITH RECURSIVE month_days AS (
 ,consecutive_humidity_days AS (
     SELECT 
         *
-        ,CASE WHEN is_jfm THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "JFM_group_id" ORDER BY "JFM_rn") ELSE NULL END AS "JFM_seq"
-        ,CASE WHEN is_fma THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "FMA_group_id" ORDER BY "FMA_rn") ELSE NULL END AS "FMA_seq"
-        ,CASE WHEN is_mam THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "MAM_group_id" ORDER BY "MAM_rn") ELSE NULL END AS "MAM_seq"
-        ,CASE WHEN is_amj THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "AMJ_group_id" ORDER BY "AMJ_rn") ELSE NULL END AS "AMJ_seq"
-        ,CASE WHEN is_mjj THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "MJJ_group_id" ORDER BY "MJJ_rn") ELSE NULL END AS "MJJ_seq"
-        ,CASE WHEN is_jja THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "JJA_group_id" ORDER BY "JJA_rn") ELSE NULL END AS "JJA_seq"
-        ,CASE WHEN is_jas THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "JAS_group_id" ORDER BY "JAS_rn") ELSE NULL END AS "JAS_seq"
-        ,CASE WHEN is_aso THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "ASO_group_id" ORDER BY "ASO_rn") ELSE NULL END AS "ASO_seq"
-        ,CASE WHEN is_son THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "SON_group_id" ORDER BY "SON_rn") ELSE NULL END AS "SON_seq"
-        ,CASE WHEN is_ond THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "OND_group_id" ORDER BY "OND_rn") ELSE NULL END AS "OND_seq"
-        ,CASE WHEN is_ndj THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "NDJ_group_id" ORDER BY "NDJ_rn") ELSE NULL END AS "NDJ_seq"
-        ,CASE WHEN is_dry THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "DRY_group_id" ORDER BY "DRY_rn") ELSE NULL END AS "DRY_seq"
-        ,CASE WHEN is_wet THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "WET_group_id" ORDER BY "WET_rn") ELSE NULL END AS "WET_seq"
-        ,CASE WHEN is_annual THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "ANNUAL_group_id" ORDER BY "ANNUAL_rn") ELSE NULL END AS "ANNUAL_seq"
-        ,CASE WHEN is_djfm THEN ROW_NUMBER() OVER (PARTITION BY station_id, year, "DJFM_group_id" ORDER BY "DJFM_rn") ELSE NULL END AS "DJFM_seq"
-        ,CASE WHEN is_jfm THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "JFM_group_id") ELSE NULL END AS "JFM_max_group_day_gap"
-        ,CASE WHEN is_fma THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "FMA_group_id") ELSE NULL END AS "FMA_max_group_day_gap"
-        ,CASE WHEN is_mam THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "MAM_group_id") ELSE NULL END AS "MAM_max_group_day_gap"
-        ,CASE WHEN is_amj THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "AMJ_group_id") ELSE NULL END AS "AMJ_max_group_day_gap"
-        ,CASE WHEN is_mjj THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "MJJ_group_id") ELSE NULL END AS "MJJ_max_group_day_gap"
-        ,CASE WHEN is_jja THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "JJA_group_id") ELSE NULL END AS "JJA_max_group_day_gap"
-        ,CASE WHEN is_jas THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "JAS_group_id") ELSE NULL END AS "JAS_max_group_day_gap"
-        ,CASE WHEN is_aso THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "ASO_group_id") ELSE NULL END AS "ASO_max_group_day_gap"
-        ,CASE WHEN is_son THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "SON_group_id") ELSE NULL END AS "SON_max_group_day_gap"
-        ,CASE WHEN is_ond THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "OND_group_id") ELSE NULL END AS "OND_max_group_day_gap"
-        ,CASE WHEN is_ndj THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "NDJ_group_id") ELSE NULL END AS "NDJ_max_group_day_gap"
-        ,CASE WHEN is_dry THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "DRY_group_id") ELSE NULL END AS "DRY_max_group_day_gap"
-        ,CASE WHEN is_wet THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "WET_group_id") ELSE NULL END AS "WET_max_group_day_gap"
-        ,CASE WHEN is_annual THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "ANNUAL_group_id") ELSE NULL END AS "ANNUAL_max_group_day_gap"
-        ,CASE WHEN is_djfm THEN MAX(day_gap) OVER (PARTITION BY station_id, year, "DJFM_group_id") ELSE NULL END AS "DJFM_max_group_day_gap"
+        ,CASE WHEN is_jfm THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "JFM_group_id" ORDER BY "JFM_rn") ELSE NULL END AS "JFM_seq"
+        ,CASE WHEN is_fma THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "FMA_group_id" ORDER BY "FMA_rn") ELSE NULL END AS "FMA_seq"
+        ,CASE WHEN is_mam THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "MAM_group_id" ORDER BY "MAM_rn") ELSE NULL END AS "MAM_seq"
+        ,CASE WHEN is_amj THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "AMJ_group_id" ORDER BY "AMJ_rn") ELSE NULL END AS "AMJ_seq"
+        ,CASE WHEN is_mjj THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "MJJ_group_id" ORDER BY "MJJ_rn") ELSE NULL END AS "MJJ_seq"
+        ,CASE WHEN is_jja THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "JJA_group_id" ORDER BY "JJA_rn") ELSE NULL END AS "JJA_seq"
+        ,CASE WHEN is_jas THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "JAS_group_id" ORDER BY "JAS_rn") ELSE NULL END AS "JAS_seq"
+        ,CASE WHEN is_aso THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "ASO_group_id" ORDER BY "ASO_rn") ELSE NULL END AS "ASO_seq"
+        ,CASE WHEN is_son THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "SON_group_id" ORDER BY "SON_rn") ELSE NULL END AS "SON_seq"
+        ,CASE WHEN is_ond THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "OND_group_id" ORDER BY "OND_rn") ELSE NULL END AS "OND_seq"
+        ,CASE WHEN is_ndj THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "NDJ_group_id" ORDER BY "NDJ_rn") ELSE NULL END AS "NDJ_seq"
+        ,CASE WHEN is_dry THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "DRY_group_id" ORDER BY "DRY_rn") ELSE NULL END AS "DRY_seq"
+        ,CASE WHEN is_wet THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "WET_group_id" ORDER BY "WET_rn") ELSE NULL END AS "WET_seq"
+        ,CASE WHEN is_annual THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "ANNUAL_group_id" ORDER BY "ANNUAL_rn") ELSE NULL END AS "ANNUAL_seq"
+        ,CASE WHEN is_djfm THEN ROW_NUMBER() OVER (PARTITION BY year, station_id, "DJFM_group_id" ORDER BY "DJFM_rn") ELSE NULL END AS "DJFM_seq"
+        ,CASE WHEN is_jfm THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "JFM_group_id") ELSE NULL END AS "JFM_max_group_day_gap"
+        ,CASE WHEN is_fma THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "FMA_group_id") ELSE NULL END AS "FMA_max_group_day_gap"
+        ,CASE WHEN is_mam THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "MAM_group_id") ELSE NULL END AS "MAM_max_group_day_gap"
+        ,CASE WHEN is_amj THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "AMJ_group_id") ELSE NULL END AS "AMJ_max_group_day_gap"
+        ,CASE WHEN is_mjj THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "MJJ_group_id") ELSE NULL END AS "MJJ_max_group_day_gap"
+        ,CASE WHEN is_jja THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "JJA_group_id") ELSE NULL END AS "JJA_max_group_day_gap"
+        ,CASE WHEN is_jas THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "JAS_group_id") ELSE NULL END AS "JAS_max_group_day_gap"
+        ,CASE WHEN is_aso THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "ASO_group_id") ELSE NULL END AS "ASO_max_group_day_gap"
+        ,CASE WHEN is_son THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "SON_group_id") ELSE NULL END AS "SON_max_group_day_gap"
+        ,CASE WHEN is_ond THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "OND_group_id") ELSE NULL END AS "OND_max_group_day_gap"
+        ,CASE WHEN is_ndj THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "NDJ_group_id") ELSE NULL END AS "NDJ_max_group_day_gap"
+        ,CASE WHEN is_dry THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "DRY_group_id") ELSE NULL END AS "DRY_max_group_day_gap"
+        ,CASE WHEN is_wet THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "WET_group_id") ELSE NULL END AS "WET_max_group_day_gap"
+        ,CASE WHEN is_annual THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "ANNUAL_group_id") ELSE NULL END AS "ANNUAL_max_group_day_gap"
+        ,CASE WHEN is_djfm THEN MAX(day_gap) OVER (PARTITION BY year, station_id, "DJFM_group_id") ELSE NULL END AS "DJFM_max_group_day_gap"
     FROM grouped_humidity_days
 )
 ,fixed_consecutive_humidity_days AS (
@@ -331,71 +331,223 @@ WITH RECURSIVE month_days AS (
     SELECT
         station
         ,ad.year
-        ,CASE WHEN "JFM_max_day_gap" <= ({{max_day_gap}}) THEN "JFM_below"||'/'||"JFM_above"||'/'||"JFM" ELSE NULL END AS "JFM"
+        ,CASE WHEN "JFM_max_day_gap" <= ({{max_day_gap}}) THEN "JFM_below" ELSE NULL END AS "JFM_below"
+        ,CASE WHEN "JFM_max_day_gap" <= ({{max_day_gap}}) THEN "JFM_above" ELSE NULL END AS "JFM_above"
+        ,CASE WHEN "JFM_max_day_gap" <= ({{max_day_gap}}) THEN "JFM" ELSE NULL END AS "JFM"
         ,ROUND(((100*(CASE WHEN "JFM_max_day_gap" <= ({{max_day_gap}}) THEN "JFM_count" ELSE 0 END))::numeric/"JFM_total"::numeric),2) AS "JFM (% of days)"
-        ,CASE WHEN "FMA_max_day_gap" <= ({{max_day_gap}}) THEN "FMA_below"||'/'||"FMA_above"||'/'||"FMA" ELSE NULL END AS "FMA"
+        ,CASE WHEN "FMA_max_day_gap" <= ({{max_day_gap}}) THEN "FMA_below" ELSE NULL END AS "FMA_below"
+        ,CASE WHEN "FMA_max_day_gap" <= ({{max_day_gap}}) THEN "FMA_above" ELSE NULL END AS "FMA_above"
+        ,CASE WHEN "FMA_max_day_gap" <= ({{max_day_gap}}) THEN "FMA" ELSE NULL END AS "FMA"
         ,ROUND(((100*(CASE WHEN "FMA_max_day_gap" <= ({{max_day_gap}}) THEN "FMA_count" ELSE 0 END))::numeric/"FMA_total"::numeric),2) AS "FMA (% of days)"
-        ,CASE WHEN "MAM_max_day_gap" <= ({{max_day_gap}}) THEN "MAM_below"||'/'||"MAM_above"||'/'||"MAM" ELSE NULL END AS "MAM"
+        ,CASE WHEN "MAM_max_day_gap" <= ({{max_day_gap}}) THEN "MAM_below" ELSE NULL END AS "MAM_below"
+        ,CASE WHEN "MAM_max_day_gap" <= ({{max_day_gap}}) THEN "MAM_above" ELSE NULL END AS "MAM_above"
+        ,CASE WHEN "MAM_max_day_gap" <= ({{max_day_gap}}) THEN "MAM" ELSE NULL END AS "MAM"
         ,ROUND(((100*(CASE WHEN "MAM_max_day_gap" <= ({{max_day_gap}}) THEN "MAM_count" ELSE 0 END))::numeric/"MAM_total"::numeric),2) AS "MAM (% of days)"
-        ,CASE WHEN "AMJ_max_day_gap" <= ({{max_day_gap}}) THEN "AMJ_below"||'/'||"AMJ_above"||'/'||"AMJ" ELSE NULL END AS "AMJ"
+        ,CASE WHEN "AMJ_max_day_gap" <= ({{max_day_gap}}) THEN "AMJ_below" ELSE NULL END AS "AMJ_below"
+        ,CASE WHEN "AMJ_max_day_gap" <= ({{max_day_gap}}) THEN "AMJ_above" ELSE NULL END AS "AMJ_above"
+        ,CASE WHEN "AMJ_max_day_gap" <= ({{max_day_gap}}) THEN "AMJ" ELSE NULL END AS "AMJ"
         ,ROUND(((100*(CASE WHEN "AMJ_max_day_gap" <= ({{max_day_gap}}) THEN "AMJ_count" ELSE 0 END))::numeric/"AMJ_total"::numeric),2) AS "AMJ (% of days)"
-        ,CASE WHEN "MJJ_max_day_gap" <= ({{max_day_gap}}) THEN "MJJ_below"||'/'||"MJJ_above"||'/'||"MJJ" ELSE NULL END AS "MJJ"
+        ,CASE WHEN "MJJ_max_day_gap" <= ({{max_day_gap}}) THEN "MJJ_below" ELSE NULL END AS "MJJ_below"
+        ,CASE WHEN "MJJ_max_day_gap" <= ({{max_day_gap}}) THEN "MJJ_above" ELSE NULL END AS "MJJ_above"
+        ,CASE WHEN "MJJ_max_day_gap" <= ({{max_day_gap}}) THEN "MJJ" ELSE NULL END AS "MJJ"
         ,ROUND(((100*(CASE WHEN "MJJ_max_day_gap" <= ({{max_day_gap}}) THEN "MJJ_count" ELSE 0 END))::numeric/"MJJ_total"::numeric),2) AS "MJJ (% of days)"
-        ,CASE WHEN "JJA_max_day_gap" <= ({{max_day_gap}}) THEN "JJA_below"||'/'||"JJA_above"||'/'||"JJA" ELSE NULL END AS "JJA"
+        ,CASE WHEN "JJA_max_day_gap" <= ({{max_day_gap}}) THEN "JJA_below" ELSE NULL END AS "JJA_below"
+        ,CASE WHEN "JJA_max_day_gap" <= ({{max_day_gap}}) THEN "JJA_above" ELSE NULL END AS "JJA_above"
+        ,CASE WHEN "JJA_max_day_gap" <= ({{max_day_gap}}) THEN "JJA" ELSE NULL END AS "JJA"
         ,ROUND(((100*(CASE WHEN "JJA_max_day_gap" <= ({{max_day_gap}}) THEN "JJA_count" ELSE 0 END))::numeric/"JJA_total"::numeric),2) AS "JJA (% of days)"
-        ,CASE WHEN "JAS_max_day_gap" <= ({{max_day_gap}}) THEN "JAS_below"||'/'||"JAS_above"||'/'||"JAS" ELSE NULL END AS "JAS"
+        ,CASE WHEN "JAS_max_day_gap" <= ({{max_day_gap}}) THEN "JAS_below" ELSE NULL END AS "JAS_below"
+        ,CASE WHEN "JAS_max_day_gap" <= ({{max_day_gap}}) THEN "JAS_above" ELSE NULL END AS "JAS_above"
+        ,CASE WHEN "JAS_max_day_gap" <= ({{max_day_gap}}) THEN "JAS" ELSE NULL END AS "JAS"
         ,ROUND(((100*(CASE WHEN "JAS_max_day_gap" <= ({{max_day_gap}}) THEN "JAS_count" ELSE 0 END))::numeric/"JAS_total"::numeric),2) AS "JAS (% of days)"
-        ,CASE WHEN "ASO_max_day_gap" <= ({{max_day_gap}}) THEN "ASO_below"||'/'||"ASO_above"||'/'||"ASO" ELSE NULL END AS "ASO"
+        ,CASE WHEN "ASO_max_day_gap" <= ({{max_day_gap}}) THEN "ASO_below" ELSE NULL END AS "ASO_below"
+        ,CASE WHEN "ASO_max_day_gap" <= ({{max_day_gap}}) THEN "ASO_above" ELSE NULL END AS "ASO_above"
+        ,CASE WHEN "ASO_max_day_gap" <= ({{max_day_gap}}) THEN "ASO" ELSE NULL END AS "ASO"
         ,ROUND(((100*(CASE WHEN "ASO_max_day_gap" <= ({{max_day_gap}}) THEN "ASO_count" ELSE 0 END))::numeric/"ASO_total"::numeric),2) AS "ASO (% of days)"
-        ,CASE WHEN "SON_max_day_gap" <= ({{max_day_gap}}) THEN "SON_below"||'/'||"SON_above"||'/'||"SON" ELSE NULL END AS "SON"
+        ,CASE WHEN "SON_max_day_gap" <= ({{max_day_gap}}) THEN "SON_below" ELSE NULL END AS "SON_below"
+        ,CASE WHEN "SON_max_day_gap" <= ({{max_day_gap}}) THEN "SON_above" ELSE NULL END AS "SON_above"
+        ,CASE WHEN "SON_max_day_gap" <= ({{max_day_gap}}) THEN "SON" ELSE NULL END AS "SON"
         ,ROUND(((100*(CASE WHEN "SON_max_day_gap" <= ({{max_day_gap}}) THEN "SON_count" ELSE 0 END))::numeric/"SON_total"::numeric),2) AS "SON (% of days)"
-        ,CASE WHEN "OND_max_day_gap" <= ({{max_day_gap}}) THEN "OND_below"||'/'||"OND_above"||'/'||"OND" ELSE NULL END AS "OND"
+        ,CASE WHEN "OND_max_day_gap" <= ({{max_day_gap}}) THEN "OND_below" ELSE NULL END AS "OND_below"
+        ,CASE WHEN "OND_max_day_gap" <= ({{max_day_gap}}) THEN "OND_above" ELSE NULL END AS "OND_above"
+        ,CASE WHEN "OND_max_day_gap" <= ({{max_day_gap}}) THEN "OND" ELSE NULL END AS "OND"
         ,ROUND(((100*(CASE WHEN "OND_max_day_gap" <= ({{max_day_gap}}) THEN "OND_count" ELSE 0 END))::numeric/"OND_total"::numeric),2) AS "OND (% of days)"
-        ,CASE WHEN "NDJ_max_day_gap" <= ({{max_day_gap}}) THEN "NDJ_below"||'/'||"NDJ_above"||'/'||"NDJ" ELSE NULL END AS "NDJ"
+        ,CASE WHEN "NDJ_max_day_gap" <= ({{max_day_gap}}) THEN "NDJ_below" ELSE NULL END AS "NDJ_below"
+        ,CASE WHEN "NDJ_max_day_gap" <= ({{max_day_gap}}) THEN "NDJ_above" ELSE NULL END AS "NDJ_above"
+        ,CASE WHEN "NDJ_max_day_gap" <= ({{max_day_gap}}) THEN "NDJ" ELSE NULL END AS "NDJ"
         ,ROUND(((100*(CASE WHEN "NDJ_max_day_gap" <= ({{max_day_gap}}) THEN "NDJ_count" ELSE 0 END))::numeric/"NDJ_total"::numeric),2) AS "NDJ (% of days)"
-        ,CASE WHEN "DRY_max_day_gap" <= ({{max_day_gap}}) THEN "DRY_below"||'/'||"DRY_above"||'/'||"DRY" ELSE NULL END AS "DRY"
+        ,CASE WHEN "DRY_max_day_gap" <= ({{max_day_gap}}) THEN "DRY_below" ELSE NULL END AS "DRY_below"
+        ,CASE WHEN "DRY_max_day_gap" <= ({{max_day_gap}}) THEN "DRY_above" ELSE NULL END AS "DRY_above"
+        ,CASE WHEN "DRY_max_day_gap" <= ({{max_day_gap}}) THEN "DRY" ELSE NULL END AS "DRY"
         ,ROUND(((100*(CASE WHEN "DRY_max_day_gap" <= ({{max_day_gap}}) THEN "DRY_count" ELSE 0 END))::numeric/"DRY_total"::numeric),2) AS "DRY (% of days)"
-        ,CASE WHEN "WET_max_day_gap" <= ({{max_day_gap}}) THEN "WET_below"||'/'||"WET_above"||'/'||"WET" ELSE NULL END AS "WET"
+        ,CASE WHEN "WET_max_day_gap" <= ({{max_day_gap}}) THEN "WET_below" ELSE NULL END AS "WET_below"
+        ,CASE WHEN "WET_max_day_gap" <= ({{max_day_gap}}) THEN "WET_above" ELSE NULL END AS "WET_above"
+        ,CASE WHEN "WET_max_day_gap" <= ({{max_day_gap}}) THEN "WET" ELSE NULL END AS "WET"
         ,ROUND(((100*(CASE WHEN "WET_max_day_gap" <= ({{max_day_gap}}) THEN "WET_count" ELSE 0 END))::numeric/"WET_total"::numeric),2) AS "WET (% of days)"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= ({{max_day_gap}}) THEN "ANNUAL_below"||'/'||"ANNUAL_above"||'/'||"ANNUAL" ELSE NULL END AS "ANNUAL"
+        ,CASE WHEN "ANNUAL_max_day_gap" <= ({{max_day_gap}}) THEN "ANNUAL_below" ELSE NULL END AS "ANNUAL_below"
+        ,CASE WHEN "ANNUAL_max_day_gap" <= ({{max_day_gap}}) THEN "ANNUAL_above" ELSE NULL END AS "ANNUAL_above"
+        ,CASE WHEN "ANNUAL_max_day_gap" <= ({{max_day_gap}}) THEN "ANNUAL" ELSE NULL END AS "ANNUAL"
         ,ROUND(((100*(CASE WHEN "ANNUAL_max_day_gap" <= ({{max_day_gap}}) THEN "ANNUAL_count" ELSE 0 END))::numeric/"ANNUAL_total"::numeric),2) AS "ANNUAL (% of days)"
-        ,CASE WHEN "DJFM_max_day_gap" <= ({{max_day_gap}}) THEN "DJFM_below"||'/'||"DJFM_above"||'/'||"DJFM" ELSE NULL END AS "DJFM"
+        ,CASE WHEN "DJFM_max_day_gap" <= ({{max_day_gap}}) THEN "DJFM_below" ELSE NULL END AS "DJFM_below"
+        ,CASE WHEN "DJFM_max_day_gap" <= ({{max_day_gap}}) THEN "DJFM_above" ELSE NULL END AS "DJFM_above"
+        ,CASE WHEN "DJFM_max_day_gap" <= ({{max_day_gap}}) THEN "DJFM" ELSE NULL END AS "DJFM"
         ,ROUND(((100*(CASE WHEN "DJFM_max_day_gap" <= ({{max_day_gap}}) THEN "DJFM_count" ELSE 0 END))::numeric/"DJFM_total"::numeric),2) AS "DJFM (% of days)"
     FROM aggreated_data ad
     LEFT JOIN aggreation_total_days atd ON atd.year=ad.year
 )
 SELECT
     station
+    ,product
     ,year
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM" ELSE NULL END AS "JFM"
+    ,CASE 
+        WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "JFM_below"
+                WHEN 'above' THEN "JFM_above"
+                WHEN 'longest sequence' THEN "JFM"
+            END
+        ELSE NULL
+    END AS "JFM_1"
     ,"JFM (% of days)" 
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA" ELSE NULL END AS "FMA"
+    ,CASE 
+        WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "FMA_below"
+                WHEN 'above' THEN "FMA_above"
+                WHEN 'longest sequence' THEN "FMA"
+            END
+        ELSE NULL
+    END AS "FMA_1"
     ,"FMA (% of days)"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM" ELSE NULL END AS "MAM"
+    ,CASE 
+        WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "MAM_below"
+                WHEN 'above' THEN "MAM_above"
+                WHEN 'longest sequence' THEN "MAM"
+            END
+        ELSE NULL
+    END AS "MAM_1"
     ,"MAM (% of days)"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ" ELSE NULL END AS "AMJ"
+    ,CASE 
+        WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "AMJ_below"
+                WHEN 'above' THEN "AMJ_above"
+                WHEN 'longest sequence' THEN "AMJ"
+            END
+        ELSE NULL
+    END AS "AMJ_1"
     ,"AMJ (% of days)"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ" ELSE NULL END AS "MJJ"
+    ,CASE 
+        WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "MJJ_below"
+                WHEN 'above' THEN "MJJ_above"
+                WHEN 'longest sequence' THEN "MJJ"
+            END
+        ELSE NULL
+    END AS "MJJ_1"
     ,"MJJ (% of days)"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA" ELSE NULL END AS "JJA"
+    ,CASE 
+        WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "JJA_below"
+                WHEN 'above' THEN "JJA_above"
+                WHEN 'longest sequence' THEN "JJA"
+            END
+        ELSE NULL
+    END AS "JJA_1"
     ,"JJA (% of days)"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS" ELSE NULL END AS "JAS"
+    ,CASE 
+        WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "JAS_below"
+                WHEN 'above' THEN "JAS_above"
+                WHEN 'longest sequence' THEN "JAS"
+            END
+        ELSE NULL
+    END AS "JAS_1"
     ,"JAS (% of days)"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO" ELSE NULL END AS "ASO"
+    ,CASE 
+        WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "ASO_below"
+                WHEN 'above' THEN "ASO_above"
+                WHEN 'longest sequence' THEN "ASO"
+            END
+        ELSE NULL
+    END AS "ASO_1"
     ,"ASO (% of days)"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON" ELSE NULL END AS "SON"
+    ,CASE 
+        WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "SON_below"
+                WHEN 'above' THEN "SON_above"
+                WHEN 'longest sequence' THEN "SON"
+            END
+        ELSE NULL
+    END AS "SON_1"
     ,"SON (% of days)"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND" ELSE NULL END AS "OND"
+    ,CASE 
+        WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "OND_below"
+                WHEN 'above' THEN "OND_above"
+                WHEN 'longest sequence' THEN "OND"
+            END
+        ELSE NULL
+    END AS "OND_1"
     ,"OND (% of days)"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ" ELSE NULL END AS "NDJ"
+    ,CASE 
+        WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "NDJ_below"
+                WHEN 'above' THEN "NDJ_above"
+                WHEN 'longest sequence' THEN "NDJ"
+            END
+        ELSE NULL
+    END AS "NDJ_1"
     ,"NDJ (% of days)"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY" ELSE NULL END AS "DRY"
+    ,CASE 
+        WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "DRY_below"
+                WHEN 'above' THEN "DRY_above"
+                WHEN 'longest sequence' THEN "DRY"
+            END
+        ELSE NULL
+    END AS "DRY_1"
     ,"DRY (% of days)"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET" ELSE NULL END AS "WET"
+    ,CASE 
+        WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "WET_below"
+                WHEN 'above' THEN "WET_above"
+                WHEN 'longest sequence' THEN "WET"
+            END
+        ELSE NULL
+    END AS "WET_1"
     ,"WET (% of days)"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL" ELSE NULL END AS "ANNUAL"
+    ,CASE 
+        WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "ANNUAL_below"
+                WHEN 'above' THEN "ANNUAL_above"
+                WHEN 'longest sequence' THEN "ANNUAL"
+            END
+        ELSE NULL
+    END AS "ANNUAL_1"
     ,"ANNUAL (% of days)"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM" ELSE NULL END AS "DJFM"
+    ,CASE 
+        WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN
+            CASE product
+                WHEN 'below' THEN "DJFM_below"
+                WHEN 'above' THEN "DJFM_above"
+                WHEN 'longest sequence' THEN "DJFM"
+            END
+        ELSE NULL
+    END AS "DJFM_1"
     ,"DJFM (% of days)"
 FROM aggregation_pct
+CROSS JOIN (VALUES ('below'), ('above'), ('longest sequence')) AS products(product)
 ORDER BY year
