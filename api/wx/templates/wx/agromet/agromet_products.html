@@ -1,4 +1,5 @@
 {% extends "base.html" %} {% block content %} {% load static %} {% load material_form %}
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
 <div class="srf-container">
 	<div class="srf-flex flex-row align-items-center justify-content-between srf-padding">
@@ -55,6 +56,7 @@
 							v-model="requestData.product"
 							required
 							hint="*Required"
+							:rules="[rules.required]"
 							persistent-hint
 						/>
 					</v-col>
@@ -201,7 +203,7 @@
 				</v-row>				
 				<v-row>				
 					<v-col cols="2" class="d-flex justify-left">
-						<v-btn @click="getData" :disabled="!isFormValid"> 
+						<v-btn @click="getData" :disabled="!isFormValid">
 							Request Data
 							<v-icon right>send</v-icon>
 						</v-btn>
@@ -213,6 +215,49 @@
 
 			<div>
 				<template>
+					<v-card v-if="requestedData.product === 'Wind Rose' && !loading_data">
+						<v-form class="ma-4">
+							<v-row>
+								<v-col cols="4">
+									<v-autocomplete
+										label="Select Aggregation"
+										:items="dataAggegationList"
+										v-model="windRose.aggregation"
+										hint="*Required"
+										persistent-hint
+										:rules="[rules.required]"
+									/>									
+								</v-col>
+								<v-col cols="4">
+									<v-autocomplete
+										label="Select Year"
+										:items="dataYearList"
+										v-model="windRose.year"
+										hint="*Required"
+										persistent-hint
+										:rules="[rules.required]"
+									/>									
+								</v-col>
+								<v-col cols="4">
+									<v-autocomplete
+										label="Select Months"
+										:items="requestedData.months"
+										v-model="windRose.month"
+										hint="*Required"
+										persistent-hint
+										:rules="[rules.required]"
+									/>														
+								</v-col>
+							</v-row>
+						</v-form>
+						<v-card-title class="text-center"> Card Title </v-card-title>
+						<v-card-text> [[windRoseData]] </v-card-text>
+
+						<v-card-actions>
+							<v-btn> Action Button </v-btn>
+						</v-card-actions
+					</v-card>
+
 					<v-card v-if="requestedData.responseData && !loading_data">
 						<v-card-title class="text-center"> 
 							[[ requestedData.product ]]
@@ -245,7 +290,7 @@
 								<v-icon right>download</v-icon>
 							</v-btn>
 						</v-card-actions
-					</v-card>					
+					</v-card>
 				</template>	
 			</div>			
 		</v-app>
@@ -278,8 +323,8 @@
 			showing_info: false,
 			isFormValid: false,
 			requestData: {
-				stationId: 59, //4, // 6, 
-                element: 'Air Temperature', //'Relative Humidity',
+				stationId: 4, //59, // 6, 
+                element: 'Wind', //'Relative Humidity',
 				product: null,
 				numericParam1: null,
 				numericParam2: null,
@@ -315,7 +360,7 @@
 			filters: {
 				is_automatic: false,
 				is_seasonal: true
-			},			
+			},
 			elements: {
 				'Air Temperature': {
 					'Degree days': {
@@ -396,6 +441,11 @@
 					// 'Leaf area index': {},
 				// }
 			},
+			windRose: {
+				aggregation: null,
+				year: null,
+				month: null,
+			},
 			parameterLabels: {
 				numericParam1: null,
 				numericParam2: null,
@@ -463,7 +513,37 @@
 				this.requestData.months = []
 			},
 		},	
-		computed: {		
+		computed: {
+			windRoseData() {
+				if (this.requestedData.product != 'Wind Rose') return null
+
+				const {aggregation, year, month} = this.windRose
+
+				if (!aggregation || !year) return null
+				if (!this.dataTable.data) return null
+
+				let str = null
+				if (this.requestedData.summaryType == 'Seasonal') {
+					str = this.dataTable.data.find(entry => entry.year === year)[aggregation]
+				}
+				else{
+					if (!month) return null
+					str = this.dataTable.data.find(entry => entry.year === year && entry.month === month)[aggregation]
+				}
+				
+				const values = str.split("/");
+				const labels = [
+					'N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW',
+					'0-5 Kt', '5-10 Kt', '10-15 Kt', '15-20 Kt', '20-25 Kt', '25+ Kt'
+				]
+
+				const result = labels.reduce((acc, label, index) => {
+					acc[label] = parseFloat(values[index]);
+					return acc;
+				}, {});
+				
+				return result
+			},
 			availableStartYears () {
 				const min_year = 1900
 				const max_year = moment().year()
@@ -485,7 +565,7 @@
 				// 	:this.productVariables[this.tab]
 			},
 			dataTable () {
-				const {product, ...rest} = this.requestData
+				const {product, ...rest} = this.requestedData
 
 				const multivariableProducts = [
 					'Degree days',
@@ -529,6 +609,13 @@
 				
 				return { headers: [...baseHeaders, ...calcHeaders], data: filteredData, colorHeaders: colorHeaders};		
 			},
+			dataAggegationList () {
+				return ['JFM', 'FMA', 'MAM', 'AMJ', 'MJJ', 'JJA', 'JAS', 'ASO', 'SON', 'OND']
+			},
+			dataYearList() {
+				const { startYear, endYear } = this.requestedData;
+				return Array.from({ length: endYear - startYear + 1 }, (_, i) => endYear - i);
+			},			  
 			filteredMinMaxData () {
 				const selectedVariableId = this.productVariables[this.tab];
 				const station = this.stationList.find(station => station.id === this.requestedData.stationId)
@@ -546,23 +633,11 @@
             getData(){
 				this.loading_data = true
 
+				this.requestedData = JSON.parse(JSON.stringify(this.requestData));
 
-				this.requestedData.stationId = this.requestData.stationId
-				this.requestedData.element = this.requestData.element
-				this.requestedData.product = this.requestData.product				
-				this.requestedData.numericParam1 = this.requestData.numericParam1
-				this.requestedData.numericParam2 = this.requestData.numericParam2
-				this.requestedData.startYear = this.requestData.startYear
-				this.requestedData.endYear = this.requestData.endYear
-				this.requestedData.summaryType = this.requestData.summaryType
-				this.requestedData.months = this.requestData.months
-				this.requestedData.interval = this.requestData.interval
-				this.requestedData.validateData = this.requestData.validateData
-				this.requestedData.maxHourPct = this.requestData.maxHourPct
-				this.requestedData.maxDayPct = this.requestData.maxDayPct
-				this.requestedData.maxDayGap = this.requestData.maxDayGap
 				this.requestedData.responseData = null
 				this.requestedData.responseMinMaxData = null
+				this.requestedData.responseContext = null
 				this.requestedData.requestedAt = moment().format('YYYY-MM-DD HH:mm')
 
 				const url = `/wx/agromet/products/get/`
@@ -667,5 +742,25 @@
 			},					
 		}		
 	})
+
+	$(document).ready(function(){
+		function getCookie(c_name) {
+			if(document.cookie.length > 0) {
+				c_start = document.cookie.indexOf(c_name + "=");
+				if(c_start != -1) {
+					c_start = c_start + c_name.length + 1;
+					c_end = document.cookie.indexOf(";", c_start);
+					if(c_end == -1) c_end = document.cookie.length;
+					return unescape(document.cookie.substring(c_start,c_end));
+				}
+			}
+			return "";
+		}
+	
+		$(function () {
+		  axios.defaults.headers.common["X-CSRFToken"] = getCookie("csrftoken");
+		  axios.defaults.headers.common["Content-Type"] = 'application/json';
+		});
+	});	
 </script>
 {% endblock %}
