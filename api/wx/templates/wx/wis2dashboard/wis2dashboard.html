@@ -8,8 +8,17 @@
         <v-dialog v-model="dialog" max-width="750" persistent>
             <v-card>
                 <v-card-title>Update WIS Credentials</v-card-title>
+
+                <v-card-text v-if="!credentialsLoaded" class="mt-3 text-h6" style="font-weight: normal !important;">
+                    Loading WIS2 credentials, please wait...
+
+                    <v-progress-circular
+                        indeterminate
+                        color="primary"
+                    ></v-progress-circular>
+                </v-card-text>
         
-                <v-card-text>
+                <v-card-text v-else>
                     <!-- Tabs to switch between Local and Regional settings -->
                     <v-tabs v-model="selectedTab" centered>
                         <v-tab key="local">Local Wis2</v-tab>
@@ -22,13 +31,37 @@
                             <!-- Check if credentials exist before showing the form -->
                             <v-card-text v-if="localCredentialsExist && !localForceCreate">
                                 <p>A Local WIS2 credential already exists. Do you want to replace it?</p>
-                                <v-btn color="primary" @click="localForceCreate = true">Yes, Create New</v-btn>
+
+                                <v-text-field 
+                                    v-model="localCredentials.local_wis2_ip_address"
+                                    append-icon="dns" 
+                                    label="IP Address" 
+                                    type="text"
+                                    disabled
+                                ></v-text-field>
+                                <v-text-field append-icon="router" v-model="localCredentials.local_wis2_port" label="Port" type="number" disabled></v-text-field>
+                                <v-text-field append-icon="person" v-model="localCredentials.local_wis2_username" label="Username" type="text" disabled></v-text-field>
+
+                                <v-btn color="primary" @click="localForceCreate = true" class="mr-3">Yes, Create New</v-btn>
                                 <v-btn color="red" dark @click="closeDialog()">Cancel</v-btn>
                             </v-card-text>
 
                             <!-- Show the form if the user confirms they want to create a new one -->
                             <v-form @submit.prevent="updateLocalCredentials" v-else>
-                                <h6 style="color: black !important;">Local Wis2</h6>
+                                <v-scroll-x-transition>
+                                    <v-alert 
+                                        type="warning" 
+                                        icon="warning"
+                                        color="orange"
+                                        class="mt-2"
+                                        rounded="20"
+                                        dismissible
+                                        dense
+                                    >
+                                        <span class="pl-4">Please fill out all options before saving!</span>
+                                    </v-alert>
+                                </v-scroll-x-transition>
+
                                 <v-text-field 
                                     append-icon="dns" 
                                     v-model="localForm.local_wis2_ip_address" 
@@ -43,7 +76,8 @@
                                 <v-text-field append-icon="lock" v-model="localForm.local_password" label="Password" type="password" required></v-text-field>
         
                                 <!-- Control buttons -->
-                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Close</v-btn>
+                                <v-btn color="grey" dark v-if="localForceCreate" @click="backCredentialsDialog('local')" class="mr-3">Back</v-btn>
+                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Cancel</v-btn>
                                 <v-btn type="submit" dark color="green" :disabled="!isLocalFormValid">Update</v-btn>
                             </v-form>
                         </v-tab-item>
@@ -53,13 +87,37 @@
                             <!-- Check if credentials exist before showing the form -->
                             <v-card-text v-if="regionalCredentialsExist && !regionalForceCreate">
                                 <p>A Regional WIS2 credential already exists. Do you want to replace it?</p>
-                                <v-btn color="primary" @click="regionalForceCreate = true">Yes, Create New</v-btn>
+
+                                <v-text-field 
+                                    v-model="regionalCredentials.regional_wis2_ip_address"
+                                    append-icon="dns" 
+                                    label="IP Address" 
+                                    type="text"
+                                    disabled
+                                ></v-text-field>
+                                <v-text-field append-icon="router" v-model="regionalCredentials.regional_wis2_port" label="Port" type="number" disabled></v-text-field>
+                                <v-text-field append-icon="person" v-model="regionalCredentials.regional_wis2_username" label="Username" type="text" disabled></v-text-field>
+
+                                <v-btn color="primary" @click="regionalForceCreate = true" class="mr-3">Yes, Create New</v-btn>
                                 <v-btn color="red" dark @click="closeDialog()">Cancel</v-btn>
                             </v-card-text>
 
                             <!-- Show the form if the user confirms they want to create a new one -->
                             <v-form @submit.prevent="updateRegionalCredentials" v-else>
-                                <h6 style="color: black !important;">Regional Wis2</h6>
+                                <v-scroll-x-transition>
+                                    <v-alert 
+                                        type="warning" 
+                                        icon="warning"
+                                        color="orange"
+                                        class="mt-2"
+                                        rounded="20"
+                                        dismissible
+                                        dense
+                                    >
+                                        <span class="pl-4">Please fill out all options before saving!</span>
+                                    </v-alert>
+                                </v-scroll-x-transition>
+
                                 <v-text-field 
                                     append-icon="dns" 
                                     v-model="regionalForm.regional_wis2_ip_address" 
@@ -74,7 +132,8 @@
                                 <v-text-field append-icon="lock" v-model="regionalForm.regional_password" label="Regional Password" type="password" required></v-text-field>
         
                                 <!-- Control buttons -->
-                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Close</v-btn>
+                                <v-btn color="grey" dark v-if="regionalForceCreate" @click="backCredentialsDialog('regional')" class="mr-3">Back</v-btn>
+                                <v-btn color="red" dark @click="closeDialog()" class="mr-3">Cancel</v-btn>
                                 <v-btn type="submit" dark color="green" :disabled="!isRegionalFormValid">Update</v-btn>
                             </v-form>
                         </v-tab-item>
@@ -133,7 +192,7 @@
 
                 <v-card-actions>
                     <!-- Push Now button, only enabled when a station is selected -->
-                    <v-btn color="red" dark @click="closePushNowDialog" class="mr-3">Close</v-btn>
+                    <v-btn color="red" dark @click="closePushNowDialog" class="mr-3">Cancel</v-btn>
                     
                     <v-btn 
                         :disabled="!selectedwis2PublishingStation" 
@@ -179,20 +238,11 @@
 
         <!-- configure station Dialog -->
         <v-dialog v-model="stationDialog" max-width="850">
-            <!-- <v-skeleton-loader
-                class="mx-auto custom-loader"
-                max-width="850"
-                type="card"
-            ></v-skeleton-loader> -->
 
             <v-card>
                 <v-card-title>[[ stationDialogName ]] Publishing Settings</v-card-title>
                 
                 <v-form @submit.prevent="updatePublishStations(stationDialogId)">
-                    <!-- spinner -->
-                    <v-overlay absolute opacity="0.3" style="border-radius: 4px;">
-                        <v-progress-circular indeterminate size="70"></v-progress-circular>
-                    </v-overlay>
 
                     <!-- Tabs to switch between Local and Regional settings -->
                     <v-tabs v-model="selectedSettingsTab" centered>
@@ -200,7 +250,21 @@
                         <v-tab key="transition">Transition Settings</v-tab>
                     </v-tabs>
 
+                    <v-scroll-x-transition>
+                        <v-alert 
+                            v-if="!invalidWigosAlert && !(!wis2PushForm.publishing || (wis2PushForm.regional_wis2 || wis2PushForm.local_wis2))" 
+                            type="warning" 
+                            icon="warning"
+                            dense
+                            class="mt-2"
+                            rounded="0"
+                        >
+                            If Publishing is selected, Local WIS2BOX or Regional WIS2BOX must be selected to enable the update button.
+                        </v-alert>
+                    </v-scroll-x-transition>
+
                     <v-tabs-items v-model="selectedSettingsTab">
+                        <!-- default section -->
                         <v-tab-item key="default">
                             <!-- for publishing to be enables a valid wigos id must be provided -->
                             <v-scroll-x-transition>
@@ -218,18 +282,19 @@
                             
                             <!-- Publishing must be enabled to enable local or regional wis2box -->
                             <!-- also if will only show if the invalid wigos test is passed -->
-                            <v-scroll-x-transition>
+                            <!-- <v-scroll-x-transition>
                                 <v-alert 
-                                    v-if="!invalidWigosAlert && !wis2PushForm.publishing" 
+                                    v-if="!invalidWigosAlert" 
                                     type="warning" 
                                     icon="warning"
                                     dense
                                     class="mt-2"
                                     rounded="0"
+                                    dismissible
                                 >
                                     To push to a Local WIS2BOX or a Regional WIS2BOX, Publishing must be enabled.
                                 </v-alert>
-                            </v-scroll-x-transition>
+                            </v-scroll-x-transition> -->
 
                             <!-- the form for the station default settings -->
                             <v-container>
@@ -375,8 +440,17 @@
 
                     <!-- the submit and cancel button -->
                     <v-card-text>
-                        <v-btn color="red" dark @click="closeStationDialog()" class="mr-3">Close</v-btn>
+                        <v-btn 
+                            color="red" 
+                            dark 
+                            @click="closeStationDialog()" 
+                            class="mr-3"
+                        >
+                            Cancel
+                        </v-btn>
+
                         <v-btn type="submit" 
+                            v-if="!invalidWigosAlert && (!wis2PushForm.publishing || (wis2PushForm.regional_wis2 || wis2PushForm.local_wis2))" 
                             dark 
                             color="green" 
                         >
@@ -386,13 +460,35 @@
                 </v-form>
             </v-card>
         </v-dialog>   
+
+        <!-- Help Dialog -->
+        <v-dialog v-model="helpDialog" max-width="750">
+            <v-card class="pa-4">
+                <v-card-text class="text-center text-h5">
+                    IN PROGRESS...
+                </v-card-text>
+
+                <v-card-actions>
+                    <!-- Push Now button, only enabled when a station is selected -->
+                    <v-btn color="red" dark @click="closeHelpDialog" class="mr-3">Close</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
         <!-- #################################### DIALOGS END #################################### -->
+
 
         <!-- Overlay with Spinner -->
         <v-overlay v-if="loadingTableDialogOverlay" absolute opacity="0.3">
             <v-progress-circular indeterminate size="70"></v-progress-circular>
         </v-overlay>
 
+        <!-- snack bar status -->
+        <v-snackbar v-model="snackbar.show" :timeout="3000" :color="snackbar.color">
+            [[ snackbar.message ]]
+        </v-snackbar>
+
+
+        <!-- #################################### PAGE CONTENT START #################################### -->
         <!-- heading -->
         <v-row no-gutters>
             <v-col class="d-flex" cols="12" sm="11">
@@ -412,7 +508,23 @@
             </v-col>
         </v-row>
 
-        <!-- transition station options and settings -->
+        <!-- alert accorss the top of the page when the wis2 credentials are not set yet -->
+        <v-scroll-x-transition>
+            <v-alert 
+                v-if="!regionalCredentialsExist || !localCredentialsExist"
+                type="warning" 
+                icon="warning"
+                color="orange"
+                class="mt-2"
+                rounded="20"
+                dismissible
+                dense
+            >
+                <span class="pl-4">Local or Regional WIS2BOX credentials are missing. Please go to Publish Settings to set them up.</span>
+            </v-alert>
+        </v-scroll-x-transition>
+
+        <!-- settings and transition station options -->
         <v-app-bar color="white" flat rounded>
             <!-- settings button -->
             <v-menu offset-y>
@@ -429,7 +541,19 @@
                 </template>
                 
                 <v-list>
-                    <v-list-item @click="openDialog()">
+                    <!-- adding a badge to say not set when the WIS2 credentials is not set -->
+                    <v-badge
+                        v-if="!regionalCredentialsExist || !localCredentialsExist"
+                        color="orange"
+                        content="NOT SET"
+                        inline
+                    >
+                        <v-list-item @click="openDialog()">
+                            <v-list-item-title>Update WIS2 Credentials</v-list-item-title>
+                        </v-list-item>
+                    </v-badge>
+
+                    <v-list-item @click="openDialog()" v-else>
                         <v-list-item-title>Update WIS2 Credentials</v-list-item-title>
                     </v-list-item>
 
@@ -437,7 +561,7 @@
                         <v-list-item-title>Push Now</v-list-item-title>
                     </v-list-item>
                     
-                    <v-list-item @click="">
+                    <v-list-item @click="openHelpDialog()">
                         <v-list-item-title>Help</v-list-item-title>
                     </v-list-item>
                 </v-list>
@@ -450,12 +574,6 @@
             </v-btn>
             
         </v-app-bar>    
-            
-
-        <!-- snack bar status -->
-        <v-snackbar v-model="snackbar.show" :timeout="3000" :color="snackbar.color">
-            [[ snackbar.message ]]
-        </v-snackbar>
 
         <!-- control for publishing status and logs -->
         <v-carousel 
@@ -533,9 +651,9 @@
 
                                 <h6 class="pt-4 pl-3">[[ publish_logs_station_metadata.station__wigos ]]</h6>
         
-                                <h6 class="pt-4 pl-3">Success Count: [[ publish_logs_station_metadata.publish_success ]]</h6>
+                                <h6 class="pt-4 pl-3">WIS2BOX Accepted: [[ publish_logs_station_metadata.publish_success ]]</h6>
         
-                                <h6 class="pt-4 pl-3">Fail Count: [[ publish_logs_station_metadata.publish_fail ]]</h6>
+                                <h6 class="pt-4 pl-3">Error: [[ publish_logs_station_metadata.publish_fail ]]</h6>
 
                             </v-card-text>
 
@@ -615,7 +733,7 @@
                                         label
                                         style="color: #4caf50 !important; border-color: #4caf50 !important;"
                                     >
-                                        Success
+                                        WIS2BOX Accepted
                                     </v-chip>
 
                                     <v-chip 
@@ -625,7 +743,7 @@
                                         label
                                         style="color: #ff9800 !important; border-color: #ff9800 !important;"
                                     >
-                                        Fail
+                                        Error
                                     </v-chip>
                                 </template>
 
@@ -660,7 +778,6 @@
             </v-carousel-item>
         </v-carousel>
           
-
         <!-- divider -->
         <v-divider class="pa-3"></v-divider>
 
@@ -771,6 +888,7 @@
                 </v-row>
             </v-container>
         </v-app>
+        <!-- #################################### PAGE CONTENT END #################################### -->
     </div>
 </div>
 
@@ -835,7 +953,7 @@
                             text: ''
                         },
                         xAxis: {
-                            categories: ['Success', 'Fail']
+                            categories: ['Accepted', 'Error']
                         },
                         yAxis: {
                             title: {
@@ -865,10 +983,13 @@
                     },
                     selectedTab: 0, // 0 = Local, 1 = Regional
                     selectedSettingsTab: 0, // 0 = default, 1 = transition
-                    localCredentialsExist: false, // Will check if a local credential exists
+                    localCredentialsExist: true, // Will check if a local credential exists
                     localForceCreate: false, // User confirmation to create new local entry
-                    regionalCredentialsExist: false, // Will check if a regional credential exists
+                    localCredentials: {}, // holds the local credentials
+                    regionalCredentialsExist: true, // Will check if a regional credential exists
                     regionalForceCreate: false, // User confirmation to create new regional entry
+                    regionalCredentials: {}, // holds the regional credentials
+                    credentialsLoaded: false, // holds the status of the wis2 credentials (loaded or not)
                     stationDialog: false,
                     stationDialogId: null,
                     stationDialogName: '',
@@ -908,6 +1029,8 @@
                     progressLinearQuery: false,
                     progressLinearShow: false,
                     progressLinearInterval: 0,
+                    helpDialog: false,
+
                 };
             },
             methods: {
@@ -940,14 +1063,14 @@
 
                             // update the graph
                             this.chartOptions.series[0].data = [
-                                { y: response.data.publish_success, color: 'green' },
-                                { y: response.data.publish_fail, color: 'red' }
+                                { y: response.data.publish_success, color: '#4CAF50' },
+                                { y: response.data.publish_fail, color: '#ff9800' }
                             ];
 
                             // update the graph with random values
                             // this.chartOptions.series[0].data = [
-                            //     { y: Math.floor(Math.random() * 100), color: 'green' },
-                            //     { y: Math.floor(Math.random() * 100), color: 'red' }
+                            //     { y: Math.floor(Math.random() * 100), color: '#4CAF50' },
+                            //     { y: Math.floor(Math.random() * 100), color: '#ff9800' }
                             // ];
                         })
                         .catch(error => {
@@ -993,11 +1116,8 @@
                     //     return 'green';
                     // }
 
-                    if (value == 0) {
+                    if (value <= 10) {
                         return 'grey';
-                    }
-                    else if (value <= 10) {
-                        return 'orange';
                     }
                     else {
                         return 'green';
@@ -1017,11 +1137,14 @@
                     // else {
                     //     return 'red';
                     // }
-                    if (value > 0) {
-                        return 'red';
-                    } else {
-                        return 'grey';
-                    }
+
+                    // if (value > 0) {
+                    //     return 'red';
+                    // } else {
+                    //     return 'grey';
+                    // }
+
+                    return 'orange';
 
                 },
                 
@@ -1157,7 +1280,10 @@
                                 this.localCredentialsExist = false;
                                 break; 
                             }
+
+                            this.localCredentials = localResponse.data; // update the local credentials with the local credentials retrieved from the api call
                         }
+
 
                         this.regionalCredentialsExist = true;
                         for (item in regionalResponse.data) {
@@ -1165,12 +1291,18 @@
                                 this.regionalCredentialsExist = false;
                                 break; 
                             }
+
+                            this.regionalCredentials = regionalResponse.data; // update the regional credentials with the regional credentials retrieved from the api call
                         }
+
+                        // credentials loaded so set var to true
+                        this.credentialsLoaded = true;
 
                     } catch (error) {
                         console.warn('Error checking credentials:', error);
                         this.localCredentialsExist = false;  // Assume no credentials if request fails
                         this.regionalCredentialsExist = false;  // Assume no credentials if request fails
+                        this.credentialsLoaded = false; // Assume the credentials did not load
                     }
                 },
 
@@ -1179,6 +1311,7 @@
                     this.dialog = false;
                     this.localForceCreate = false;  // Reset confirmation to avoid unnecessary form display
                     this.regionalForceCreate = false;  // Reset confirmation to avoid unnecessary form display
+                    this.credentialsLoaded = false; // since dialog is now closed reset the variable
                 },
 
                 // Validates an IPv4 address using regex.
@@ -1477,7 +1610,6 @@
                     }
                 },
 
-
                 // opens the dialog for push now
                 openPushNowDialog() {
                     this.dialogPushNow = true;
@@ -1534,7 +1666,7 @@
                     if (response.status === 200) {
                         console.log("Success: Station pushed.");
                         // this.dialogPushNow= false;
-                        this.snackbar = { show: true, message: 'Station pushed. See Logs for more information', color: 'blue' }
+                        this.snackbar = { show: true, message: 'Station push initiated. See Logs for more information', color: 'blue' }
                     }
                     })
                     .catch(error => {
@@ -1569,7 +1701,25 @@
                     }, 1000)
                 },
 
+                // fxns that controls the help dialog
+                openHelpDialog() {
+                    this.helpDialog = true; // enable the help dialog
+                },
+                closeHelpDialog() {
+                    this.helpDialog = false; // disable the help dialog
+                },
 
+                // fxn that sends users one step back in the wis2 credentials update dialog
+                backCredentialsDialog(credential_type) {
+                    if (credential_type == 'local') {
+                        this.localForceCreate = false;
+                    }
+                    else if (credential_type == 'regional') {  
+                        this.regionalForceCreate = false;
+                    }
+                },
+
+                // next method
             },
             computed: {
                 // Validates the Local Wis2 IP address.
@@ -1609,6 +1759,7 @@
                 },
             },
             watch: {
+                // watch for when the station filter toggles are selected
                 all_stations(newValue) {
                     // only one filter can be selected at a time
                     if (newValue == true) {
@@ -1655,6 +1806,8 @@
                     }
             
                 },
+                
+                // watch for when the refresh interval is changed
                 selectedInterval(newVal) {
                     this.setTimer(newVal);
                 },

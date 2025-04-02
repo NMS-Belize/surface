@@ -3186,7 +3186,7 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
             # Note that 'settings.WIS2BOX_TOPIC_HIERARCHY + filename' simply just tacks on the filename no '/' separation
             # see 'https://docs.wis2box.wis.wmo.int/en/latest/user/data-ingest.html' for and example
             # client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + filename, temp_csv_path)
-            client.fput_object('wis2box-incoming', str('origin/a/wis2/bz-nms/data/core/weather/surface-based-observations/synop' + '/' + filename), path)
+            client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + '/' + filename, path)
 
             logging.info(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
             log_message(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
@@ -3548,7 +3548,7 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
             # client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + filename, temp_csv_path)
             # Note: The filename and the path are not the same, but i don't believe this affects wis2 reception if an error occurs consider 
             # having the names match
-            client.fput_object('wis2box-incoming', str('origin/a/wis2/bz-nms/data/core/weather/surface-based-observations/synop' + '/' + filename), path)
+            client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + '/' + filename, path)
 
             # Add the file name
             wis2_message.append(filename)
