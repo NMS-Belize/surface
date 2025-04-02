@@ -70,11 +70,16 @@ app.conf.beat_schedule = {
         'task': 'wx.tasks.gen_toa5_file',
         'schedule': 900
     },    
-    # aws transmission to wis2box task
-    'aws_transmit_wis2box': {
-        'task': 'wx.tasks.aws_transmit_wis2box',
-        'schedule': 3600
-    },    
+    ## wis2box publish clean up (runs every 5 min)
+    'wis2box_cleanup': {
+        'task': 'wx.tasks.wis2publish_cleanup',
+        'schedule': 300
+    }, 
+    ## wis2box push task runs every minute (checks the cron schedule of publishing stations then pushes to wis2box)      
+    'wis2box_publish': {
+        'task': 'wx.tasks.wis2publish_task',
+        'schedule': 60
+    },
 }
 
 app.conf.timezone = 'UTC'

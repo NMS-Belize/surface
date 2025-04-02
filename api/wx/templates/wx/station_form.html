@@ -299,6 +299,34 @@
       color: #1976d2 !important;
       border-color: #1976d2 !important;
     }
+    
+    #id_international_exchange_container .help-block {
+      display: none; /* Hide international-exchange help-block by default */
+    }
+
+    #id_international_exchange_container:hover .help-block {
+      display: block; /* Show international-exchange help-block when the parent is hovered */
+    }
+
+    #id_international_exchange_container .help-block {
+      width: 300px;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 100%;
+      z-index: 100;
+      margin-top: 0.2em;
+      background: #F8F9FA;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      /* font-family: Arial, sans-serif; */
+      font-size: 13px;
+      color: #5F6368;
+      /* color: #3a3d3f; */
+      line-height: 1.5;
+    }
+
 </style>
 
   <form method="POST" id="station-form">
@@ -750,7 +778,7 @@
 
       // Initialize visibility based on toggle states
       toggleOptions('oscar');
-      // toggleOptions('wis2box');
+      toggleOptions('wis2box');
     });
 
     // radio buttons at the top of the page

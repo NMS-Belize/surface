@@ -25,15 +25,16 @@
           <v-btn color="primary" @click="dialog_info = false">Close</v-btn>
         </v-card-actions>
       </v-card>
-    </v-dialog>    
+    </v-dialog>   
 
     <v-layout column>
-      <v-flex ml-5 mb-2 lg1>
-        <h4> STATIONS MONITORING</h4>
-      </v-flex>
+      <!-- heading -->
+      <v-section style="margin-left: 20px !important;">
+        <h4>STATIONS MONITORING</h4>
+      </v-section>
 
       <v-layout > 
-        <v-flex lg8 class="align-center">
+        <v-flex md8 class="align-center">
             <v-layout v-if="loading_map" class="align-center justify-center" column>
               <span class="headline font-weight-thin" v-if="loading_map">Loading Map...</span><br>
               <v-progress-circular indeterminate ></v-progress-circular>
@@ -53,7 +54,7 @@
                 <template>
                   <v-card>
                     <v-card-title class="px-2 pt-1 pb-1" style="font-size: 12px; line-height: 1.2; color: #444;">
-                      <v-btn class="mr-1" x-small icon @click="dialog_info=true" disabled=true>
+                      <v-btn class="mr-1" x-small icon @click="dialog_info=true" :disabled=true>
                           <v-icon>mdi-information</v-icon>
                       </v-btn>
                       <span v-if="['Communication', 'Quality Control'].includes(data_type)" class="mr-2 "> Observations from <br/>the pass 24 hours </span>
@@ -108,9 +109,13 @@
                 </template>
               </l-control>            
               <l-control-zoom position="topleft"></l-control-zoom>
-              <l-control position="top">
+
+              <l-control position="topright">
+
                 <div class="data-type-box">
+
                   <template>
+
                     <v-layout column>
                       <v-btn class="data-type-btn" color="white" @click="reveal = !reveal">
                         <div class="d-flex flex-column">
@@ -127,16 +132,22 @@
                           </small>
                         </div>
                       </v-btn>
+
                       <v-expand-transition v-if="reveal">
+
                         <v-card>
+
                           <div  class="d-flex justify-center align-center">
                             <v-btn-toggle v-if="!isMaintenance(data_type)" mandatory v-model="time_type" @change="changeTimeType()">
                               <v-btn class="px-6 mt-2" small value="Last 24h">Last 24h</v-btn>
                               <v-btn class="px-6 mt-2" small value="Pick a day">Pick a day</v-btn>
                             </v-btn-toggle>
                           </div>
+
                           <v-card-actions class="pa-0 ">
+
                             <v-layout class="mt-2 ml-5 mr-6" column>
+
                               <v-menu
                                 v-if="time_type === 'Pick a day'"
                                 v-model="date_menu"
@@ -148,6 +159,7 @@
                                 style="z-index: 999;"
                               >
                                 <template class="mb-0" v-slot:activator="{ on }">
+
                                   <v-text-field
                                     v-model="date"
                                     label="Select date"
@@ -155,32 +167,48 @@
                                     readonly
                                     v-on="on"
                                   ></v-text-field>
+
                                 </template>
+
                                 <v-date-picker
                                   class="mb-0"
                                   v-model="date"
                                   @input="date_menu = false"
                                   @change="changeTimeType()"
                                 ></v-date-picker>
+
                               </v-menu>
 
                               <v-radio-group class="mt-0" v-model="data_type" @change="changeRadio()">
+
                                 <v-radio label="Communication" value="Communication"></v-radio>
                                 <v-radio label="Quality Control" value="Quality Control"></v-radio>
                                 <span class="mb-1"> Maintenance </span>
                                 <v-radio class="ml-5" label="Visits" value="Visits"></v-radio>
                                 <v-radio class="ml-5" label="Equipment" value="Equipment"></v-radio>
+                                
                               </v-radio-group>
+
                             </v-layout>
+
                           </v-card-actions>
+
                         </v-card> 
+
                       </v-expand-transition>   
-                    </v-layout>          
+
+                    </v-layout>   
+
                   </template>
-                </div>            
-              </l-control>            
+
+                </div>  
+
+              </l-control>    
+
+
               <l-circle-marker
                 v-for="station in filteredStations"
+                :key = "station.id"
                 :lat-lng="station.position"
                 :radius="7"
                 color="white"
@@ -194,7 +222,7 @@
             </l-map>
         </v-flex>
 
-        <v-flex style="border-left: 2px solid #BBB;" lg4>
+        <v-flex style="border-left: 2px solid #BBB;" md4>
           <div style="background-color: #CCC; display: flex; justify-content: space-between; align-items: center;">
             <h5 style="margin-left: 5%;">  [[selected.station.name]] Station </h5>
             <v-btn icon @click="goTo()">
@@ -420,14 +448,14 @@
     LMap,
     LTileLayer,
     LCircleMarker,
-    LControl,
     LControlZoom,
     LMarker,
     LTooltip,
     LControlLayers,
     LPopup,
     LGeoJson,
-    LIcon
+    LIcon,
+    LControl
   } = Vue2Leaflet;
 
   new Vue({
@@ -438,14 +466,14 @@
       LMap,
       LTileLayer,
       LCircleMarker,
-      LControl,
+      LControlLayers, // Use this instead of LControl
       LControlZoom,
       LMarker,
       LTooltip,
-      LControlLayers,
       LPopup,
       LGeoJson,
-      LIcon
+      LIcon,
+      LControl
     },
     data () {
       return{
@@ -730,10 +758,10 @@
     font-size: 16px !important;
   }
   .data-type-box {
-    position: absolute;
-    top: 16px;
-    left: 56px;
-    display: flex;
+    /* position: absolute; */
+    /* top: 16px;
+    left: 56px; */
+    /* display: flex; */
     width: 100%;
     width: 250px;
     z-index: 995;

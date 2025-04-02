@@ -38,4 +38,6 @@ pygeoapi
 pyoscar
 minio
 pint==0.18
+cryptography
+urllib3
 numpy==1.21.2

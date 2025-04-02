@@ -3,13 +3,14 @@ import io
 import json
 import logging
 import os
+import zipfile
 import shutil
 import random
 import uuid
 import wx.export_surface_oscar as exso
 import pyoscar
 from datetime import datetime as datetime_constructor
-from datetime import timezone
+from datetime import timezone, timedelta
 
 import matplotlib
 
@@ -24,12 +25,14 @@ import pytz
 import django.conf
 from django.contrib import messages
 from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
+from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
-from django.http import HttpResponse, JsonResponse, FileResponse
+from django.http import HttpResponse, JsonResponse, FileResponse, HttpResponseNotAllowed
 from django.template import loader
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -43,7 +46,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.transforms import Bbox
 from metpy.interpolate import interpolate_to_grid
 from pandas import json_normalize
-from rest_framework import viewsets, status, generics, views
+from rest_framework import viewsets, status, generics, views, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import FileUploadParser
 from rest_framework.permissions import IsAuthenticated
@@ -60,7 +63,7 @@ from wx.forms import StationForm
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication, CombineDataFile, ManualStationDataFile
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, StationDataFileStatus,\
-    StationProfile, Document, Watershed, Interval, CountryISOCode
+    StationProfile, Document, Watershed, Interval, CountryISOCode, Wis2BoxPublish, Wis2PublishOffset, LocalWisCredentials, RegionalWisCredentials,  Wis2BoxPublishLogs
 from wx.utils import get_altitude, get_watershed, get_district, get_interpolation_image, parse_float_value, \
     parse_int_value
 from .utils import get_raw_data, get_station_raw_data
@@ -77,11 +80,14 @@ import numpy as np
 
 from wx.models import Equipment, EquipmentType, Manufacturer, FundingSource, StationProfileEquipmentType
 from django.core.serializers import serialize
+from django.core.serializers.json import DjangoJSONEncoder
 from wx.models import MaintenanceReportEquipment
 from wx.models import QcRangeThreshold, QcStepThreshold, QcPersistThreshold
 from simple_history.utils import update_change_reason
 from django.db.models.functions import Cast
 from django.db.models import IntegerField
+from django.utils.timezone import localtime
+
 
 from wx.models import WMOCodeValue
 
@@ -295,7 +301,7 @@ def CombineFilesXLSX(request):
 
         # If source is raw_data, aggregation will be set to none
         if data_source == 'raw_data':
-            aggregation = None
+            aggregation = ""
 
         data_interval_seconds = None
         if data_source == 'raw_data' and 'data_interval' in json_body:  # a number with the data interval in seconds. Only required for raw_data
@@ -908,7 +914,9 @@ def CheckManualImportView(request):
         uploaded_files = {}
         unsupported_files = ''
         duplicate_files = ''
+        non_existent_stations = []
         UPLOAD_DIR = '/data/documents/ingest/manual/check'
+        # dictionary of allowed file types
         allowed_file_types = {
             ".xlsx":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }
@@ -933,11 +941,34 @@ def CheckManualImportView(request):
                 for chunk in file_obj.chunks():  # Write file in chunks
                     destination.write(chunk)
 
+            missing_stations = [] # list holding the stations which do not exist in the database
+            excel_df = pd.ExcelFile(file_path) # the excel file into a dataframe
+            excel_sheet_names = excel_df.sheet_names # grab all the sheet names
+
+            # Loop through the sheet names in the file 
+            for sheet in excel_sheet_names:
+                # if a station exists 
+                if Station.objects.filter(name=str(sheet)).exists():
+                    continue #  continue on with the loop
+                else:
+                    missing_stations.append(str(sheet)) # add sheet name (station name) to the missing stations list
+                    
+            if missing_stations:
+                os.remove(file_path) # delete the file
+                non_existent_stations.append(f"File [{file_name}] contains station(s) which do not exist. Please correct the mistake and re-upload: {', '.join(missing_stations)}")
+
+                continue # skip to the next execution
+
             file_size = round(os.stat(file_path).st_size / (1024*1024), 4)
             
             uploaded_files[file_name] = file_size # Store file name and size (size in MB)
 
-        return JsonResponse({"uploaded_files": uploaded_files, "duplicate_files": duplicate_files, "unsupported_files": unsupported_files}, status=201)
+        return JsonResponse({"uploaded_files": uploaded_files, 
+                             "duplicate_files": duplicate_files, 
+                             "unsupported_files": unsupported_files, 
+                             "non_existent_stations": non_existent_stations}, 
+                             status=201
+                            )
     
     return JsonResponse({"error": "Invalid request method"}, status=400)
 
@@ -2717,7 +2748,7 @@ class StationDetailView(LoginRequiredMixin, DetailView):
                  Row('code', 'wigos'),
                  Row('begin_date', 'end_date', 'relocation_date'),
                  Row('wmo', 'reporting_status'),
-                 Row('is_active', 'is_automatic', 'international_exchange', 'is_synoptic'),
+                 Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
                  Row('synoptic_code', 'synoptic_type'),
                  Row('network', 'wmo_station_type'),
                  Row('profile', 'communication_type'),
@@ -2780,7 +2811,7 @@ class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
         Fieldset('SURFACE Requirements',
                  Row('latitude', 'longitude'),
                  Row('name'),
-                 Row('is_active', 'is_automatic', 'is_synoptic'),
+                 Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
                  Row('synoptic_code', 'synoptic_type'),
                  Row('code', 'elevation'),
                  Row('country', 'communication_type'),
@@ -2792,7 +2823,6 @@ class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
                  Row('wigos_part_1', 'wigos_part_2', 'wigos_part_3', 'wigos_part_4'),
                  Row('wmo_region'),
                  Row('wmo_station_type', 'reporting_status'),
-                 Row('international_exchange'),
                  ),
         Fieldset('OSCAR Specific Settings',
                 #  Row(''),
@@ -2938,7 +2968,7 @@ class StationUpdate(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
                  Row('code', 'wigos'),
                  Row('begin_date', 'end_date', 'relocation_date'),
                  Row('wmo', 'reporting_status'),
-                 Row('is_active', 'is_automatic', 'international_exchange', 'is_synoptic'),
+                 Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
                  Row('synoptic_code', 'synoptic_type'),
                  Row('network', 'wmo_station_type'),
                  Row('profile', 'communication_type'),
@@ -7627,9 +7657,9 @@ class IntervalViewSet(viewsets.ModelViewSet):
 def get_synop_table_config():
     # List of variables, in order, for synoptic station input form
     variable_symbols = [
-        'WINDINDR', 'PRECIND', 'STATIND', 'LOWCLH', 'VISBY',
+        'WINDINDR', 'PRECIND', 'STATIND', 'LOWCLH', 'VISBY-km', 'VISBY',
         'CLDTOT', 'WNDDIR', 'WNDSPD', 'TEMP', 'TDEWPNT', 'TEMPWB',
-        'RH', 'PRESSTN', 'PRESSEA', 'PRECSLR', 'PRECDUR', 'PRSWX',
+        'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECSLR', 'PRECDUR', 'PRSWX',
         'W1', 'W2', 'Nh', 'CL', 'CM', 'CH', 'STSKY',
         'DL', 'DM', 'DH', 'TEMPMAX', 'TEMPMIN', 'PREC24H', 'N1', 'C1', 'hh1',
         'N2', 'C2', 'hh2', 'N3', 'C3', 'hh3', 'N4', 'C4', 'hh4', 'SpPhenom'
@@ -7642,12 +7672,25 @@ def get_synop_table_config():
     nested_headers = [
         [variable.name for variable in variable_list]+['Remarks', 'Observer', 'Action'],
         # [variable.symbol for variable in variable_list]+['Remarks', 'Observer', 'Action'],
-        [variable.synoptic_code_form if variable.synoptic_code_form is not None else '' for variable in variable_list]+['', '', ''],
+        [
+            (
+                variable.synoptic_code_form + " [In Meters]" 
+                if variable.synoptic_code_form in ["h"] 
+                else
+                # variable.synoptic_code_form + " [In Kilometers]"
+                # if variable.synoptic_code_form in ["(VV) VV"] 
+                # else
+                variable.synoptic_code_form
+            ) 
+            if variable.synoptic_code_form is not None 
+            else '' 
+            for variable in variable_list
+         ]+['', '', ''],
     ]
 
     col_widths = [
-        99, 146, 176, 136, 61, 107, 100, 83, 171,
-        154, 117, 175, 163, 180, 129, 181, 112,
+        99, 146, 176, 136, 61, 61, 107, 100, 83,
+        171, 154, 117, 175, 163, 180, 129, 129, 181, 112,
         144, 144, 169, 108, 124, 110, 82, 148, 153,
         150, 208, 212, 162, 159, 195, 162, 159, 195,
         162, 159, 195, 162, 159, 195, 145, 64, 65, 49
@@ -7656,7 +7699,7 @@ def get_synop_table_config():
 
     columns = []
     for variable in variable_list:
-        if (variable.variable_type=='Numeric'):
+        if (variable.variable_type=='Numeric' and variable.id!=4057):
             var_type='numeric'
             numeric_format = '0'
             if variable.scale > 0:
@@ -7678,7 +7721,21 @@ def get_synop_table_config():
                 'codetable': variable.code_table_id,
                 'strict': 'true',
                 'validator': 'dropdownFieldValidator'
-            }            
+            }   
+        elif (variable.variable_type=='Numeric' and variable.id==4057): # the 24hr barometric change column
+            var_type='numeric'
+            numeric_format = '0'
+            if variable.scale > 0:
+                numeric_format = '0.'+'0'*variable.scale
+
+            new_column = {
+                'data': str(variable.id),
+                'name': str(variable.symbol),
+                'type': var_type,
+                'numericFormat': {'pattern': numeric_format},
+                'validator': 'numericFieldValidator',
+                'readOnly': 'true',
+            }         
         else:
             var_type='text'
             numeric_format=None
@@ -7686,7 +7743,7 @@ def get_synop_table_config():
                 'data': str(variable.id),
                 'name': str(variable.symbol),
                 'type': var_type,
-                'validator': 'textFieldValidator'
+                'validator': 'textFieldValidator',
             }
 
         columns.append(new_column)
@@ -7757,6 +7814,54 @@ class SynopView(LoginRequiredMixin, TemplateView):
         context['date'] = date
 
         return self.render_to_response(context)    
+
+
+@csrf_exempt
+def synop_pressure_calc(request):
+    if request.method == 'POST':
+        station_id = tuple([request.GET['station_id']])
+        data = json.loads(request.body)  # Parse JSON data
+        pressure_value = float(data.get('pressure_value')) 
+        date_value = data.get('date')
+
+        station = Station.objects.get(pk=station_id[0]) 
+        # Invert the station's UTC offset (minutes) to convert its local time to UTC.
+        offset = datetime.timedelta(minutes=(-1 * station.utc_offset_minutes))
+
+        # Convert the string to a datetime object:
+        dt_object = datetime.datetime.strptime(date_value, "%Y-%m-%d %H:%M")
+        dt_object = dt_object + offset
+
+        # Subtract 24 hours:
+        dt_24_hours_ago = dt_object - timedelta(days=1)
+
+        # Format the resulting datetime object back into a string:
+        formatted_date_string = dt_24_hours_ago.strftime("%Y-%m-%dT%H:%MZ")
+
+        pressure_variable_id = (61,)
+
+        # grab the query output for the Station pressure at sea level
+        dataset = get_station_raw_data('variable', pressure_variable_id, None, formatted_date_string, formatted_date_string,
+                                           station_id)
+
+        if dataset['results']:
+            pressure_data = dataset['results']['Pressure at Sea Level (hPa)']
+
+            # Since there's only one station, get the first (and only) key
+            station_name = next(iter(pressure_data))
+
+            value = pressure_data[station_name]['data'][0]['value']  
+
+            # return the absolute value as the pressure difference
+            pressure_difference = abs(value - pressure_value) if pressure_value != -99.9 and value != -99.9 else -99.9
+        else:
+            pressure_difference = 'no data'
+
+        # display the error message
+        if dataset['messages']:
+            logger.error(f"An error occured whilst retrieving 24hr baromatric change value: {dataset['messages']}")
+        
+    return JsonResponse({'dataset': pressure_difference}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -7982,7 +8087,7 @@ def get_synop_form_config():
             "Form of layer", "Height of next layer", "Indicator", "Amt. of layer", "Form of layer",
             "Height of next layer", "Special Phenomena", "REMARKS", "Initails"
         ],
-        ["Land Station-no distinction AAXX", "GGggYYGG", "iW", "IIiii", "iR", "iX", "h", "(VV) VV", "N",
+        ["Land Station-no distinction AAXX", "GGggYYGG", "iW", "IIiii", "iR", "iX", "h [In Meters]", "(VV) VV", "N",
             "ddd dd", "(fmfm) f f", "1sn", "T'T' TTT", "2sn", "T'dT'd Td TdTd", "UUU", "",
             "3", "POPOPOPO", "4", "PHPHPHPH PPPP", "6", "RRR", "Tr", "7", "ww", "W1", "W2", "8", "Nh", "CL",
             "CM", "CH", "333", "0", "CS", "DL", "DM", "DH", "1sn", "TXTXTX", "2sn", "TnTnTn", "5j1",
@@ -8319,11 +8424,50 @@ def synop_load_form(request):
         pvd_atm_pressure = next((float(row[2]) for row in pvd_data_row if row[1] == variables.get(symbol='PRESSTN').id), None)
         relative_humidity = next((float(row[2]) for row in data_row if row[1] == variables.get(symbol='RH').id and str(row[2]) != str(settings.MISSING_VALUE)), None)
 
-        vars = [atm_pressure, pvd_atm_pressure]
-        if all(vars) and settings.MISSING_VALUE not in vars:
-            barometric_change_24h = round(atm_pressure-pvd_atm_pressure)
-        else:
+
+        # time solts to loop through to populate the 24hr brometric change column
+        time_slots = [' 00:00', ' 01:00', ' 02:00', ' 03:00', ' 04:00', ' 05:00', ' 06:00', 
+                        ' 07:00', ' 08:00', ' 09:00', ' 10:00', ' 11:00', ' 12:00', ' 13:00', 
+                        ' 14:00', ' 15:00', ' 16:00', ' 17:00', ' 18:00', ' 19:00', ' 20:00', 
+                        ' 21:00', ' 22:00', ' 23:00']
+        
+        # calculate barometric change
+        try:
+            # current time slot will be in the form year-month-day hour:minute
+            current_time_slot = request.GET['date'] + time_slots[i]
+
+            # Invert the station's UTC offset (minutes) to convert its local time to UTC.
+            offset = datetime.timedelta(minutes=(-1 * station.utc_offset_minutes))
+
+            dt_object = datetime.datetime.strptime(current_time_slot, "%Y-%m-%d %H:%M")
+            dt_object = dt_object + offset
+
+            # Format the resulting datetime object back into a string:
+            formatted_date_string = dt_object.strftime("%Y-%m-%dT%H:%MZ")
+
+            dataset = get_station_raw_data('variable', (4057,), None, formatted_date_string, formatted_date_string,
+                                    (int(request.GET['station_id']),))
+
+            if dataset['results']:
+                pressure_data = dataset['results']['24-Hour Barometric Change']
+
+                # Since there's only one station, get the first (and only) key
+                station_name = next(iter(pressure_data))
+
+                value = pressure_data[station_name]['data'][0]['value']  
+
+                if value == -99.9:
+                    barometric_change_24h = None
+                else:
+                    barometric_change_24h = value
+            else:
+                barometric_change_24h = None
+
+        except Exception as e:
+            logger.error(f"an error occured whilst calculating baraometric change: {e}")
             barometric_change_24h = None
+
+
 
         vars = [air_temp, air_temp_wb, atm_pressure]
         if all(vars) and settings.MISSING_VALUE not in vars:
@@ -8503,3 +8647,294 @@ class MonthlyFormView(LoginRequiredMixin, TemplateView):
         context['date'] = request.GET.get('date', datetime.date.today().strftime('%Y-%m'))
 
         return self.render_to_response(context)
+
+
+# wis2box dashboard page
+class WIS2DashboardView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/wis2dashboard/wis2dashboard.html"
+
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+
+        # context['station_list'] = Station.objects.filter(is_synoptic=True).values('id', 'name', 'code')
+        # context['handsontable_config'] = get_synop_table_config()
+        # # Get parameters from request or set default values
+        # station_id = request.GET.get('station_id', 'null')
+        # date = request.GET.get('date', datetime.date.today().isoformat())
+        # context['station_id'] = station_id
+        # context['date'] = date
+
+        return self.render_to_response(context) 
+
+
+# to grap data for the wis2 dashboard
+def wis2dashboard_records_list(request):
+    try:
+        search_criteria = request.GET.get('search_criteria', '').strip().lower()
+        
+        if search_criteria == 'all':
+            queryset = Wis2BoxPublish.objects.select_related("station")
+        elif search_criteria == 'publishing':
+            queryset = Wis2BoxPublish.objects.filter(publishing=True).select_related("station")
+        elif search_criteria == 'publish_status':
+            queryset = Wis2BoxPublish.objects.filter(publishing=True).select_related("station")
+        elif search_criteria == 'not publishing':
+            queryset = Wis2BoxPublish.objects.filter(publishing=False).select_related("station")
+        elif search_criteria == 'trans pub':
+            queryset = Wis2BoxPublish.objects.filter(publishing=True, transition=True).select_related("station")
+        elif search_criteria == 'trans nonpub':
+            queryset = Wis2BoxPublish.objects.filter(publishing=False, transition=True).select_related("station")
+        else:
+            queryset = Wis2BoxPublish.objects.select_related("station")
+        
+        if not queryset.exists():
+            logger.info("No records found!")
+            return JsonResponse({"error": "No records found"}, status=204)
+
+        records = list(queryset.values(
+            "id", 
+            "publishing", 
+            "station__name", 
+            "station__wigos", 
+            "station__is_automatic", 
+            "station__is_synoptic", 
+            "publish_success", 
+            "publish_fail",
+            "transition"
+        ))
+
+        # calculate the total success and fails to create the graph
+        publish_success_count = 0
+        publish_fail_count = 0
+
+        for record in records:
+            if not record['station__wigos']:
+                record['station__wigos'] = "WIGOS ID NOT FOUND"
+
+            station_status = []
+            # getting the publishing status
+            if record['publishing']:
+                station_status.append("Publishing")
+
+                # transition status
+                if record['transition']:
+                    station_status.append("Transition")
+
+                # getting the automatic/manual status
+                if record['station__is_automatic']:
+                    station_status.append("Automatic")
+                else:
+                    station_status.append("Manual")
+
+                # synoptic status
+                if record['station__is_synoptic']:
+                    station_status.append("Synoptic")
+                    
+            else:
+                station_status.append("Not Publishing")
+
+                # transition status
+                if record['transition']:
+                    station_status.append("Transition")
+
+                # getting the automatic/manual status
+                if record['station__is_automatic']:
+                    station_status.append("Automatic")
+                else:
+                    station_status.append("Manual")
+
+                # getting the synoptic status
+                if record['station__is_synoptic']:
+                    station_status.append("Synoptic")
+
+            # adding the Status to the record object
+            record['status'] = station_status
+
+            publish_success_count += record['publish_success']
+            publish_fail_count += record['publish_fail']
+
+        if search_criteria == 'publish_status':
+            return JsonResponse({"items": records, "publish_success": publish_success_count, "publish_fail": publish_fail_count}, encoder=DjangoJSONEncoder)
+        
+        return JsonResponse({"items": records}, encoder=DjangoJSONEncoder)
+
+    except Exception as e:
+        logger.error(f"An error occured: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+    
+
+# to fetch publishig logs information
+def publishingLogs(request, pk):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])  # Only allow GET requests
+
+    logs = Wis2BoxPublishLogs.objects.filter(publish_station__id=pk).values(
+        "id", "created_at", "last_modified", "publish_station", 
+        "success_log", "log", "wis2message_exist", "wis2message"
+    )
+
+    # getting station metadata
+    station_metadata = Wis2BoxPublish.objects.filter(id=pk).values("station__name", "station__wigos", "publish_success", "publish_fail")
+    return JsonResponse({"logs":list(logs), "station_metadata":list(station_metadata), "timezone_offset":settings.TIMEZONE_OFFSET}, safe=False)  # Convert QuerySet to list
+
+
+def downloadWis2Logs(request, pk):
+    """
+    Downloads log files associated with a specific publish station (identified by pk) as a ZIP file.
+    """
+    logs = Wis2BoxPublishLogs.objects.filter(publish_station__id=pk)
+    
+    if not logs.exists():
+        return HttpResponse("No logs found", status=404)
+    
+    temp_dir = tempfile.mkdtemp()
+    zip_filename = os.path.join(temp_dir, f"logs_{pk}.zip")
+    
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for log_entry in logs:
+            # Format the timestamp for uniqueness and readability
+            timestamp = localtime(log_entry.created_at).strftime("%Y-%m-%d_%H-%M-%S")
+            file_name = f"{timestamp}-{log_entry.id}-logfile.txt"
+            file_path = os.path.join(temp_dir, file_name)
+            
+            # Write log content to a temporary file
+            with open(file_path, "w", encoding="utf-8") as log_file:
+                log_file.write(log_entry.log)
+            
+            # Add the file to the ZIP archive
+            zipf.write(file_path, arcname=file_name)
+    
+    # Read the ZIP file and prepare it for download
+    with open(zip_filename, "rb") as zip_file:
+        response = HttpResponse(zip_file.read(), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="logs_{pk}.zip"'
+    
+    # Cleanup temporary files and directory
+    for file in os.listdir(temp_dir):
+        os.remove(os.path.join(temp_dir, file))
+    os.rmdir(temp_dir)
+    
+    return response
+
+
+def downloadWis2Message(request, pk):
+    """
+    Downloads WIS2 messages associated with a specific publish station (identified by pk) as a ZIP file.
+    """
+    messages = Wis2BoxPublishLogs.objects.filter(publish_station__id=pk, wis2message_exist=True)
+    
+    if not messages.exists():
+        return HttpResponse("No logs found", status=404)
+    
+    temp_dir = tempfile.mkdtemp()
+    zip_filename = os.path.join(temp_dir, f"messages_{pk}.zip")
+    
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for message in messages:
+            # Format the timestamp for uniqueness and readability
+            timestamp = localtime(message.created_at).strftime("%Y-%m-%d_%H-%M-%S")
+            file_name = f"{timestamp}-{message.id}-messagefile.csv"
+            file_path = os.path.join(temp_dir, file_name)
+            
+            # Write message content to a temporary file
+            with open(file_path, "w", encoding="utf-8") as msg_file:
+                msg_file.write(message.wis2message)
+            
+            # Add the file to the ZIP archive
+            zipf.write(file_path, arcname=file_name)
+    
+    # Read the ZIP file and prepare it for download
+    with open(zip_filename, "rb") as zip_file:
+        response = HttpResponse(zip_file.read(), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="messages_{pk}.zip"'
+    
+    # Cleanup temporary files and directory
+    for file in os.listdir(temp_dir):
+        os.remove(os.path.join(temp_dir, file))
+    os.rmdir(temp_dir)
+    
+    return response
+
+# to load the form to update local wis2 credential
+class LocalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = LocalWisCredentials.objects.all()
+    serializer_class = serializers.LocalWisCredentialsSerializer
+    permission_classes = [permissions.IsAdminUser]  # Restrict access to admins only
+
+    def get_object(self):
+        try:
+            return LocalWisCredentials.load()  # Ensures only one instance is updated
+        except Exception as e:
+            logger.error(f'An error occurred while fetching LocalWisCredentials: {e}')
+            raise
+
+
+# to load the form to update regional wis2 credential
+class RegionalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = RegionalWisCredentials.objects.all()
+    serializer_class = serializers.RegionalWisCredentialsSerializer
+    permission_classes = [permissions.IsAdminUser]  # Restrict access to admins only
+
+    def get_object(self):
+        try:
+            return RegionalWisCredentials.load()  # Ensures only one instance is updated
+        except Exception as e:
+            logger.error(f'An error occurred while fetching RegionalWisCredentials: {e}')
+            raise
+
+
+# to load the form to update the stations publishing settings
+class configWis2StationUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = Wis2BoxPublish.objects.all()
+    serializer_class = serializers.Wis2BoxPublishSerializer
+    permission_classes = [permissions.IsAdminUser]  # Restrict access to admins only
+
+    def get_object(self):
+        station_id = self.kwargs.get("pk")  # Get ID from URL
+        try:
+            return Wis2BoxPublish.objects.get(id=station_id)  # Fetch entry by ID
+        except Exception as e:
+            logger.error(f'An error occurred while fetching Wis2BoxPublish stations data: {e}')
+            raise
+
+
+# shows all stations which are currently set to wis2 publishing
+class Wis2BoxPublishListView(views.APIView):
+    def get(self, request):
+        # Query all the Wis2BoxPublish objects where publishing is True
+        queryset = Wis2BoxPublish.objects.filter(publishing=True)
+        
+        # Serialize the queryset
+        serializer = serializers.Wis2BoxPublishSerializerReadPublishing(queryset, many=True)
+        
+        # Return the serialized data as a response
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class publishingOffsetViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticated,)
+    queryset = Wis2PublishOffset.objects.all()
+        
+
+    def get_serializer_class(self):
+        return serializers.Wis2PublishOffsetSerializerRead
+
+
+@csrf_exempt
+def push_to_wis2box(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            station_id = int(data.get("stationId"))
+
+            if not station_id:
+                return JsonResponse({}, status=400)
+
+            # attempt station push to wis2box
+            tasks.wis2publish_task_now(station_id)
+
+            return JsonResponse({}, status=200)
+        except Exception as e:
+            return JsonResponse({e}, status=500)
+
+    return JsonResponse({}, status=405)  # Method Not Allowed

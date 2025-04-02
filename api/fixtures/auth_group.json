@@ -1,0 +1,51 @@
+[
+    {
+        "model": "auth.group",
+        "pk": 1,
+        "fields": {
+            "name": "Guest"
+        }
+    },
+    {
+        "model": "auth.group",
+        "pk": 2,
+        "fields": {
+            "name": "Data Entry Clerk"
+        }
+    },
+    {
+        "model": "auth.group",
+        "pk": 3,
+        "fields": {
+            "name": "Instrument Technician"
+        }
+    },
+    {
+        "model": "auth.group",
+        "pk": 4,
+        "fields": {
+            "name": "Climate Officer"
+        }
+    },
+    {
+        "model": "auth.group",
+        "pk": 5,
+        "fields": {
+            "name": "Climate Administrator"
+        }
+    },
+    {
+        "model": "auth.group",
+        "pk": 6,
+        "fields": {
+            "name": "Meteorologist"
+        }
+    },
+    {
+        "model": "auth.group",
+        "pk": 7,
+        "fields": {
+            "name": "System Administrator"
+        }
+    }
+]

@@ -10,7 +10,10 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
 from django.utils.timezone import now
 from croniter import croniter
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+
+from cryptography.fernet import Fernet
+from django.conf import settings
 
 from wx.enums import FlashTypeEnum
 
@@ -449,7 +452,7 @@ class Station(BaseModel):
         max_length=16,
     )
 
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False, verbose_name="Active Station")
 
 
     reporting_status = models.ForeignKey(
@@ -459,10 +462,10 @@ class Station(BaseModel):
         blank=True,
     )
 
-    international_exchange = models.BooleanField(default=False)
+    international_exchange = models.BooleanField(default=False, verbose_name="Enable Publishing to WIS2")
     
-    is_automatic = models.BooleanField(default=True)
-    is_synoptic = models.BooleanField(default=False)
+    is_automatic = models.BooleanField(default=True, verbose_name="Automatic Station")
+    is_synoptic = models.BooleanField(default=False, verbose_name="Synoptic Station")
     synoptic_code = models.IntegerField(
         null=True,
         blank=True
@@ -794,6 +797,119 @@ class Station(BaseModel):
         return self.name + ' - ' + self.code
 
 
+
+# Specifies the minute offsets within the hour for triggering scheduled wis2box data pushes.
+class Wis2PublishOffset(models.Model):
+    code = models.IntegerField()
+    description = models.CharField(max_length=256)
+    cron_schedule = models.CharField(max_length=64, default="5 * * * *") # the default is set to 5 min after each hour
+
+    def __str__(self):
+        return self.description
+
+# holds all stations which allow international exhange (internationa_exchange = True in the Station model)
+# this model is automatically updated by a signal (update_wis2boxPublish_on_international_exchange_change)
+class Wis2BoxPublish(models.Model):
+    # dynamically getting the default publishing_offset
+    def get_default_wis2_publish_offset():
+        try:
+            return Wis2PublishOffset.objects.get(pk=1).pk
+        except ObjectDoesNotExist:
+            # Handle the case where the object doesn't exist.
+            # You might want to create it, raise an exception, or return None.
+            # Example: create it.
+            return Wis2PublishOffset.objects.create(code=5, description="5 min").pk
+
+    station = models.ForeignKey(Station, related_name="publish_stations", on_delete=models.CASCADE)
+    publishing = models.BooleanField(default=False)
+    publishing_offset = models.ForeignKey(Wis2PublishOffset, on_delete=models.DO_NOTHING, default=get_default_wis2_publish_offset)
+    publish_success = models.IntegerField(default=0) # this field is automatically updated by a signal (update_wis2boxPublish_on_logs_add)
+    publish_fail = models.IntegerField(default=0) # this field is automatically updated by a signal (update_wis2boxPublish_on_logs_add)
+    local_wis2 = models.BooleanField(default=False)
+    regional_wis2 = models.BooleanField(default=False)
+    transition = models.BooleanField(default=False)
+    transit_station = models.ForeignKey(Station, related_name="transit_stations", on_delete=models.SET_NULL, null=True, blank=True)
+    add_gts = models.BooleanField(default=False) # add gts headers
+    base_aws = models.BooleanField(default=True) # if true get aws data from the base station else get manual data
+    transit_aws = models.BooleanField(default=False) # if true get aws data from the transit station else get manual data
+
+
+# holds the local wis credentials
+class LocalWisCredentials(models.Model):
+    """
+    A model that ensures only one instance exists, replacing old ones.
+    """
+
+    local_wis2_ip_address = models.CharField(max_length=255)
+    local_wis2_port = models.IntegerField()
+    local_wis2_username = models.CharField(max_length=255)
+    local_wis2_password = models.TextField()
+
+    def set_passwords(self, local_password):
+        self.local_wis2_password = settings.CIPHER_SUITE.encrypt(local_password.encode()).decode()
+        self.save()
+
+    def get_local_password(self):
+        return settings.CIPHER_SUITE.decrypt(self.local_wis2_password.encode()).decode()
+
+    def save(self, *args, **kwargs):
+        existing = LocalWisCredentials.objects.all()
+        if existing.exists():
+            existing.delete()  # Delete all existing instances
+        super(LocalWisCredentials, self).save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        return cls.objects.first() or cls()
+
+    def __str__(self):
+        return "Local WisCredentials Instance"
+    
+
+# holds the regional wis credentials
+class RegionalWisCredentials(models.Model):
+    """
+    A model that ensures only one instance exists, replacing old ones.
+    """
+
+    regional_wis2_ip_address = models.CharField(max_length=255)
+    regional_wis2_port = models.IntegerField()
+    regional_wis2_username = models.CharField(max_length=255)
+    regional_wis2_password = models.TextField()
+
+    def set_passwords(self, regional_password):
+        self.regional_wis2_password = settings.CIPHER_SUITE.encrypt(regional_password.encode()).decode()
+        self.save()
+    
+    def get_regional_password(self):
+        return settings.CIPHER_SUITE.decrypt(self.regional_wis2_password.encode()).decode()
+
+    def save(self, *args, **kwargs):
+        existing = RegionalWisCredentials.objects.all()
+        if existing.exists():
+            existing.delete()  # Delete all existing instances
+        super(RegionalWisCredentials, self).save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        return cls.objects.first() or cls()
+
+    def __str__(self):
+        return "Regional WisCredentials Instance"
+
+
+# holdes wsi2box publish logs
+class Wis2BoxPublishLogs(models.Model):
+    created_at = models.DateTimeField()
+    last_modified = models.DateTimeField(auto_now=True)
+    publish_station = models.ForeignKey(Wis2BoxPublish, on_delete=models.CASCADE)
+    success_log = models.BooleanField()
+    log = models.TextField()
+    wis2message_exist = models.BooleanField() # will control weather the message was generated and saved to the field below
+    wis2message = models.TextField(default="")
+
+
+
 class StationVariable(BaseModel):
     station = models.ForeignKey(Station, on_delete=models.DO_NOTHING)
     variable = models.ForeignKey(Variable, on_delete=models.DO_NOTHING)
@@ -848,7 +964,7 @@ class CombineDataFile(BaseModel):
     prepared_by = models.CharField(max_length=256, null=True, blank=True)
     stations_ids = models.TextField(null=False, blank=False)
     variable_ids= models.TextField(null=True, blank=True)
-    aggregation = models.CharField(max_length=256, null=False, blank=False, default="N/A")
+    aggregation = models.CharField(max_length=256, null=True, blank=False, default="N/A")
 
     def __str__(self):
         return 'file ' + str(self.id)
@@ -1167,7 +1283,7 @@ class ManualStationDataFile(BaseModel):
     status = models.ForeignKey(StationDataFileStatus, on_delete=models.DO_NOTHING)
     filepath = models.CharField(max_length=1024)
     upload_date = models.DateTimeField(auto_now_add=True)
-    stations_list = models.TextField(null=True, blank=True)
+    stations_list = models.TextField(null=False, blank=True)
     month = models.CharField(max_length=128, default="Not Found")
     observation = models.TextField(null=True, blank=True)
     override_data_on_conflict = models.BooleanField(default=False)

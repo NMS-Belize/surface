@@ -66,27 +66,33 @@
                     </v-btn>
                   </v-col>
 
+                  <div class="tooltip-container">
+                    <!-- Info Button -->
+                    <v-col class="text-center" cols="auto">
+                      <v-icon
+                        outlined
+                        color="warning"
+                      >
+                        info
+                      </v-icon> 
+                    </v-col>
 
-                  <!-- Info Button -->
-                  <!-- <v-col class="text-center" cols="auto">
-                    <v-tooltip bottom>
-                      <template v-slot:activator="{ on }">
-                        <v-icon
-                          icon v-on="on"
-                          outlined
-                          color="primary"
-                        >
-                          info
-                        </v-icon> 
-                      </template>
-                      <span>Please ensure that station names are accurate otherwise the file will not be processed properly.</span>
-                    </v-tooltip>
-                  </v-col> -->
+                    <!-- Info Message -->
+                    <v-col cols="auto">
+                      <span class="custom_tooltip">
+                        File upload works <span style="color: red;">ONLY</span> for Manual stations<br /><br />
+                        Sheet names <span style="color: red;">SHOULD BE</span> the station alias name
+                      </span>
+                    </v-col>
+                  </div>
+
                 </v-row>
 
                 <!-- display any errors -->
                 <v-alert v-model="request_error" dismissible type="error" class="mt-5">
-                  [[ request_error_message ]]
+                  <p>
+                    <span v-html="request_error_message"></span>
+                  </p>
                 </v-alert>
 
                 <!--uploaded files-->
@@ -390,6 +396,15 @@
                 this.request_error_message = 'Only .xlsx (Excel Workbook) files are supported! These files are not supported: ' + response.data.unsupported_files;
               }
 
+              // checks for files that contain station which do not exist
+              if (response.data.non_existent_stations) {
+                if (response.data.non_existent_stations.length > 0) {
+                  console.log(response.data.non_existent_stations);
+                  this.request_error = true;
+                  this.request_error_message = response.data.non_existent_stations.join("<br><br>");
+                }
+              }
+
               // Convert the response object into an array
               // this.uploadedFiles = Object.keys(response.data.uploaded_files);
               for (obj of Object.entries(response.data.uploaded_files)) {
@@ -586,6 +601,26 @@
 
   .remove-btn:hover {
     background-color: #d9544f7b;
+  }
+
+  .custom_tooltip {
+    display: none;
+    width: 300px;
+    position: absolute;
+    transform: translateX(-50%);
+    left: 650%;
+    z-index: 100;
+    background: #F8F9FA;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    color: #5F6368;
+    line-height: 1.5;
+  }
+
+  .tooltip-container:hover .custom_tooltip {
+    display: block;
   }
 </style>
 

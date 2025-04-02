@@ -284,3 +284,80 @@ class IntervalSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Interval
         fields = '__all__'
+    
+
+class LocalWisCredentialsSerializer(serializers.ModelSerializer):
+    local_password = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = models.LocalWisCredentials
+        fields = [
+            'local_wis2_ip_address', 'local_wis2_port', 'local_wis2_username', 'local_password'
+        ]
+    
+    def update(self, instance, validated_data):
+        # Update non-password fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Update passwords securely
+        if 'local_password' in validated_data:
+            instance.set_passwords(
+                validated_data.pop('local_password')
+            )
+
+        instance.save()
+        return instance
+
+
+class RegionalWisCredentialsSerializer(serializers.ModelSerializer):
+    regional_password = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = models.RegionalWisCredentials
+        fields = [
+            'regional_wis2_ip_address', 'regional_wis2_port', 'regional_wis2_username', 'regional_password'
+        ]
+    
+    def update(self, instance, validated_data):
+        # Update non-password fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Update passwords securely
+        if 'regional_password' in validated_data:
+            instance.set_passwords(
+                validated_data.pop('regional_password')
+            )
+
+        instance.save()
+        return instance
+
+
+class Wis2BoxPublishSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.Wis2BoxPublish
+        fields = '__all__'
+    
+    def update(self, instance, validated_data):
+        # Update fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+    
+
+class Wis2BoxPublishSerializerReadPublishing(serializers.ModelSerializer):
+    station_name = serializers.CharField(source='station.name')
+
+    class Meta:
+        model = models.Wis2BoxPublish
+        fields = ['id', 'station_name']
+    
+
+class Wis2PublishOffsetSerializerRead(serializers.ModelSerializer):
+    class Meta:
+        model = models.Wis2PublishOffset
+        fields = ('id', 'code', 'description')

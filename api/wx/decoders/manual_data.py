@@ -115,7 +115,7 @@ def find_station_by_name(station_name):
                 station = Station.objects.annotate(names=Concat('alternative_names', Value(','))).get(
                             names=station_name_for_query, is_automatic=False)
             except (ObjectDoesNotExist, MultipleObjectsReturned) as e:
-                raise Exception(f"Failed to find station by name '{station_name}'. {repr(e)}")
+                raise Exception(f"Failed to find station by name '{station_name}' or station is automatic, stations must be manual. {repr(e)}")
 
     return station
 

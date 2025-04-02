@@ -587,16 +587,16 @@
                   <ul class="collection">
                     <a id="stations-map" href="{% url 'stations-map' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">MAP<i class="material-icons secondary-content">map</i></a>
                     {% if 'station-create' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="station-create" href="{% url 'station-create' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">CREATE A STATION<i class="material-icons secondary-content">donut_small</i></a>
+                      <a id="station-create" href="{% url 'station-create' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">CREATE A STATION<i class="material-icons secondary-content">create</i></a>
                     {% endif%}
                     {% if 'stations-list' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="stations-list" href="{% url 'stations-list' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">donut_small</i></a>
+                      <a id="stations-list" href="{% url 'stations-list' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">list</i></a>
                     {% endif%}
                     {% if 'station-metadata' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="station-metadata" href="{% url 'station-metadata' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">donut_small</i></a>
+                      <a id="station-metadata" href="{% url 'station-metadata' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">assessment</i></a>
                     {% endif%}
                     {% if 'station-oscar-export' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Export to OSCAR<i class="material-icons secondary-content">donut_small</i></a>
+                      <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Export to OSCAR<i class="material-icons secondary-content">send</i></a>
                     {% endif%}
                     {% if 'stations-monitoring' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
                       <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">STATIONS MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
@@ -643,7 +643,7 @@
                         <a id="data-inventory" href="{% url 'data-inventory' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
                       {% endif %}
 
-                      {% if 'manual-data-import' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
+                      {% if request.user.is_staff or request.user.is_superuser %}
                         <a id="manual-data-import" href="{% url 'manual-data-import' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Import<i class="material-icons-outlined secondary-content">cloud_upload</i></a>
                       {% endif %}
 
@@ -654,6 +654,13 @@
                 </div>
               </div>
             </li>
+
+
+            {% if request.user.is_superuser %}
+            <li class="collapsible-item">
+              <a href="{% url 'wis2-dashboard' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">space_dashboard</i>WIS2 DASHBOARD</a>
+            </li>
+            {% endif %}
 
 
             {% if request.user.is_staff or request.user.is_superuser %}

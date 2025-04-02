@@ -7,5 +7,32 @@
       "updated_at": "2019-01-23T22:45:31.532Z",
       "name": "District"
     }
+  },
+  {
+    "model": "wx.administrativeregiontype",
+    "pk": 2,
+    "fields": {
+      "created_at": "2025-03-30T01:49:31.532Z",
+      "updated_at": "2025-03-30T01:49:31.532Z",
+      "name": "Parish"
+    }
+  },
+  {
+    "model": "wx.administrativeregiontype",
+    "pk": 3,
+    "fields": {
+      "created_at": "2025-03-30T01:49:31.532Z",
+      "updated_at": "2025-03-30T01:49:31.532Z",
+      "name": "State"
+    }
+  },
+  {
+    "model": "wx.administrativeregiontype",
+    "pk": 4,
+    "fields": {
+      "created_at": "2025-03-30T01:49:31.532Z",
+      "updated_at": "2025-03-30T01:49:31.532Z",
+      "name": "Province"
+    }
   }
 ]

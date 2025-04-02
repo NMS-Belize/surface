@@ -67,7 +67,8 @@
                     ></v-date-picker>
                 </v-menu>
               </v-flex>
-              <v-btn
+              <!-- THIS BUTTON LEADS THE SYNOPTIC MESSAGE -->
+              <!-- <v-btn
                 class="mt-3 ml-15"
                 @click="redirectToSynopForm"
                 outlined
@@ -76,7 +77,7 @@
               > 
                 <span> Synoptic Message </span>
                 <v-icon  class="ml-2"> mdi-table </v-icon>          
-              </v-btn>
+              </v-btn> -->
               <v-btn
                 class="mt-3 ml-15"
                 @click="exportToCSV()"
@@ -106,6 +107,7 @@
             </v-list-item>
           </v-list-item-group>
         </v-list> 
+        <!-- The table -->
         <div>
           <hot-table
             :hidden="hideTable"
@@ -115,6 +117,7 @@
             ref="synopTable"
           ></hot-table>
         </div>
+        <!-- Loading overlay -->
         <v-overlay absolute :value="loading">
           <span>LOADING</span>
           <v-progress-circular indeterminate color="primary"></v-progress-circular>
@@ -313,7 +316,6 @@
             formatedData[index] = row;
           }
         });
-
         
         let { stationId, interval, date } = this.requestedData;
         const url = `/wx/reports/synop/update/?station_id=${stationId}&date=${date}`
@@ -327,7 +329,8 @@
           this.loading = false;
           this.fetchData();
         });
-      },        
+      }, 
+
       fetchCodedValues() {
         this.hotSettings.columns.forEach(column => {
           if(column.codetable != null) {
@@ -335,6 +338,7 @@
           }
         })
       },
+
       fetchRangeThresholds() {
         const { stationId, interval, date } = this.requestedData;
         const month = moment(date).month() + 1;
@@ -352,6 +356,7 @@
           console.error('Error fetching range thresholds:', error);
         });
       },
+      
       // HandsonTable utils
       getRowHour(row){
         return this.hotSettings.rowHeaders[row]
@@ -507,6 +512,8 @@
 
         callback(true)
       },
+      
+      
       numericFieldValidator(value, callback) {
         if(value == null) {
           callback(true);
@@ -516,6 +523,7 @@
         const requestedDateHour = moment(this.requestedData.date).set('hour', this.validating.row); 
         const rowDatetime = requestedDateHour.format('YYYY-MM-DD HH:mm');
         const nowDatetime = moment().format('YYYY-MM-DD HH:mm');
+
        
         // Compare the formatted dates
         if (rowDatetime > nowDatetime) {
@@ -525,7 +533,7 @@
           return
         }
 
-
+        
         const numValue = Number(value)
         if (isNaN(numValue)) {
           error = `"${value}" is not a number.`;
@@ -533,6 +541,9 @@
           callback(false);
           return
         } 
+
+        // Calculating 24-hour barometric pressure if Station Pressure at sea level changes.
+        this.calc_barometric_pressure(this.validating, rowDatetime, numValue);
 
         const ranges = this.columnRanges[this.validating.column];
 
@@ -545,9 +556,13 @@
         if (!isValid){
           error = `Value must be between ${ranges.min} and ${ranges.max}.`;
           this.addErrorMessage(this.validating.row, this.validating.column, error);
+          callback(false);
         }
+
         callback(isValid);
       },
+
+
       // Error message functions
       addErrorMessage(row, prop, error=null) {
         this.errors.push({
@@ -594,7 +609,42 @@
         // Clean up
         tempHot.destroy();
         document.body.removeChild(tempContainer);
+      },
+
+      // calculate pressure difference
+      calc_barometric_pressure(validating, rowDatetime, numValue) {
+        // Calculating 24-hour barometric pressure if Station Pressure at sea level changes.
+        if (validating.column == "61")
+        {
+          // callback(true);
+
+          const hot = this.$refs.synopTable.hotInstance;
+          // const sea_level_pressure_value = hot.getDataAtCell(validating.row, 14); // Get value from row x, "Pressure at sea level" column
+          const sea_level_pressure_value = numValue; // getting the number value
+
+          let { stationId, interval, date } = this.requestedData;
+          const url = `/wx/reports/synop/calc-pressure/?station_id=${stationId}`
+          
+          // send a request back to the server to retrieve the 24-hour difference
+          axios.post(url, {
+            date: rowDatetime,
+            pressure_value: sea_level_pressure_value
+          })
+          .then(response => {
+            if (typeof(response.data.dataset) === 'number'){
+              calc_column_value = response.data.dataset;
+              hot.setDataAtCell(validating.row, 15, calc_column_value); // Update the corresponding cell
+            }
+          })
+          .catch(error => {
+            console.error("Error occurred updateing the 24 Hr barometric change:", error); // Log any errors
+          });
+
+
+        }
       }
+
+
     },
     beforeMount(){
       Handsontable.validators.registerValidator('numericFieldValidator', this.numericFieldValidator);

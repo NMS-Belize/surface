@@ -1,0 +1,103 @@
+[
+    {
+        "model": "wx.wxpermission", 
+        "pk": 1, 
+        "fields": {
+            "created_at": "2020-06-12T03:19:42.586414+00:00", 
+            "updated_at": "2020-06-12T03:19:59.263815+00:00", 
+            "name": "Stations Map - Read",
+            "url_name": "stations-map", 
+            "permission": "read"
+        }
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 2, 
+        "fields": {"created_at": "2020-06-12T03:20:07.524957+00:00", "updated_at": "2020-06-12T03:20:07.524983+00:00", "name": "Station List - Read", "url_name": "stations-list", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 5, 
+        "fields": {"created_at": "2020-06-12T03:21:13.970208+00:00", "updated_at": "2020-06-12T03:21:13.970255+00:00", "name": "Data Export - Read", "url_name": "data-export", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 6,
+         "fields": {"created_at": "2020-06-12T03:21:28.451183+00:00", "updated_at": "2020-06-12T03:21:28.45123+00:00", "name": "Station Report - Read", "url_name": "station-report", "permission": "read"}
+        }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 7, 
+        "fields": {"created_at": "2020-06-12T03:21:41.887329+00:00", "updated_at": "2020-06-12T03:21:41.887357+00:00", "name": "Product Compare - Read", "url_name": "product-compare", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 8, 
+        "fields": {"created_at": "2020-06-12T03:21:52.74843+00:00", "updated_at": "2020-06-12T03:21:52.74845+00:00", "name": "Spatial Analysis - Read", "url_name": "spatial-analysis", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 4,
+         "fields": {"created_at": "2020-06-12T03:21:01.394405+00:00", "updated_at": "2020-06-22T18:42:08.369833+00:00", "name": "PGIA Hourly Capture - Read", "url_name": "pgia-report", "permission": "read"}
+        }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 3, 
+        "fields": {"created_at": "2020-06-12T03:20:50.036863+00:00", "updated_at": "2020-06-22T18:42:28.826626+00:00", "name": "Monthly Capture - Read", "url_name": "monthly-form", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 9, 
+        "fields": {"created_at": "2020-06-22T18:43:05.198027+00:00", "updated_at": "2020-06-22T18:43:05.19805+00:00", "name": "Maintenance Menu - Read", "url_name": "maintenance-group", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission",
+         "pk": 10, 
+         "fields": {"created_at": "2020-09-27T00:19:49.388706+00:00", "updated_at": "2020-09-27T00:19:49.388728+00:00", "name": "Station Metadata - Read", "url_name": "station-metadata", "permission": "read"}
+        }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 11,
+         "fields": {"created_at": "2020-10-28T14:31:51.552732+00:00", "updated_at": "2020-10-28T14:31:51.552754+00:00", "name": "Daily Means - Read", "url_name": "daily-means", "permission": "read"}
+        }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 12, 
+        "fields": {"created_at": "2020-11-10T15:24:37.000674+00:00", "updated_at": "2020-11-10T15:24:37.000696+00:00", "name": "Quality Control - Read", "url_name": "quality-control", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission",
+        "pk": 13, 
+        "fields": {"created_at": "2020-11-20T15:40:42.843677+00:00", "updated_at": "2020-11-20T15:40:42.843728+00:00", "name": "Variable Report - Read", "url_name": "variable-report", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 14, 
+        "fields": {"created_at": "2020-12-01T19:50:04.413933+00:00", "updated_at": "2020-12-01T19:50:10.22091+00:00", "name": "Data Inventory - Read", "url_name": "data-inventory", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 15, 
+        "fields": {"created_at": "2021-06-19T15:47:00.079492+00:00", "updated_at": "2021-06-19T15:47:00.079514+00:00", "name": "Data Inventory - Delete", "url_name": "data-inventory", "permission": "delete"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 16, 
+        "fields": {"created_at": "2021-06-19T15:47:09.285235+00:00", "updated_at": "2021-06-19T15:47:09.285257+00:00", "name": "Range Threshold - Read", "url_name": "range-threshold", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 17, 
+        "fields": {"created_at": "2021-06-19T15:47:18.643151+00:00", "updated_at": "2021-06-19T15:47:18.643173+00:00", "name": "Step Threshold - Read", "url_name": "step-threshold", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission", 
+        "pk": 18, 
+        "fields": {"created_at": "2021-07-07T02:01:27.878366+00:00", "updated_at": "2021-07-07T02:01:27.878385+00:00", "name": "Persist Threshold - Read", "url_name": "persist-threshold", "permission": "read"}
+    }, 
+    {
+        "model": "wx.wxpermission",
+         "pk": 19, 
+         "fields": {"created_at": "2021-07-08T19:58:37.98565+00:00", "updated_at": "2021-07-08T19:58:37.985671+00:00", "name": "Data Export - Delete", "url_name": "data-export", "permission": "delete"}
+        }
+]
