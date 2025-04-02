@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/yearlysummaries/', views.yearly_summary_list),
     path('api/last24hrsummaries/', views.last24_summary_list),
     path('api/station_telemetry_data/<str:date>', views.station_telemetry_data),
+    path('api/wis2box-publishing/', views.Wis2BoxPublishListView.as_view(), name='wis2box-publish-list'),
     path('api/', include(router.urls)),
     path('', views.StationsMapView.as_view(), name='stations-map'),
     path('station_geo_features/<str:lon>/<str:lat>', views.station_geo_features),
@@ -153,8 +154,14 @@ urlpatterns = [
     path('wx/data/capture/monthly/update/', views.MonthlyFormUpdate, name='update-monthly-form'),   
     path('wx/wis2dashboard/', views.WIS2DashboardView.as_view(), name='wis2-dashboard'), 
     path("wx/wis2dashboard/records", views.wis2dashboard_records_list, name="wis2dashboard_records_list"), # for the wis2dashboard to grab data
+    path("wx/wis2dashboard/publishing_logs/<int:pk>/", views.publishingLogs, name='wis2-publishing-logs'), # for the wis2dashboard to grab log data
+    path("wx/wis2dashboard/download-logs/<int:pk>/", views.downloadWis2Logs, name='wis2-download-logs'), # for the wis2dashboard to dowload log data
+    path("wx/wis2dashboard/download-messages/<int:pk>/", views.downloadWis2Message, name='wis2-download-Message'), # for the wis2dashboard to dowload log data
+    path("wx/wis2dashboard/push_to_wis2box/",views.push_to_wis2box, name="push-to-wis2box"),
     path("api/local_wis_credentials/", views.LocalWisCredentialsUpdateView.as_view(), name='local-wis-credentials'),
     path("api/regional_wis_credentials/", views.RegionalWisCredentialsUpdateView.as_view(), name='regional-wis-credentials'),
+    path("api/config_wis_station/<int:pk>/", views.configWis2StationUpdateView.as_view(), name='config-wis-stations'),
+    path("api/publishing_offsets/", views.publishingOffsetViewSet.as_view({'get': 'list'}), name='api-publishing-offsets'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

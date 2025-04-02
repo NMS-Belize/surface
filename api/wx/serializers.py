@@ -332,3 +332,32 @@ class RegionalWisCredentialsSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class Wis2BoxPublishSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.Wis2BoxPublish
+        fields = '__all__'
+    
+    def update(self, instance, validated_data):
+        # Update fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+    
+
+class Wis2BoxPublishSerializerReadPublishing(serializers.ModelSerializer):
+    station_name = serializers.CharField(source='station.name')
+
+    class Meta:
+        model = models.Wis2BoxPublish
+        fields = ['id', 'station_name']
+    
+
+class Wis2PublishOffsetSerializerRead(serializers.ModelSerializer):
+    class Meta:
+        model = models.Wis2PublishOffset
+        fields = ('id', 'code', 'description')

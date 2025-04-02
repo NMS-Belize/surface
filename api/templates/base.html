@@ -656,7 +656,7 @@
             </li>
 
 
-            {% if request.user.is_staff or request.user.is_superuser %}
+            {% if request.user.is_superuser %}
             <li class="collapsible-item">
               <a href="{% url 'wis2-dashboard' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">space_dashboard</i>WIS2 DASHBOARD</a>
             </li>

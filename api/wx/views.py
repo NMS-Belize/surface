@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import os
+import zipfile
 import shutil
 import random
 import uuid
@@ -28,9 +29,10 @@ from django.core.paginator import Paginator
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
+from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
-from django.http import HttpResponse, JsonResponse, FileResponse
+from django.http import HttpResponse, JsonResponse, FileResponse, HttpResponseNotAllowed
 from django.template import loader
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -61,7 +63,7 @@ from wx.forms import StationForm
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication, CombineDataFile, ManualStationDataFile
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, StationDataFileStatus,\
-    StationProfile, Document, Watershed, Interval, CountryISOCode, Wis2BoxPublish, Wis2PublishOffset, LocalWisCredentials, RegionalWisCredentials
+    StationProfile, Document, Watershed, Interval, CountryISOCode, Wis2BoxPublish, Wis2PublishOffset, LocalWisCredentials, RegionalWisCredentials,  Wis2BoxPublishLogs
 from wx.utils import get_altitude, get_watershed, get_district, get_interpolation_image, parse_float_value, \
     parse_int_value
 from .utils import get_raw_data, get_station_raw_data
@@ -84,6 +86,8 @@ from wx.models import QcRangeThreshold, QcStepThreshold, QcPersistThreshold
 from simple_history.utils import update_change_reason
 from django.db.models.functions import Cast
 from django.db.models import IntegerField
+from django.utils.timezone import localtime
+
 
 from wx.models import WMOCodeValue
 
@@ -297,7 +301,7 @@ def CombineFilesXLSX(request):
 
         # If source is raw_data, aggregation will be set to none
         if data_source == 'raw_data':
-            aggregation = None
+            aggregation = ""
 
         data_interval_seconds = None
         if data_source == 'raw_data' and 'data_interval' in json_body:  # a number with the data interval in seconds. Only required for raw_data
@@ -7848,7 +7852,8 @@ def synop_pressure_calc(request):
 
             value = pressure_data[station_name]['data'][0]['value']  
 
-            pressure_difference = value - pressure_value if pressure_value != -99.9 else -99.9
+            # return the absolute value as the pressure difference
+            pressure_difference = abs(value - pressure_value) if pressure_value != -99.9 and value != -99.9 else -99.9
         else:
             pressure_difference = 'no data'
 
@@ -8662,19 +8667,25 @@ class WIS2DashboardView(LoginRequiredMixin, TemplateView):
         return self.render_to_response(context) 
 
 
-# api to grap data for the wis2 dashboard
+# to grap data for the wis2 dashboard
 def wis2dashboard_records_list(request):
     try:
         search_criteria = request.GET.get('search_criteria', '').strip().lower()
         
         if search_criteria == 'all':
-            queryset = Wis2BoxPublish.objects.select_related("station").all()
+            queryset = Wis2BoxPublish.objects.select_related("station")
         elif search_criteria == 'publishing':
-            queryset = Wis2BoxPublish.objects.select_related("station").filter(publishing=True)
+            queryset = Wis2BoxPublish.objects.filter(publishing=True).select_related("station")
         elif search_criteria == 'publish_status':
-            queryset = Wis2BoxPublish.objects.select_related("station").filter(publishing=True)
+            queryset = Wis2BoxPublish.objects.filter(publishing=True).select_related("station")
+        elif search_criteria == 'not publishing':
+            queryset = Wis2BoxPublish.objects.filter(publishing=False).select_related("station")
+        elif search_criteria == 'trans pub':
+            queryset = Wis2BoxPublish.objects.filter(publishing=True, transition=True).select_related("station")
+        elif search_criteria == 'trans nonpub':
+            queryset = Wis2BoxPublish.objects.filter(publishing=False, transition=True).select_related("station")
         else:
-            queryset = Wis2BoxPublish.objects.select_related("station").filter(publishing=False)
+            queryset = Wis2BoxPublish.objects.select_related("station")
         
         if not queryset.exists():
             logger.info("No records found!")
@@ -8689,7 +8700,7 @@ def wis2dashboard_records_list(request):
             "station__is_synoptic", 
             "publish_success", 
             "publish_fail",
-            "publish_logs_folder"
+            "transition"
         ))
 
         # calculate the total success and fails to create the graph
@@ -8705,6 +8716,27 @@ def wis2dashboard_records_list(request):
             if record['publishing']:
                 station_status.append("Publishing")
 
+                # transition status
+                if record['transition']:
+                    station_status.append("Transition")
+
+                # getting the automatic/manual status
+                if record['station__is_automatic']:
+                    station_status.append("Automatic")
+                else:
+                    station_status.append("Manual")
+
+                # synoptic status
+                if record['station__is_synoptic']:
+                    station_status.append("Synoptic")
+                    
+            else:
+                station_status.append("Not Publishing")
+
+                # transition status
+                if record['transition']:
+                    station_status.append("Transition")
+
                 # getting the automatic/manual status
                 if record['station__is_automatic']:
                     station_status.append("Automatic")
@@ -8714,11 +8746,6 @@ def wis2dashboard_records_list(request):
                 # getting the synoptic status
                 if record['station__is_synoptic']:
                     station_status.append("Synoptic")
-                else:
-                    station_status.append("Not Synoptic")
-                    
-            else:
-                station_status.append("Not Publishing")
 
             # adding the Status to the record object
             record['status'] = station_status
@@ -8734,8 +8761,101 @@ def wis2dashboard_records_list(request):
     except Exception as e:
         logger.error(f"An error occured: {e}")
         return JsonResponse({"error": str(e)}, status=500)
+    
+
+# to fetch publishig logs information
+def publishingLogs(request, pk):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])  # Only allow GET requests
+
+    logs = Wis2BoxPublishLogs.objects.filter(publish_station__id=pk).values(
+        "id", "created_at", "last_modified", "publish_station", 
+        "success_log", "log", "wis2message_exist", "wis2message"
+    )
+
+    # getting station metadata
+    station_metadata = Wis2BoxPublish.objects.filter(id=pk).values("station__name", "station__wigos", "publish_success", "publish_fail")
+    return JsonResponse({"logs":list(logs), "station_metadata":list(station_metadata), "timezone_offset":settings.TIMEZONE_OFFSET}, safe=False)  # Convert QuerySet to list
 
 
+def downloadWis2Logs(request, pk):
+    """
+    Downloads log files associated with a specific publish station (identified by pk) as a ZIP file.
+    """
+    logs = Wis2BoxPublishLogs.objects.filter(publish_station__id=pk)
+    
+    if not logs.exists():
+        return HttpResponse("No logs found", status=404)
+    
+    temp_dir = tempfile.mkdtemp()
+    zip_filename = os.path.join(temp_dir, f"logs_{pk}.zip")
+    
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for log_entry in logs:
+            # Format the timestamp for uniqueness and readability
+            timestamp = localtime(log_entry.created_at).strftime("%Y-%m-%d_%H-%M-%S")
+            file_name = f"{timestamp}-{log_entry.id}-logfile.txt"
+            file_path = os.path.join(temp_dir, file_name)
+            
+            # Write log content to a temporary file
+            with open(file_path, "w", encoding="utf-8") as log_file:
+                log_file.write(log_entry.log)
+            
+            # Add the file to the ZIP archive
+            zipf.write(file_path, arcname=file_name)
+    
+    # Read the ZIP file and prepare it for download
+    with open(zip_filename, "rb") as zip_file:
+        response = HttpResponse(zip_file.read(), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="logs_{pk}.zip"'
+    
+    # Cleanup temporary files and directory
+    for file in os.listdir(temp_dir):
+        os.remove(os.path.join(temp_dir, file))
+    os.rmdir(temp_dir)
+    
+    return response
+
+
+def downloadWis2Message(request, pk):
+    """
+    Downloads WIS2 messages associated with a specific publish station (identified by pk) as a ZIP file.
+    """
+    messages = Wis2BoxPublishLogs.objects.filter(publish_station__id=pk, wis2message_exist=True)
+    
+    if not messages.exists():
+        return HttpResponse("No logs found", status=404)
+    
+    temp_dir = tempfile.mkdtemp()
+    zip_filename = os.path.join(temp_dir, f"messages_{pk}.zip")
+    
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for message in messages:
+            # Format the timestamp for uniqueness and readability
+            timestamp = localtime(message.created_at).strftime("%Y-%m-%d_%H-%M-%S")
+            file_name = f"{timestamp}-{message.id}-messagefile.csv"
+            file_path = os.path.join(temp_dir, file_name)
+            
+            # Write message content to a temporary file
+            with open(file_path, "w", encoding="utf-8") as msg_file:
+                msg_file.write(message.wis2message)
+            
+            # Add the file to the ZIP archive
+            zipf.write(file_path, arcname=file_name)
+    
+    # Read the ZIP file and prepare it for download
+    with open(zip_filename, "rb") as zip_file:
+        response = HttpResponse(zip_file.read(), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="messages_{pk}.zip"'
+    
+    # Cleanup temporary files and directory
+    for file in os.listdir(temp_dir):
+        os.remove(os.path.join(temp_dir, file))
+    os.rmdir(temp_dir)
+    
+    return response
+
+# to load the form to update local wis2 credential
 class LocalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
     queryset = LocalWisCredentials.objects.all()
     serializer_class = serializers.LocalWisCredentialsSerializer
@@ -8749,6 +8869,7 @@ class LocalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
             raise
 
 
+# to load the form to update regional wis2 credential
 class RegionalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
     queryset = RegionalWisCredentials.objects.all()
     serializer_class = serializers.RegionalWisCredentialsSerializer
@@ -8760,3 +8881,60 @@ class RegionalWisCredentialsUpdateView(generics.RetrieveUpdateAPIView):
         except Exception as e:
             logger.error(f'An error occurred while fetching RegionalWisCredentials: {e}')
             raise
+
+
+# to load the form to update the stations publishing settings
+class configWis2StationUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = Wis2BoxPublish.objects.all()
+    serializer_class = serializers.Wis2BoxPublishSerializer
+    permission_classes = [permissions.IsAdminUser]  # Restrict access to admins only
+
+    def get_object(self):
+        station_id = self.kwargs.get("pk")  # Get ID from URL
+        try:
+            return Wis2BoxPublish.objects.get(id=station_id)  # Fetch entry by ID
+        except Exception as e:
+            logger.error(f'An error occurred while fetching Wis2BoxPublish stations data: {e}')
+            raise
+
+
+# shows all stations which are currently set to wis2 publishing
+class Wis2BoxPublishListView(views.APIView):
+    def get(self, request):
+        # Query all the Wis2BoxPublish objects where publishing is True
+        queryset = Wis2BoxPublish.objects.filter(publishing=True)
+        
+        # Serialize the queryset
+        serializer = serializers.Wis2BoxPublishSerializerReadPublishing(queryset, many=True)
+        
+        # Return the serialized data as a response
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class publishingOffsetViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsAuthenticated,)
+    queryset = Wis2PublishOffset.objects.all()
+        
+
+    def get_serializer_class(self):
+        return serializers.Wis2PublishOffsetSerializerRead
+
+
+@csrf_exempt
+def push_to_wis2box(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            station_id = int(data.get("stationId"))
+
+            if not station_id:
+                return JsonResponse({}, status=400)
+
+            # attempt station push to wis2box
+            tasks.wis2publish_task_now(station_id)
+
+            return JsonResponse({}, status=200)
+        except Exception as e:
+            return JsonResponse({e}, status=500)
+
+    return JsonResponse({}, status=405)  # Method Not Allowed

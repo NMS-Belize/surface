@@ -329,7 +329,8 @@
           this.loading = false;
           this.fetchData();
         });
-      },        
+      }, 
+
       fetchCodedValues() {
         this.hotSettings.columns.forEach(column => {
           if(column.codetable != null) {
@@ -337,6 +338,7 @@
           }
         })
       },
+
       fetchRangeThresholds() {
         const { stationId, interval, date } = this.requestedData;
         const month = moment(date).month() + 1;
@@ -354,6 +356,7 @@
           console.error('Error fetching range thresholds:', error);
         });
       },
+      
       // HandsonTable utils
       getRowHour(row){
         return this.hotSettings.rowHeaders[row]
@@ -509,6 +512,8 @@
 
         callback(true)
       },
+      
+      
       numericFieldValidator(value, callback) {
         if(value == null) {
           callback(true);
@@ -538,33 +543,7 @@
         } 
 
         // Calculating 24-hour barometric pressure if Station Pressure at sea level changes.
-        if (this.validating.column == "61")
-        {
-          callback(true);
-
-          const hot = this.$refs.synopTable.hotInstance;
-          const sea_level_pressure_value = hot.getDataAtCell(this.validating.row, 14); // Get value from row x, "Pressure at sea level" column
-
-          let { stationId, interval, date } = this.requestedData;
-          const url = `/wx/reports/synop/calc-pressure/?station_id=${stationId}`
-          
-          // send a request back to the server to retrieve the 24-hour difference
-          axios.post(url, {
-            date: rowDatetime,
-            pressure_value: sea_level_pressure_value
-          })
-          .then(response => {
-            if (typeof(response.data.dataset) === 'number'){
-              calc_column_value = response.data.dataset;
-              hot.setDataAtCell(this.validating.row, 15, calc_column_value); // Update the corresponding cell
-            }
-          })
-          .catch(error => {
-            console.error("Error occurred updateing the 24 Hr barometric change:", error); // Log any errors
-          });
-
-
-        }
+        this.calc_barometric_pressure(this.validating, rowDatetime, numValue);
 
         const ranges = this.columnRanges[this.validating.column];
 
@@ -582,6 +561,8 @@
 
         callback(isValid);
       },
+
+
       // Error message functions
       addErrorMessage(row, prop, error=null) {
         this.errors.push({
@@ -628,7 +609,42 @@
         // Clean up
         tempHot.destroy();
         document.body.removeChild(tempContainer);
+      },
+
+      // calculate pressure difference
+      calc_barometric_pressure(validating, rowDatetime, numValue) {
+        // Calculating 24-hour barometric pressure if Station Pressure at sea level changes.
+        if (validating.column == "61")
+        {
+          // callback(true);
+
+          const hot = this.$refs.synopTable.hotInstance;
+          // const sea_level_pressure_value = hot.getDataAtCell(validating.row, 14); // Get value from row x, "Pressure at sea level" column
+          const sea_level_pressure_value = numValue; // getting the number value
+
+          let { stationId, interval, date } = this.requestedData;
+          const url = `/wx/reports/synop/calc-pressure/?station_id=${stationId}`
+          
+          // send a request back to the server to retrieve the 24-hour difference
+          axios.post(url, {
+            date: rowDatetime,
+            pressure_value: sea_level_pressure_value
+          })
+          .then(response => {
+            if (typeof(response.data.dataset) === 'number'){
+              calc_column_value = response.data.dataset;
+              hot.setDataAtCell(validating.row, 15, calc_column_value); // Update the corresponding cell
+            }
+          })
+          .catch(error => {
+            console.error("Error occurred updateing the 24 Hr barometric change:", error); // Log any errors
+          });
+
+
+        }
       }
+
+
     },
     beforeMount(){
       Handsontable.validators.registerValidator('numericFieldValidator', this.numericFieldValidator);

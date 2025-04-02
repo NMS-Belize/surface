@@ -1,0 +1,354 @@
+[
+    {
+      "model": "wx.administrativeregion",
+      "pk": 1,
+      "fields": {
+        "created_at": "2015-01-21T17:01:28Z",
+        "updated_at": "2015-01-21T17:01:28Z",
+        "name": "Belize",
+        "administrative_region_type_id": 1,
+        "country_id": 18
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 2,
+      "fields": {
+        "created_at": "2015-01-21T17:01:28Z",
+        "updated_at": "2015-01-21T17:01:28Z",
+        "name": "Cayo",
+        "administrative_region_type_id": 1,
+        "country_id": 18
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 3,
+      "fields": {
+        "created_at": "2015-01-21T17:01:28Z",
+        "updated_at": "2015-01-21T17:01:28Z",
+        "name": "Corozal",
+        "administrative_region_type_id": 1,
+        "country_id": 18
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 4,
+      "fields": {
+        "created_at": "2015-01-21T17:01:28Z",
+        "updated_at": "2015-01-21T17:01:28Z",
+        "name": "Orange Walk",
+        "administrative_region_type_id": 1,
+        "country_id": 18
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 5,
+      "fields": {
+        "created_at": "2015-01-21T17:01:28Z",
+        "updated_at": "2015-01-21T17:01:28Z",
+        "name": "Stann Creek",
+        "administrative_region_type_id": 1,
+        "country_id": 18
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 6,
+      "fields": {
+        "created_at": "2015-01-21T17:01:28Z",
+        "updated_at": "2015-01-21T17:01:28Z",
+        "name": "Toledo",
+        "administrative_region_type_id": 1,
+        "country_id": 18
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 7,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Hanover",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 8,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "St. Elizabeth",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 9,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "St. James",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 10,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Trelawny",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 11,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Westmoreland",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 12,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Clarendon",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 13,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Manchester",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 14,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "St. Ann",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 15,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "St. Catherine",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 16,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "St. Mary",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 17,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Kingston",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 18,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Portland",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 19,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "St. Andrew",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 20,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "St. Thomas",
+        "administrative_region_type_id": 2,
+        "country_id": 83
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 21,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "George Town",
+        "administrative_region_type_id": 1,
+        "country_id": 228
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 22,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "West Bay",
+        "administrative_region_type_id": 1,
+        "country_id": 228
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 23,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Bodden Town",
+        "administrative_region_type_id": 1,
+        "country_id": 228
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 24,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "North Side",
+        "administrative_region_type_id": 1,
+        "country_id": 228
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 25,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "East End",
+        "administrative_region_type_id": 1,
+        "country_id": 228
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 26,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Sister Islands",
+        "administrative_region_type_id": 1,
+        "country_id": 228
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 27,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Grand Turk",
+        "administrative_region_type_id": 1,
+        "country_id": 235
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 28,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "South Caicos",
+        "administrative_region_type_id": 1,
+        "country_id": 235
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 29,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Middle Caicos",
+        "administrative_region_type_id": 1,
+        "country_id": 235
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 30,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "North Caicos",
+        "administrative_region_type_id": 1,
+        "country_id": 235
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 31,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Providenciales",
+        "administrative_region_type_id": 1,
+        "country_id": 235
+      }
+    },
+    {
+      "model": "wx.administrativeregion",
+      "pk": 32,
+      "fields": {
+        "created_at": "2025-03-30T01:49:31.532Z",
+        "updated_at": "2025-03-30T01:49:31.532Z",
+        "name": "Salt Cay",
+        "administrative_region_type_id": 1,
+        "country_id": 235
+      }
+    }
+  ]

@@ -1,0 +1,200 @@
+ [
+    {
+        "model": "wx.manufacturer", 
+        "pk": 2, 
+        "fields": {
+            "created_at":"2023-06-20T21:44:20.594539+00:00",
+            "updated_at":"2023-06-20T21:44:20.594569+00:00",
+            "name":"Casella"
+        }
+    }, 
+    
+    {
+        "model": "wx.manufacturer", 
+        "pk": 1, 
+        "fields": {
+            "created_at":"2023-06-20T21:44:14.941264+00:00",
+            "updated_at":"2023-06-21T13:28:30.344837+00:00",
+            "name":"Sierra Wireless"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 3, 
+        "fields": {
+            "created_at":"2023-06-21T13:28:43.18266+00:00",
+            "updated_at":"2023-06-21T13:28:43.182688+00:00",
+            "name":"Campbell Scientific"}
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 4, 
+        "fields": {
+            "created_at":"2023-06-21T13:29:01.956071+00:00",
+            "updated_at":"2023-06-21T13:29:01.956104+00:00",
+            "name":"OTT/Sutron"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 5, 
+        "fields": {
+            "created_at":"2023-06-21T13:30:00.488921+00:00",
+            "updated_at":"2023-06-21T13:30:00.488952+00:00",
+            "name":"Hyquest Solutions"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 6, 
+        "fields": {
+            "created_at":"2023-06-21T15:44:37.1553+00:00",
+            "updated_at":"2023-06-21T15:44:37.155332+00:00",
+            "name":"Sunsaver/morning star"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 7, 
+        "fields": {
+            "created_at":"2023-06-21T16:14:18.749868+00:00",
+            "updated_at":"2023-06-21T16:14:18.749899+00:00",
+            "name":"Hyquest"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 9, 
+        "fields": {
+            "created_at":"2023-06-21T16:57:54.565659+00:00",
+            "updated_at":"2023-06-21T16:57:54.565689+00:00",
+            "name":"HOBO"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 10, 
+        "fields": {
+            "created_at":"2023-06-21T17:05:06.135641+00:00",
+            "updated_at":"2023-06-21T17:05:06.135676+00:00",
+            "name":"campbell scientific"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 12, 
+        "fields": {
+            "created_at":"2023-06-21T17:20:40.740935+00:00",
+            "updated_at":"2023-06-21T17:20:40.740966+00:00",
+            "name":"campbell scientific"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 13, 
+        "fields": {
+            "created_at":"2023-06-21T17:32:07.388427+00:00",
+            "updated_at":"2023-06-21T17:32:07.388459+00:00",
+            "name":"CASELLA"
+        }
+    },
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 14, 
+        "fields": {
+            "created_at":"2023-06-21T19:09:28.065073+00:00",
+            "updated_at":"2023-06-21T19:09:28.065105+00:00",
+            "name":"GRD"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 15, 
+        "fields": {
+            "created_at":"2023-06-21T19:20:25.177745+00:00",
+            "updated_at":"2023-06-21T19:20:25.177776+00:00",
+            "name":"RH"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 16, 
+        "fields": {
+            "created_at":"2023-06-21T19:34:36.616801+00:00",
+            "updated_at":"2023-06-21T19:34:36.61683+00:00",
+            "name":"Hyquest solution HS"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 17, 
+        "fields": {
+            "created_at":"2023-06-21T19:46:06.165998+00:00",
+            "updated_at":"2023-06-21T19:46:06.166029+00:00",
+            "name":"trimble"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 18, 
+        "fields": {
+            "created_at":"2023-06-21T19:47:35.929272+00:00",
+            "updated_at":"2023-06-21T19:47:35.929302+00:00",
+            "name":"hypersolution FCD"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 19, 
+        "fields": {
+            "created_at":"2023-06-21T19:58:29.880557+00:00",
+            "updated_at":"2023-06-21T19:58:29.880591+00:00",
+            "name":"Apogee"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 20, 
+        "fields": {
+            "created_at":"2023-06-21T20:06:16.542321+00:00",
+            "updated_at":"2023-06-21T20:06:16.542353+00:00",
+            "name":"EKO"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 21, 
+        "fields": {
+            "created_at":"2023-06-21T20:20:29.200958+00:00",
+            "updated_at":"2023-06-21T20:20:29.200988+00:00",
+            "name":"NESA"
+        }
+    }, 
+   
+    {
+        "model": "wx.manufacturer", 
+        "pk": 22, 
+        "fields": {
+            "created_at":"2023-06-21T21:35:12.514147+00:00",
+            "updated_at":"2023-06-21T21:35:12.51418+00:00",
+            "name":"barovue 10"
+        }
+    }
+]
