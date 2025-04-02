@@ -1312,6 +1312,8 @@
                     this.localForceCreate = false;  // Reset confirmation to avoid unnecessary form display
                     this.regionalForceCreate = false;  // Reset confirmation to avoid unnecessary form display
                     this.credentialsLoaded = false; // since dialog is now closed reset the variable
+
+                    this.checkExistingCredentials();  // Fetch credentials from the backend
                 },
 
                 // Validates an IPv4 address using regex.
