@@ -2994,12 +2994,297 @@ def export_station_to_oscar_wigos(selected_ids, api_token, cleaned_data):
         return {'code': 412, 'description': 'No WIGOS ID was provided'}
 
 
-# Tasks the looks for stations that are set for international exchange (see STATION model) and transmits them to wis2box
+# MANUAL STATIONS ONLY** Tasks the looks for stations that are set for international exchange (see STATION model) and transmits them to wis2box
+def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
+    wis2_logs = []  # Stores log messages for debugging and reporting
+    wis2_message = []
+    regional_success = False
+    local_success = False
+
+    # Get UTC time and truncate to the hour
+    unformated_now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+
+    # Format it as 'YYYY-MM-DD HH:MM:SS+00' for use in the queries
+    formated_now = unformated_now.strftime('%Y-%m-%d %H:%M:%S+00')
+
+    # keep track of the logs to send back
+    def log_message(message):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        formatted_message = f"[{timestamp}] {message}"
+        wis2_logs.append(formatted_message)  # Store it in wis2_logs
+        
+
+    logging.info(f'MWS Transmission: Processing data for Station: {station_name}')
+    log_message(f'MWS Transmission: Processing data for Station: {station_name}')
+
+    # Initialize data_row dictionary with default None values for each weather parameter
+    data_row = {key: None for key in [
+        'wsi_series', 'wsi_issuer', 'wsi_issue_number', 'wsi_local', 'wmo_block_number',
+        'wmo_station_number', 'station_type', 'year', 'month', 'day', 'hour', 'minute',
+        'latitude', 'longitude', 'station_height_above_msl', 'barometer_height_above_msl',
+        'thermometer_height', 'anemometer_height', 'time_period_of_wind', 'rain_sensor_height', 
+        'wind_indicator_manual', 'precipitation_indicator_manual', 'station_operation_indicator_manual',
+        'lowest_cloud_height_manual', 'visibility_KM_manual', 'cloud_cover_tot_manual', 'wind_direction_manual',
+        'wind_speed_manual', 'air_temperature_dry_bulb_manual', 'dew_point_temperature_manual',
+        'air_temperature_wet_bulb_manual', 'relative_humidity_manual', 'pressure_at_station_level_manual',
+        'pressure_at_sea_level_hpa_manual', 'precipitation_since_last_report_manual', 'precipitation_period_duration_manual',
+        '24_hour_barometric_change_manual', '24_hour_rainfall_manual', 'present_weather_manual',
+        'past_weather_type_1_manual', 'past_weather_type_2_manual', 'observed_cloud_coverage_manual',
+        'low_cloud_type_manual', 'middle_cloud_type_manual', 'high_cloud_type_manual', 'state_of_sky_manual',
+        'direction_of_cl_clouds_manual', 'direction_of_cm_clouds_manual', 'direction_of_ch_clouds_manual',
+        'air_temperature_dry_bulb_max_manual', 'cloud_coverage_level_1_manual', 'genus_of_cloud_level_1_manual',
+        'height_of_cloud_base_level_1_manual', 'cloud_coverage_level_2_manual', 'genus_of_cloud_level_2_manual',
+        'height_of_cloud_base_level_2_manual', 'cloud_coverage_level_3_manual', 'genus_of_cloud_level_3_manual',
+        'height_of_cloud_base_level_3_manual', 'cloud_coverage_level_4_manual', 'genus_of_cloud_level_4_manual',
+        'height_of_cloud_base_level_4_manual', 'special_phenomenon_manual']}
+
+    # Helper function to execute database queries safely
+    def execute_query(query, params, error_message):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+                return [list(row) for row in cursor.fetchall()]
+        except Exception as e:
+            logging.error(f'{error_message}: {e}')
+            log_message(f'{error_message}: {e}')
+            return []
+
+
+    ##########################################################################################
+    # Fetch station information from the database
+    station_query = """
+        SELECT wigos, latitude, longitude, elevation, is_automatic
+        FROM wx_station WHERE id = %s
+    """
+    station_data = execute_query(station_query, [id], "Error fetching station info")
+    if station_data:
+        row = station_data[0]
+        wsi_parts = row[0].split("-") if row[0] else [None] * 4
+        data_row.update({
+            'wsi_series': wsi_parts[0], 
+            'wsi_issuer': wsi_parts[1],
+            'wsi_issue_number': wsi_parts[2], 
+            'wsi_local': wsi_parts[3],
+            'latitude': round(row[1], 5), 
+            'longitude': round(row[2], 5),
+            'station_height_above_msl': row[3], 
+            'barometer_height_above_msl': round(row[3] + 1.7, 2), # 1.7 metre above station_height_above_msl
+            # the settings below will be hard coded until further notice
+            'thermometer_height': 1.7, 
+            'anemometer_height': 10, 
+            'time_period_of_wind': -5,
+            'rain_sensor_height': 1.5, 
+            'station_type': 0
+        })
+
+    # Populate year, month, day, hour, minute in data_row
+    if unformated_now:
+        # Add the extracted date components to data_row
+        data_row['year'] = unformated_now.year
+        data_row['month'] = unformated_now.month
+        data_row['day'] = unformated_now.day
+        data_row['hour'] = unformated_now.hour
+        data_row['minute'] = unformated_now.minute
+
+    ##########################################################################################
+
+    # ------------- GETTING MANUAL STATIONS DATA START ------------- #
+    # query to get the measure values
+    manual_data_query = """
+        SELECT variable_id, measured
+        FROM raw_data
+        WHERE station_id = %s 
+        AND datetime = %s
+        AND variable_id IN (10, 16, 18, 19, 30, 50, 55, 60, 61,
+                            4048, 4050, 4055, 4056, 4057);
+    """
+
+    # query to get the code values
+    manual_data_query_code = """
+        SELECT variable_id, code
+        FROM raw_data
+        WHERE station_id = %s 
+        AND datetime = %s
+        AND variable_id IN (1001, 1002, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1011,
+                            1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 4005,
+                            4006, 4040, 4041, 4042, 4044, 4045, 4046, 4047, 4043);
+    """
+
+    # Execute the query
+    secondary_station_raw_data = execute_query(manual_data_query, [id, formated_now], "Error fetching raw data")
+    secondary_station_raw_data_code = execute_query(manual_data_query_code, [id, formated_now], "Error fetching raw data")
+
+    # Mapping of variable_id to dictionary keys
+    variable_mapping = {
+        4040: 'wind_indicator_manual', 4041: 'precipitation_indicator_manual', 4042: 'station_operation_indicator_manual', 
+        4048: 'lowest_cloud_height_manual', 4056: 'visibility_KM_manual', 1001: 'cloud_cover_tot_manual', 
+        55: 'wind_direction_manual', 50: 'wind_speed_manual', 10: 'air_temperature_dry_bulb_manual', 
+        19: 'dew_point_temperature_manual', 18: 'air_temperature_wet_bulb_manual', 30: 'relative_humidity_manual', 
+        60: 'pressure_at_station_level_manual', 61: 'pressure_at_sea_level_hpa_manual', 4050: 'precipitation_since_last_report_manual', 
+        4043: 'precipitation_period_duration_manual', 4057: '24_hour_barometric_change_manual', 4055: '24_hour_rainfall_manual', 
+        1002: 'present_weather_manual', 1003: 'past_weather_type_1_manual', 1004: 'past_weather_type_2_manual', 
+        4005: 'observed_cloud_coverage_manual', 1006: 'low_cloud_type_manual', 1007: 'middle_cloud_type_manual', 
+        1008: 'high_cloud_type_manual', 4044: 'state_of_sky_manual', 4045: 'direction_of_cl_clouds_manual', 
+        4046: 'direction_of_cm_clouds_manual', 4047: 'direction_of_ch_clouds_manual', 16: 'air_temperature_dry_bulb_max_manual', 
+        1009: 'cloud_coverage_level_1_manual', 1010: 'genus_of_cloud_level_1_manual', 1011: 'height_of_cloud_base_level_1_manual', 
+        1012: 'cloud_coverage_level_2_manual', 1013: 'genus_of_cloud_level_2_manual', 1014: 'height_of_cloud_base_level_2_manual', 
+        1015: 'cloud_coverage_level_3_manual', 1016: 'genus_of_cloud_level_3_manual', 1017: 'height_of_cloud_base_level_3_manual', 
+        1018: 'cloud_coverage_level_4_manual', 1019: 'genus_of_cloud_level_4_manual', 1020: 'height_of_cloud_base_level_4_manual', 
+        4006: 'special_phenomenon_manual'}
+
+
+    # Populate the dictionary with retrieved data
+    for row in secondary_station_raw_data:
+        variable_id, measured_value = row
+        if variable_id in variable_mapping:
+            data_row[variable_mapping[variable_id]] = measured_value   
+
+    # Populate the dictionary with retrieved data (only data entries which store codes)
+    for row in secondary_station_raw_data_code:
+        variable_id, code_value = row
+        if variable_id in variable_mapping:
+            data_row[variable_mapping[variable_id]] = code_value   
+    # ------------- GETTING MANUAL STATIONS DATA END ------------- #
+
+
+    # Helper function to upload CSV to MinIO storage
+    def upload_to_minio(credentials, label, path):
+        try:
+            if label == "regional":
+                client = Minio(
+                    endpoint=f"{credentials.regional_wis2_ip_address}:{credentials.regional_wis2_port}",
+                    access_key=credentials.regional_wis2_username,
+                    secret_key=str(credentials.get_regional_password()),
+                    secure=False,
+                    http_client=urllib3.PoolManager(
+                        timeout=10.0,  # 10-second timeout
+                        retries=urllib3.util.Retry(
+                            total=1,  # Retry once
+                            backoff_factor=0,  # No backoff (instant retry)
+                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
+                        )
+                    )
+                )
+                
+            else:
+                client = Minio(
+                    endpoint=f"{credentials.local_wis2_ip_address}:{credentials.local_wis2_port}",
+                    access_key=credentials.local_wis2_username,
+                    secret_key=str(credentials.get_local_password()), 
+                    secure=False,
+                    http_client=urllib3.PoolManager(
+                        timeout=10.0,  # 10-second timeout
+                        retries=urllib3.util.Retry(
+                            total=1,  # Retry once
+                            backoff_factor=0,  # No backoff (instant retry)
+                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
+                        )
+                    )
+                )
+            
+            # if add_gts:
+            #     # Function to set tag for file based on hour
+            #     def set_tag(hour, minute):
+            #         if hour % 6 == 0 and minute == 0:
+            #             return 'main'
+            #         elif hour % 3 == 0 and minute == 0:
+            #             return 'intermediate'
+            #         elif minute == 0:
+            #             return 'non-standard'
+            #         else:
+            #             return 'other'
+                    
+            #     # Now get the tag
+            #     tag = set_tag(data_row['hour'], data_row['minute'])
+
+            #     # setting the base stations id as the id used in the file name
+            #     if base_aws:
+            #         filename = f"wmo_data_{id}_{tag}.csv"
+            #     else:
+            #         filename = f"wmo_data_{secondary_station}_{tag}.csv"
+            # else:
+            #     filename = f'wmo_data_{id}.csv'
+            filename = f'wmo_data_{id}.csv'
+
+            # Note that 'settings.WIS2BOX_TOPIC_HIERARCHY + filename' simply just tacks on the filename no '/' separation
+            # see 'https://docs.wis2box.wis.wmo.int/en/latest/user/data-ingest.html' for and example
+            # client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + filename, temp_csv_path)
+            # Note: The filename and the path are not the same, but i don't believe this affects wis2 reception if an error occurs consider 
+            # having the names match
+            client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + '/' + filename, path)
+
+            # Add the file name
+            wis2_message.append(filename)
+
+            logging.info(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
+            log_message(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
+            return True
+        except Exception as e:
+            logging.error(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
+            log_message(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
+            return False
+
+    try:
+        # Save the data into a temporary CSV file
+        with tempfile.NamedTemporaryFile(suffix='.csv', mode='w+', delete=False) as temp_csv:
+            csv_writer = csv.DictWriter(temp_csv, fieldnames=data_row.keys())
+            csv_writer.writeheader()
+            csv_writer.writerow(data_row)
+            temp_csv_path = temp_csv.name
+
+            # Capture the CSV content into a string
+            temp_csv.seek(0)  # Move to the beginning of the file
+            csv_content = temp_csv.read()
+
+        # Transmit data to regional and local WIS2Box if required
+        if regional_transmit:
+            regional_success = upload_to_minio(RegionalWisCredentials.objects.first(), "regional", temp_csv_path)
+            if regional_success:
+                log_message('Push to the Regional WIS2BOX was successfull')
+            else:
+                log_message('Push to the Regional WIS2BOX failed')
+        if local_transmit:
+            local_success = upload_to_minio(LocalWisCredentials.objects.first(), "local", temp_csv_path)
+            if local_success:
+                log_message('Push to the Local WIS2BOX was successfull')
+            else:
+                log_message('Push to the Local WIS2BOX failed')
+
+        # Add the CSV data to the list
+        wis2_message.append(csv_content)
+    finally:
+        # Clean up the temporary CSV file
+        os.remove(temp_csv_path)
+        logging.info(f'AWS Transmission for Station: {station_name} complete')
+        log_message(f'AWS Transmission for Station: {station_name} complete')
+
+        # if both regional and local transmission are selected both pushes must be success to get a 'success status'
+        if regional_transmit and local_transmit:
+            success_push = regional_success and local_success
+        # else if only regional transmission is set the 'success status' is based on only regional transmission
+        elif regional_transmit:
+            success_push = regional_success
+        # else if only local transmission is set the 'success status' is based on only local transmission
+        elif local_transmit:
+            success_push = local_success
+        else:
+            success_push = False
+
+    return wis2_logs, wis2_message, success_push
+
+
+# AWS STATIONS ONLY** Tasks the looks for stations that are set for international exchange (see STATION model) and transmits them to wis2box
 def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
     wis2_logs = []  # Stores log messages for debugging and reporting
     wis2_message = []
     regional_success = False
     local_success = False
+
+    # Get UTC time and truncate to the hour
+    unformated_now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+
+    # Format it as 'YYYY-MM-DD HH:MM:SS+00' for use in the queries
+    formated_now = unformated_now.strftime('%Y-%m-%d %H:%M:%S+00')
 
     # keep track of the logs to send back
     def log_message(message):
@@ -3069,11 +3354,10 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
     # Fetch the latest raw data measurements for specific variables
     raw_data_query = """
         SELECT variable_id, measured, datetime FROM raw_data
-        WHERE station_id = %s AND datetime = (
-            SELECT MAX(datetime) FROM hourly_summary)
+        WHERE station_id = %s AND datetime = %s
         AND variable_id IN (10, 19, 30, 51, 56, 60, 61);
     """
-    raw_data = execute_query(raw_data_query, [id], "Error fetching raw data")
+    raw_data = execute_query(raw_data_query, [id, formated_now], "Error fetching raw data")
 
     for row in raw_data:
         key, value = {
@@ -3090,33 +3374,44 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
             data_row[key] = value
     
     # Populate year, month, day, hour, minute in data_row
-    date_data = execute_query("SELECT MAX(datetime) FROM hourly_summary;", [], "Error fetching raw data")
-    if date_data:
-        # Get current UTC datetime
-        current_utc_datetime = date_data[0][0]
-
+    if unformated_now:
         # Add the extracted date components to data_row
-        data_row['year'] = current_utc_datetime.year
-        data_row['month'] = current_utc_datetime.month
-        data_row['day'] = current_utc_datetime.day
-        data_row['hour'] = current_utc_datetime.hour
-        data_row['minute'] = current_utc_datetime.minute
+        data_row['year'] = unformated_now.year
+        data_row['month'] = unformated_now.month
+        data_row['day'] = unformated_now.day
+        data_row['hour'] = unformated_now.hour
+        data_row['minute'] = unformated_now.minute
 
 
     ##########################################################################################
     # Fetch precipitation data for the past 24 hours
     precipitation_query = """
-        SELECT sum_value FROM hourly_summary WHERE station_id = %s AND variable_id = 0
-        ORDER BY datetime DESC LIMIT 24;
+        SELECT sum_value 
+        FROM hourly_summary 
+        WHERE station_id = %s 
+        AND variable_id = 0 
+        AND datetime BETWEEN %s - interval '24 hours' AND %s
+        ORDER BY datetime DESC;
     """
-    precipitation_data = execute_query(precipitation_query, [id], "Error fetching precipitation data")
+    precipitation_data = execute_query(precipitation_query, [id, formated_now, formated_now], "Error fetching precipitation data")
     precip_values = [row[0] for row in precipitation_data if row]
     if precip_values:
+
+        if precip_values[3]:
+            data_row.update({
+                'total_precipitation_3_hours': round(sum(precip_values[:3]), 1)
+            })
+        elif precip_values[6]:
+            data_row.update({
+                'total_precipitation_6_hours': round(sum(precip_values[:6]), 1)
+            })
+        elif precip_values[12]:
+            data_row.update({
+                'total_precipitation_12_hours': round(sum(precip_values[:12]), 1)
+            })
+
         data_row.update({
             'total_precipitation_1_hour': round(precip_values[0], 1),
-            'total_precipitation_3_hours': round(sum(precip_values[:3]), 1),
-            'total_precipitation_6_hours': round(sum(precip_values[:6]), 1),
-            'total_precipitation_12_hours': round(sum(precip_values[:12]), 1),
             'total_precipitation_24_hours': round(sum(precip_values), 1)
         })
 
@@ -3124,9 +3419,14 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
     ##########################################################################################
     # fetch wind SPEED 1 hour and 3 hour data
     wind_query = """
-        select max_value from hourly_summary hs where station_id = %s and variable_id = 51 ORDER BY datetime desc LIMIT 3;
+        SELECT max_value 
+        FROM hourly_summary hs 
+        WHERE station_id = %s 
+        AND variable_id = 51 
+        AND datetime BETWEEN %s - interval '3 hours' AND %s
+        ORDER BY datetime DESC;
     """
-    wind_data = execute_query(wind_query, [id], "Error fetching wind data")
+    wind_data = execute_query(wind_query, [id, formated_now, formated_now], "Error fetching wind data")
     wind_hourly = [rows[0] for rows in wind_data if row]
     if wind_hourly:
         data_row['maximum_wind_gust_speed_1_hour'] = round(wind_hourly[0], 1)
@@ -3135,9 +3435,14 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
 
     # fetch wind DIRECTION 1 hour and 3 hour data
     wind_direction_query = """
-        select max_value from hourly_summary hs where station_id = %s and variable_id = 56 ORDER BY datetime desc LIMIT 3;
+        SELECT max_value 
+        FROM hourly_summary hs 
+        WHERE station_id = %s 
+        AND variable_id = 56 
+        AND datetime BETWEEN %s - interval '3 hours' AND %s
+        ORDER BY datetime DESC;
     """
-    wind_direction_data = execute_query(wind_direction_query, [id], "Error fetching wind data")
+    wind_direction_data = execute_query(wind_direction_query, [id, formated_now, formated_now], "Error fetching wind data")
     wind_direction_hourly = [rows[0] for rows in wind_direction_data if row]
     if wind_direction_hourly:
         data_row['maximum_wind_gust_direction_1_hour'] = int(wind_direction_hourly[0])
@@ -3253,6 +3558,12 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
     regional_success = False
     local_success = False
 
+    # Get UTC time and truncate to the hour
+    unformated_now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+
+    # Format it as 'YYYY-MM-DD HH:MM:SS+00' for use in the queries
+    formated_now = unformated_now.strftime('%Y-%m-%d %H:%M:%S+00')
+
     # keep track of the logs to send back
     def log_message(message):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -3344,11 +3655,10 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
     # Fetch the latest raw data measurements for specific variables
     raw_data_query = """
         SELECT variable_id, measured, datetime FROM raw_data
-        WHERE station_id = %s AND datetime = (
-            SELECT MAX(datetime) FROM hourly_summary)
+        WHERE station_id = %s AND datetime = %s
         AND variable_id IN (10, 19, 30, 51, 56, 60, 61);
     """
-    raw_data = execute_query(raw_data_query, [id], "Error fetching raw data")
+    raw_data = execute_query(raw_data_query, [id, formated_now], "Error fetching raw data")
 
     for row in raw_data:
         key, value = {
@@ -3365,32 +3675,43 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
             data_row[key] = value
     
     # Populate year, month, day, hour, minute in data_row
-    date_data = execute_query("SELECT MAX(datetime) FROM hourly_summary;", [], "Error fetching raw data")
-    if date_data:
-        # Get current UTC datetime
-        current_utc_datetime = date_data[0][0]
-
+    if unformated_now:
         # Add the extracted date components to data_row
-        data_row['year'] = current_utc_datetime.year
-        data_row['month'] = current_utc_datetime.month
-        data_row['day'] = current_utc_datetime.day
-        data_row['hour'] = current_utc_datetime.hour
-        data_row['minute'] = current_utc_datetime.minute
+        data_row['year'] = unformated_now.year
+        data_row['month'] = unformated_now.month
+        data_row['day'] = unformated_now.day
+        data_row['hour'] = unformated_now.hour
+        data_row['minute'] = unformated_now.minute
 
     ##########################################################################################
     # Fetch precipitation data for the past 24 hours
     precipitation_query = """
-        SELECT sum_value FROM hourly_summary WHERE station_id = %s AND variable_id = 0
-        ORDER BY datetime DESC LIMIT 24;
+        SELECT sum_value 
+        FROM hourly_summary 
+        WHERE station_id = %s 
+        AND variable_id = 0 
+        AND datetime BETWEEN %s - interval '24 hours' AND %s
+        ORDER BY datetime DESC;
     """
-    precipitation_data = execute_query(precipitation_query, [id], "Error fetching precipitation data")
+    precipitation_data = execute_query(precipitation_query, [id, formated_now, formated_now], "Error fetching precipitation data")
     precip_values = [row[0] for row in precipitation_data if row]
     if precip_values:
+
+        if precip_values[3]:
+            data_row.update({
+                'total_precipitation_3_hours': round(sum(precip_values[:3]), 1)
+            })
+        elif precip_values[6]:
+            data_row.update({
+                'total_precipitation_6_hours': round(sum(precip_values[:6]), 1)
+            })
+        elif precip_values[12]:
+            data_row.update({
+                'total_precipitation_12_hours': round(sum(precip_values[:12]), 1)
+            })
+
         data_row.update({
             'total_precipitation_1_hour': round(precip_values[0], 1),
-            'total_precipitation_3_hours': round(sum(precip_values[:3]), 1),
-            'total_precipitation_6_hours': round(sum(precip_values[:6]), 1),
-            'total_precipitation_12_hours': round(sum(precip_values[:12]), 1),
             'total_precipitation_24_hours': round(sum(precip_values), 1)
         })
 
@@ -3398,9 +3719,15 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
     ##########################################################################################
     # fetch wind SPEED 1 hour and 3 hour data
     wind_query = """
-        select max_value from hourly_summary hs where station_id = %s and variable_id = 51 ORDER BY datetime desc LIMIT 3;
+        SELECT max_value 
+        FROM hourly_summary hs 
+        WHERE station_id = %s 
+        AND variable_id = 51 
+        AND datetime BETWEEN %s - interval '3 hours' AND %s
+        ORDER BY datetime DESC;
     """
-    wind_data = execute_query(wind_query, [id], "Error fetching wind data")
+
+    wind_data = execute_query(wind_query, [id, formated_now, formated_now], "Error fetching wind data")
     wind_hourly = [rows[0] for rows in wind_data if row]
     if wind_hourly:
         data_row['maximum_wind_gust_speed_1_hour'] = round(wind_hourly[0], 1)
@@ -3409,9 +3736,14 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
 
     # fetch wind DIRECTION 1 hour and 3 hour data
     wind_direction_query = """
-        select max_value from hourly_summary hs where station_id = %s and variable_id = 56 ORDER BY datetime desc LIMIT 3;
+        SELECT max_value 
+        FROM hourly_summary hs 
+        WHERE station_id = %s 
+        AND variable_id = 56 
+        AND datetime BETWEEN %s - interval '3 hours' AND %s
+        ORDER BY datetime DESC;
     """
-    wind_direction_data = execute_query(wind_direction_query, [id], "Error fetching wind data")
+    wind_direction_data = execute_query(wind_direction_query, [id, formated_now, formated_now], "Error fetching wind data")
     wind_direction_hourly = [rows[0] for rows in wind_direction_data if row]
     if wind_direction_hourly:
         data_row['maximum_wind_gust_direction_1_hour'] = int(wind_direction_hourly[0])
@@ -3426,10 +3758,7 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
         SELECT variable_id, measured
         FROM raw_data
         WHERE station_id = %s 
-        AND datetime = (
-            SELECT MAX(datetime) 
-            FROM hourly_summary 
-        )
+        AND datetime = %s
         AND variable_id IN (10, 16, 18, 19, 30, 50, 55, 60, 61,
                             4048, 4050, 4055, 4056, 4057);
     """
@@ -3439,18 +3768,15 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
         SELECT variable_id, code
         FROM raw_data
         WHERE station_id = %s 
-        AND datetime = (
-            SELECT MAX(datetime) 
-            FROM hourly_summary 
-        )
+        AND datetime = %s
         AND variable_id IN (1001, 1002, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1011,
                             1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 4005,
                             4006, 4040, 4041, 4042, 4044, 4045, 4046, 4047, 4043);
     """
 
     # Execute the query
-    secondary_station_raw_data = execute_query(manual_data_query, [secondary_station], "Error fetching raw data")
-    secondary_station_raw_data_code = execute_query(manual_data_query_code, [secondary_station], "Error fetching raw data")
+    secondary_station_raw_data = execute_query(manual_data_query, [secondary_station, formated_now], "Error fetching raw data")
+    secondary_station_raw_data_code = execute_query(manual_data_query_code, [secondary_station, formated_now], "Error fetching raw data")
 
     # Mapping of variable_id to dictionary keys
     variable_mapping = {
@@ -3610,6 +3936,7 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
     return wis2_logs, wis2_message, success_push
 
 
+
 @shared_task
 def wis2publish_cleanup():
     # clean up logs older than 24 hours
@@ -3690,8 +4017,16 @@ def wis2push_regular(entry_id, now):
     # get the entry
     _entry = Wis2BoxPublish.objects.get(id=entry_id)
 
-    # get the data from the transmission
-    wis2_logs, wis2_message, success_push = aws_transmit_wis2box(_entry.station.id, _entry.station.name, _entry.regional_wis2, _entry.local_wis2)
+    # get station obj
+    _station_obj = Station.objects.get(id=_entry.station.id)
+
+    # differentiating between manual and automatic stations
+    if _station_obj.is_automatic:
+        # get the data from the transmission
+        wis2_logs, wis2_message, success_push = aws_transmit_wis2box(_entry.station.id, _entry.station.name, _entry.regional_wis2, _entry.local_wis2)
+    else:
+        # get the data from the transmission
+        wis2_logs, wis2_message, success_push = manual_transmit_wis2box(_entry.station.id, _entry.station.name, _entry.regional_wis2, _entry.local_wis2)
 
     message_exist = bool(wis2_message)
 

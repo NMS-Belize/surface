@@ -2143,5 +2143,16 @@
             "notation": "716",
             "description": "ISO 3166-1 numeric code for Zimbabwe"
         }
+    },
+    {
+        "model": "wx.countryisocode",
+        "pk": 196,
+        "fields": {
+            "created_at": "2025-04-07T18:28:39.370Z",
+            "updated_at": "2025-04-07T18:38:39.370Z",
+            "name": "Legacy Code",
+            "notation": "20000",
+            "description": "Legacy Station Code"
+        }
     }
 ]

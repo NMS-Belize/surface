@@ -452,7 +452,7 @@ class Station(BaseModel):
         max_length=16,
     )
 
-    is_active = models.BooleanField(default=False, verbose_name="Active Station")
+    is_active = models.BooleanField(default=True, verbose_name="Active Station")
 
 
     reporting_status = models.ForeignKey(
@@ -464,7 +464,7 @@ class Station(BaseModel):
 
     international_exchange = models.BooleanField(default=False, verbose_name="Enable Publishing to WIS2")
     
-    is_automatic = models.BooleanField(default=True, verbose_name="Automatic Station")
+    is_automatic = models.BooleanField(default=False, verbose_name="Automatic Station")
     is_synoptic = models.BooleanField(default=False, verbose_name="Synoptic Station")
     synoptic_code = models.IntegerField(
         null=True,
