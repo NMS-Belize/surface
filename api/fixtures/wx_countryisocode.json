@@ -2150,7 +2150,7 @@
         "fields": {
             "created_at": "2025-04-07T18:28:39.370Z",
             "updated_at": "2025-04-07T18:38:39.370Z",
-            "name": "Legacy Code",
+            "name": "Legacy Code (20000)",
             "notation": "20000",
             "description": "Legacy Station Code"
         }
