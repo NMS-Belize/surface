@@ -3023,20 +3023,21 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
         'wmo_station_number', 'station_type', 'year', 'month', 'day', 'hour', 'minute',
         'latitude', 'longitude', 'station_height_above_msl', 'barometer_height_above_msl',
         'thermometer_height', 'anemometer_height', 'time_period_of_wind', 'rain_sensor_height', 
-        'wind_indicator_manual', 'precipitation_indicator_manual', 'station_operation_indicator_manual',
-        'lowest_cloud_height_manual', 'visibility_KM_manual', 'cloud_cover_tot_manual', 'wind_direction_manual',
-        'wind_speed_manual', 'air_temperature_dry_bulb_manual', 'dew_point_temperature_manual',
-        'air_temperature_wet_bulb_manual', 'relative_humidity_manual', 'pressure_at_station_level_manual',
-        'pressure_at_sea_level_hpa_manual', 'precipitation_since_last_report_manual', 'precipitation_period_duration_manual',
-        '24_hour_barometric_change_manual', '24_hour_rainfall_manual', 'present_weather_manual',
-        'past_weather_type_1_manual', 'past_weather_type_2_manual', 'observed_cloud_coverage_manual',
-        'low_cloud_type_manual', 'middle_cloud_type_manual', 'high_cloud_type_manual', 'state_of_sky_manual',
-        'direction_of_cl_clouds_manual', 'direction_of_cm_clouds_manual', 'direction_of_ch_clouds_manual',
-        'air_temperature_dry_bulb_max_manual', 'cloud_coverage_level_1_manual', 'genus_of_cloud_level_1_manual',
-        'height_of_cloud_base_level_1_manual', 'cloud_coverage_level_2_manual', 'genus_of_cloud_level_2_manual',
-        'height_of_cloud_base_level_2_manual', 'cloud_coverage_level_3_manual', 'genus_of_cloud_level_3_manual',
-        'height_of_cloud_base_level_3_manual', 'cloud_coverage_level_4_manual', 'genus_of_cloud_level_4_manual',
-        'height_of_cloud_base_level_4_manual', 'special_phenomenon_manual']}
+        'wind_indicator', 'precipitation_indicator', 'station_operation_indicator',
+        'lowest_cloud_height', 'visibility', 'cloud_cover_tot', 'wind_direction',
+        'wind_speed', 'air_temperature', 'dewpoint_temperature',
+        'maximum_air_temperature', 'minimum_air_temperature',
+        'wetbulb_temperature', 'relative_humidity', 'pressure_at_station_level',
+        'pressure_at_sea_level_hpa', 'precipitation_since_last_report', 'precipitation_period_duration',
+        '24_hour_barometric_change', 'total_precipitation_24_hours', 'present_weather',
+        'past_weather_w_1', 'past_w_type_2', 'observed_cloud_coverage',
+        'low_cloud_type', 'middle_cloud_type', 'high_cloud_type', 'state_of_sky',
+        'direction_of_cl_clouds', 'direction_of_cm_clouds', 'direction_of_ch_clouds',
+        'cloud_coverage_l1', 'genus_of_cloud_l1',
+        'height_of_cloud_base_l1', 'cloud_coverage_l2', 'genus_of_cloud_l2',
+        'height_of_cloud_base_l2', 'cloud_coverage_l3', 'genus_of_cloud_l3',
+        'height_of_cloud_base_l3', 'cloud_coverage_l4', 'genus_of_cloud_l4',
+        'height_of_cloud_base_l4', 'special_phenomenon']}
 
     # Helper function to execute database queries safely
     def execute_query(query, params, error_message):
@@ -3072,9 +3073,9 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
             # the settings below will be hard coded until further notice
             'thermometer_height': 1.7, 
             'anemometer_height': 10, 
-            'time_period_of_wind': -5,
+            'time_period_of_wind': -10, # for this particular one the user should be able to change this
             'rain_sensor_height': 1.5, 
-            'station_type': 0
+            'station_type': 0,
         })
 
     # Populate year, month, day, hour, minute in data_row
@@ -3095,7 +3096,7 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
         FROM raw_data
         WHERE station_id = %s 
         AND datetime = %s
-        AND variable_id IN (10, 16, 18, 19, 30, 50, 55, 60, 61,
+        AND variable_id IN (10, 14, 16, 18, 19, 30, 50, 55, 60, 61,
                             4048, 4050, 4055, 4056, 4057);
     """
 
@@ -3116,21 +3117,21 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
 
     # Mapping of variable_id to dictionary keys
     variable_mapping = {
-        4040: 'wind_indicator_manual', 4041: 'precipitation_indicator_manual', 4042: 'station_operation_indicator_manual', 
-        4048: 'lowest_cloud_height_manual', 4056: 'visibility_KM_manual', 1001: 'cloud_cover_tot_manual', 
-        55: 'wind_direction_manual', 50: 'wind_speed_manual', 10: 'air_temperature_dry_bulb_manual', 
-        19: 'dew_point_temperature_manual', 18: 'air_temperature_wet_bulb_manual', 30: 'relative_humidity_manual', 
-        60: 'pressure_at_station_level_manual', 61: 'pressure_at_sea_level_hpa_manual', 4050: 'precipitation_since_last_report_manual', 
-        4043: 'precipitation_period_duration_manual', 4057: '24_hour_barometric_change_manual', 4055: '24_hour_rainfall_manual', 
-        1002: 'present_weather_manual', 1003: 'past_weather_type_1_manual', 1004: 'past_weather_type_2_manual', 
-        4005: 'observed_cloud_coverage_manual', 1006: 'low_cloud_type_manual', 1007: 'middle_cloud_type_manual', 
-        1008: 'high_cloud_type_manual', 4044: 'state_of_sky_manual', 4045: 'direction_of_cl_clouds_manual', 
-        4046: 'direction_of_cm_clouds_manual', 4047: 'direction_of_ch_clouds_manual', 16: 'air_temperature_dry_bulb_max_manual', 
-        1009: 'cloud_coverage_level_1_manual', 1010: 'genus_of_cloud_level_1_manual', 1011: 'height_of_cloud_base_level_1_manual', 
-        1012: 'cloud_coverage_level_2_manual', 1013: 'genus_of_cloud_level_2_manual', 1014: 'height_of_cloud_base_level_2_manual', 
-        1015: 'cloud_coverage_level_3_manual', 1016: 'genus_of_cloud_level_3_manual', 1017: 'height_of_cloud_base_level_3_manual', 
-        1018: 'cloud_coverage_level_4_manual', 1019: 'genus_of_cloud_level_4_manual', 1020: 'height_of_cloud_base_level_4_manual', 
-        4006: 'special_phenomenon_manual'}
+        4040: 'wind_indicator', 4041: 'precipitation_indicator', 4042: 'station_operation_indicator', 
+        4048: 'lowest_cloud_height', 4056: 'visibility', 1001: 'cloud_cover_tot', 
+        55: 'wind_direction', 50: 'wind_speed', 10: 'air_temperature', 
+        19: 'dewpoint_temperature', 18: 'wetbulb_temperature', 30: 'relative_humidity', 
+        60: 'pressure_at_station_level', 61: 'pressure_at_sea_level_hpa', 4050: 'precipitation_since_last_report', 
+        4043: 'precipitation_period_duration', 4057: '24_hour_barometric_change', 4055: 'total_precipitation_24_hours', 
+        1002: 'present_weather', 1003: 'past_weather_w_1', 1004: 'past_weather_w_2', 
+        4005: 'observed_cloud_coverage', 1006: 'low_cloud_type', 1007: 'middle_cloud_type', 
+        1008: 'high_cloud_type', 4044: 'state_of_sky', 4045: 'direction_of_cl_clouds', 14: 'minimum_air_temperature',
+        4046: 'direction_of_cm_clouds', 4047: 'direction_of_ch_clouds', 16: 'maximum_air_temperature', 
+        1009: 'cloud_coverage_l1', 1010: 'genus_of_cloud_l1', 1011: 'height_of_cloud_base_l1', 
+        1012: 'cloud_coverage_l2', 1013: 'genus_of_cloud_l2', 1014: 'height_of_cloud_base_l2', 
+        1015: 'cloud_coverage_l3', 1016: 'genus_of_cloud_l3', 1017: 'height_of_cloud_base_l3', 
+        1018: 'cloud_coverage_l4', 1019: 'genus_of_cloud_l4', 1020: 'height_of_cloud_base_l4', 
+        4006: 'special_phenomenon'}
 
 
     # Populate the dictionary with retrieved data
