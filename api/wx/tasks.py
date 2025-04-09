@@ -3138,8 +3138,11 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
     for row in secondary_station_raw_data:
         variable_id, measured_value = row
 
-        if variable_id in variable_mapping:
+        # if the value retrieve is -99.9 that means the value is missing therefore leave the entry empty
+        if str(measured_value) == "-99.9":
+            measured_value = None
 
+        if variable_id in variable_mapping:
             if variable_id == 50: # converting the wind speed in knots to meters per second
                 data_row[variable_mapping[variable_id]] = round(float(measured_value / 1.944), 2)
 
