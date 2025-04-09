@@ -3075,7 +3075,7 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
             'anemometer_height': 10, 
             'time_period_of_wind': -10, # for this particular one the user should be able to change this
             'rain_sensor_height': 1.5, 
-            'station_type': 0,
+            'station_type': 1,
         })
 
     # Populate year, month, day, hour, minute in data_row
@@ -3137,8 +3137,20 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
     # Populate the dictionary with retrieved data
     for row in secondary_station_raw_data:
         variable_id, measured_value = row
+
         if variable_id in variable_mapping:
-            data_row[variable_mapping[variable_id]] = measured_value   
+
+            if variable_id == 50: # converting the wind speed in knots to meters per second
+                data_row[variable_mapping[variable_id]] = round(float(measured_value / 1.944), 2)
+
+            elif variable_id in [10, 14, 16, 18, 19]:  # converting all temperature values to kelvin
+                data_row[variable_mapping[variable_id]] = round(float(measured_value) + 273.15, 2)
+
+            elif variable_id in [60, 61, 4057]:  # converting all pressure values to pascals
+                data_row[variable_mapping[variable_id]] = round(float(measured_value) * 100)
+
+            else:
+                data_row[variable_mapping[variable_id]] = measured_value   
 
     # Populate the dictionary with retrieved data (only data entries which store codes)
     for row in secondary_station_raw_data_code:
@@ -3649,7 +3661,7 @@ def transition_transmit_wis2box(id, station_name, regional_transmit, local_trans
             'anemometer_height': 10, 
             'time_period_of_wind': -5,
             'rain_sensor_height': 1.5, 
-            'station_type': 0
+            'station_type': 2
         })
 
     ##########################################################################################

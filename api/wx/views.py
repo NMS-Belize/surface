@@ -2805,17 +2805,17 @@ class StationCreate(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = Station
 
     success_message = "%(name)s was created successfully"
+    # form_class = StationCreateForm(instance=self.object)
     form_class = StationForm
 
     layout = Layout(
         Fieldset('SURFACE Requirements',
                  Row('latitude', 'longitude'),
-                 Row('name'),
+                 Row('name', 'code'),
                  Row('is_active', 'is_automatic', 'is_synoptic', 'international_exchange'),
                  Row('synoptic_code', 'synoptic_type'),
-                 Row('code', 'elevation'),
+                 Row('region', 'elevation'),
                  Row('country', 'communication_type'),
-                 Row('region', 'watershed'),
                  Row('utc_offset_minutes', 'begin_date'),
                  ),
         Fieldset('Additional Options',

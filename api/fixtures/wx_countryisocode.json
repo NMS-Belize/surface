@@ -1972,6 +1972,17 @@
         "model": "wx.countryisocode",
         "pk": 180,
         "fields": {
+            "created_at": "2025-04-07T18:28:39.370Z",
+            "updated_at": "2025-04-07T18:38:39.370Z",
+            "name": "Turks and Caicos (796)",
+            "notation": "796",
+            "description": "ISO 3166-1 numeric code for Turks and Caicos"
+        }
+    },
+    {
+        "model": "wx.countryisocode",
+        "pk": 181,
+        "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
             "name": "Tuvalu (798)",
@@ -1981,7 +1992,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 181,
+        "pk": 182,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -1992,7 +2003,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 182,
+        "pk": 183,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2003,7 +2014,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 183,
+        "pk": 184,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2014,7 +2025,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 184,
+        "pk": 185,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2025,7 +2036,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 185,
+        "pk": 186,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2036,7 +2047,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 186,
+        "pk": 187,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2047,7 +2058,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 187,
+        "pk": 188,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2058,7 +2069,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 188,
+        "pk": 189,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2069,7 +2080,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 189,
+        "pk": 190,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2080,7 +2091,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 190,
+        "pk": 191,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2091,7 +2102,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 191,
+        "pk": 192,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2102,7 +2113,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 192,
+        "pk": 193,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2113,7 +2124,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 193,
+        "pk": 194,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2124,7 +2135,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 194,
+        "pk": 195,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2135,7 +2146,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 195,
+        "pk": 196,
         "fields": {
             "created_at": "2024-09-03T18:28:39.370Z",
             "updated_at": "2024-09-04T13:28:39.370Z",
@@ -2146,7 +2157,7 @@
     },
     {
         "model": "wx.countryisocode",
-        "pk": 196,
+        "pk": 197,
         "fields": {
             "created_at": "2025-04-07T18:28:39.370Z",
             "updated_at": "2025-04-07T18:38:39.370Z",

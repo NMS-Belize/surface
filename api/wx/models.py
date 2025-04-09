@@ -490,7 +490,8 @@ class Station(BaseModel):
     
     watershed = models.CharField(
         max_length=256,
-        null=True
+        null=True,
+        blank=True
     )
     
     z = models.FloatField(

@@ -695,7 +695,7 @@
         is_active: true,
         is_inactive: false,
         is_automatic: true,
-        is_manual: false,
+        is_manual: true,
         profile: [],
         region: [],
         watershed: [],
@@ -759,7 +759,7 @@
           ) &&
           (this.defaultFilter.profile.includes(marker.profile) || this.STATION_MAP_FILTER_PROFILE == 0) &&
           (this.defaultFilter.region.includes(marker.region) || this.STATION_MAP_FILTER_REGION == 0) &&
-          (this.defaultFilter.watershed.includes(marker.watershed) || this.STATION_MAP_FILTER_WATERSHED == 0) &&
+          // (this.defaultFilter.watershed.includes(marker.watershed) || this.STATION_MAP_FILTER_WATERSHED == 0) &&
           (this.defaultFilter.station_communications.includes(marker.communication_type) || this.STATION_MAP_FILTER_COMMUNICATION == 0) &&
           (this.defaultFilter.inputSearch === "" || marker.name.toUpperCase().includes(this.defaultFilter.inputSearch.toUpperCase()))
         )

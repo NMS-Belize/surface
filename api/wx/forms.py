@@ -22,7 +22,7 @@ class StationForm(forms.ModelForm):
     )
 
     # configured dropdown for watershed option
-    watershed = forms.ChoiceField()
+    watershed = forms.ChoiceField(required=False)
 
     # configured dropdown for region option
     region = forms.ChoiceField()
