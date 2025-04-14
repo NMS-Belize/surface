@@ -318,5 +318,15 @@
         "symbol": "Hz",
         "name": "Hertz"
     }
+},
+{
+    "model": "wx.unit",
+    "pk": 33,
+    "fields": {
+        "created_at": "2023-05-09T01:41:17.023Z",
+        "updated_at": "2023-05-09T01:41:17.023Z",
+        "symbol": "ft",
+        "name": "Feet"
+    }
 }
 ]

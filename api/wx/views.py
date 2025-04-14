@@ -7661,8 +7661,8 @@ def get_synop_table_config():
         'CLDTOT', 'WNDDIR', 'WNDSPD', 'TEMP', 'TDEWPNT', 'TEMPWB',
         'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECSLR', 'PRECDUR', 'PRSWX',
         'W1', 'W2', 'Nh', 'CL', 'CM', 'CH', 'STSKY',
-        'DL', 'DM', 'DH', 'TEMPMAX', 'TEMPMIN', 'PREC24H', 'N1', 'C1', 'hh1',
-        'N2', 'C2', 'hh2', 'N3', 'C3', 'hh3', 'N4', 'C4', 'hh4', 'SpPhenom'
+        'DL', 'DM', 'DH', 'TEMPMAX', 'TEMPMIN', 'PREC24H', 'N1', 'C1', 'hhFt1',
+        'N2', 'C2', 'hhFt2', 'N3', 'C3', 'hhFt3', 'N4', 'C4', 'hhFt4', 'SpPhenom'
     ]
     
     # Get a variable list using the order of variable_ids list
@@ -8655,14 +8655,6 @@ class WIS2DashboardView(LoginRequiredMixin, TemplateView):
 
     def get(self, request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
-
-        # context['station_list'] = Station.objects.filter(is_synoptic=True).values('id', 'name', 'code')
-        # context['handsontable_config'] = get_synop_table_config()
-        # # Get parameters from request or set default values
-        # station_id = request.GET.get('station_id', 'null')
-        # date = request.GET.get('date', datetime.date.today().isoformat())
-        # context['station_id'] = station_id
-        # context['date'] = date
 
         return self.render_to_response(context) 
 
