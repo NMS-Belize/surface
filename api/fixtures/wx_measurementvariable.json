@@ -318,5 +318,15 @@
         "name": "Height of Cloud Base in Feet - Level 4",
         "physical_quantity": 2
     }
+},
+{
+    "model": "wx.measurementvariable",
+    "pk": 34,
+    "fields": {
+        "created_at": "2024-07-26T23:51:57.735Z",
+        "updated_at": "2024-07-26T23:51:57.735Z",
+        "name": "Cloud Height in Feet",
+        "physical_quantity": 2
+    }
 }
 ]

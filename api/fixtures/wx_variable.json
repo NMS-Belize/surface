@@ -4387,12 +4387,12 @@
         "updated_at": "2025-02-20T10:40:58Z",
         "variable_type": "Numeric",
         "symbol": "hhFt1",
-        "name": "Height of Cloud Base in Feet - Level 1",
+        "name": "Height of Cloud Base",
         "sampling_operation": 1,
         "measurement_variable": 30,
         "unit": 33,
         "precision": 1,
-        "scale": 1,
+        "scale": 0,
         "code_table": null,
         "color": "#FF0000",
         "range_min": null,
@@ -4406,7 +4406,7 @@
         "persistence_window": null,
         "persistence_window_hourly": null,
         "default_representation": "line",
-        "synoptic_code_form": ""
+        "synoptic_code_form": "Level 1 [in feet]"
     }
 },
 {
@@ -4417,12 +4417,12 @@
         "updated_at": "2025-02-20T10:40:58Z",
         "variable_type": "Numeric",
         "symbol": "hhFt2",
-        "name": "Height of Cloud Base in Feet - Level 2",
+        "name": "Height of Cloud Base",
         "sampling_operation": 1,
         "measurement_variable": 31,
         "unit": 33,
         "precision": 1,
-        "scale": 1,
+        "scale": 0,
         "code_table": null,
         "color": "#FF0000",
         "range_min": null,
@@ -4436,7 +4436,7 @@
         "persistence_window": null,
         "persistence_window_hourly": null,
         "default_representation": "line",
-        "synoptic_code_form": ""
+        "synoptic_code_form": "Level 2 [in feet]"
     }
 },
 {
@@ -4447,12 +4447,12 @@
         "updated_at": "2025-02-20T10:40:58Z",
         "variable_type": "Numeric",
         "symbol": "hhFt3",
-        "name": "Height of Cloud Base in Feet - Level 3",
+        "name": "Height of Cloud Base",
         "sampling_operation": 1,
         "measurement_variable": 32,
         "unit": 33,
         "precision": 1,
-        "scale": 1,
+        "scale": 0,
         "code_table": null,
         "color": "#FF0000",
         "range_min": null,
@@ -4466,7 +4466,7 @@
         "persistence_window": null,
         "persistence_window_hourly": null,
         "default_representation": "line",
-        "synoptic_code_form": ""
+        "synoptic_code_form": "Level 3 [in feet]"
     }
 },
 {
@@ -4477,12 +4477,12 @@
         "updated_at": "2025-02-20T10:40:58Z",
         "variable_type": "Numeric",
         "symbol": "hhFt4",
-        "name": "Height of Cloud Base in Feet - Level 4",
+        "name": "Height of Cloud Base",
         "sampling_operation": 1,
         "measurement_variable": 33,
         "unit": 33,
         "precision": 1,
-        "scale": 1,
+        "scale": 0,
         "code_table": null,
         "color": "#FF0000",
         "range_min": null,
@@ -4496,7 +4496,37 @@
         "persistence_window": null,
         "persistence_window_hourly": null,
         "default_representation": "line",
-        "synoptic_code_form": ""
+        "synoptic_code_form": "Level 4 [in feet]"
+    }
+},
+{
+    "model": "wx.variable",
+    "pk": 4062,
+    "fields": {
+        "created_at": "2024-07-26T23:59:28.639Z",
+        "updated_at": "2024-07-26T23:59:28.639Z",
+        "variable_type": "Numeric",
+        "symbol": "LOWCLHFt",
+        "name": "Lowest Cloud height",
+        "sampling_operation": 1,
+        "measurement_variable": 34,
+        "unit": 33,
+        "precision": 5,
+        "scale": 0,
+        "code_table": null,
+        "color": "#FF0000",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": null,
+        "range_max_hourly": null,
+        "step": null,
+        "step_hourly": null,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": "h [in feet]"
     }
 }
 ]

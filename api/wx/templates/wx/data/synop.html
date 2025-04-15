@@ -107,6 +107,19 @@
             </v-list-item>
           </v-list-item-group>
         </v-list> 
+
+        <!-- local time notification -->
+        <v-chip
+          v-if="!hideTable"
+          color="purple"
+          label
+          link
+          outlined
+          style="margin-bottom: 10px;"
+        >
+          Timestamps are in local time
+        </v-chip>
+
         <!-- The table -->
         <div>
           <hot-table

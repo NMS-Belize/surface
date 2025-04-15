@@ -3152,6 +3152,9 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
             elif variable_id in [60, 61, 4057]:  # converting all pressure values to pascals
                 data_row[variable_mapping[variable_id]] = round(float(measured_value) * 100)
 
+            elif variable_id in [4043]: # converting precipitation_period_duration fm12 code to buffer code
+                data_row[variable_mapping[variable_id]] = f"-{int(measured_value) * 6}"
+
             else:
                 data_row[variable_mapping[variable_id]] = measured_value   
 
@@ -3423,13 +3426,27 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
             data_row.update({
                 'total_precipitation_3_hours': round(sum(precip_values[:3]), 1)
             })
-        elif precip_values[6]:
+        else:
+            data_row.update({
+                'total_precipitation_3_hours': 0
+            })
+
+        if precip_values[6]:
             data_row.update({
                 'total_precipitation_6_hours': round(sum(precip_values[:6]), 1)
             })
-        elif precip_values[12]:
+        else:
+            data_row.update({
+                'total_precipitation_6_hours': 0
+            })
+
+        if precip_values[12]:
             data_row.update({
                 'total_precipitation_12_hours': round(sum(precip_values[:12]), 1)
+            })
+        else:
+            data_row.update({
+                'total_precipitation_12_hours': 0
             })
 
         data_row.update({

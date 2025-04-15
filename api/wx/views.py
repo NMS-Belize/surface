@@ -7657,7 +7657,7 @@ class IntervalViewSet(viewsets.ModelViewSet):
 def get_synop_table_config():
     # List of variables, in order, for synoptic station input form
     variable_symbols = [
-        'WINDINDR', 'PRECIND', 'STATIND', 'LOWCLH', 'VISBY-km', 'VISBY',
+        'WINDINDR', 'PRECIND', 'STATIND', 'LOWCLHFt', 'VISBY-km',
         'CLDTOT', 'WNDDIR', 'WNDSPD', 'TEMP', 'TDEWPNT', 'TEMPWB',
         'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECSLR', 'PRECDUR', 'PRSWX',
         'W1', 'W2', 'Nh', 'CL', 'CM', 'CH', 'STSKY',
@@ -7674,12 +7674,6 @@ def get_synop_table_config():
         # [variable.symbol for variable in variable_list]+['Remarks', 'Observer', 'Action'],
         [
             (
-                variable.synoptic_code_form + " [In Meters]" 
-                if variable.synoptic_code_form in ["h"] 
-                else
-                # variable.synoptic_code_form + " [In Kilometers]"
-                # if variable.synoptic_code_form in ["(VV) VV"] 
-                # else
                 variable.synoptic_code_form
             ) 
             if variable.synoptic_code_form is not None 
