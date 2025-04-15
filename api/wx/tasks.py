@@ -3112,8 +3112,8 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
     """
 
     # Execute the query
-    secondary_station_raw_data = execute_query(manual_data_query, [id, formated_now], "Error fetching raw data")
-    secondary_station_raw_data_code = execute_query(manual_data_query_code, [id, formated_now], "Error fetching raw data")
+    secondary_station_raw_data = execute_query(manual_data_query, [id, formated_now], "Error fetching non coded manual data")
+    secondary_station_raw_data_code = execute_query(manual_data_query_code, [id, formated_now], "Error fetching coded manual data")
 
     # Mapping of variable_id to dictionary keys
     variable_mapping = {
@@ -3302,6 +3302,12 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
     # Format it as 'YYYY-MM-DD HH:MM:SS+00' for use in the queries
     formated_now = unformated_now.strftime('%Y-%m-%d %H:%M:%S+00')
 
+    # Formatted time 24 hrs ago
+    formated_past_24_hrs = (unformated_now - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S+00')
+
+    # Formatted time 3 hrs ago
+    formated_past_3_hrs = (unformated_now - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S+00')
+
     # keep track of the logs to send back
     def log_message(message):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -3406,10 +3412,10 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
         FROM hourly_summary 
         WHERE station_id = %s 
         AND variable_id = 0 
-        AND datetime BETWEEN %s - interval '24 hours' AND %s
+        AND datetime BETWEEN %s AND %s
         ORDER BY datetime DESC;
     """
-    precipitation_data = execute_query(precipitation_query, [id, formated_now, formated_now], "Error fetching precipitation data")
+    precipitation_data = execute_query(precipitation_query, [id, formated_past_24_hrs, formated_now], "Error fetching precipitation data")
     precip_values = [row[0] for row in precipitation_data if row]
     if precip_values:
 
@@ -3439,10 +3445,10 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
         FROM hourly_summary hs 
         WHERE station_id = %s 
         AND variable_id = 51 
-        AND datetime BETWEEN %s - interval '3 hours' AND %s
+        AND datetime BETWEEN %s AND %s
         ORDER BY datetime DESC;
     """
-    wind_data = execute_query(wind_query, [id, formated_now, formated_now], "Error fetching wind data")
+    wind_data = execute_query(wind_query, [id, formated_past_3_hrs, formated_now], "Error fetching wind data")
     wind_hourly = [rows[0] for rows in wind_data if row]
     if wind_hourly:
         data_row['maximum_wind_gust_speed_1_hour'] = round(wind_hourly[0], 1)
@@ -3455,10 +3461,10 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
         FROM hourly_summary hs 
         WHERE station_id = %s 
         AND variable_id = 56 
-        AND datetime BETWEEN %s - interval '3 hours' AND %s
+        AND datetime BETWEEN %s AND %s
         ORDER BY datetime DESC;
     """
-    wind_direction_data = execute_query(wind_direction_query, [id, formated_now, formated_now], "Error fetching wind data")
+    wind_direction_data = execute_query(wind_direction_query, [id, formated_past_3_hrs, formated_now], "Error fetching wind data")
     wind_direction_hourly = [rows[0] for rows in wind_direction_data if row]
     if wind_direction_hourly:
         data_row['maximum_wind_gust_direction_1_hour'] = int(wind_direction_hourly[0])
