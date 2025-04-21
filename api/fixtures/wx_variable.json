@@ -4528,5 +4528,35 @@
         "default_representation": "line",
         "synoptic_code_form": "h [in feet]"
     }
+},
+{
+    "model": "wx.variable",
+    "pk": 4063,
+    "fields": {
+        "created_at": "2020-02-14T19:01:37.629Z",
+        "updated_at": "2023-05-15T21:36:25.165Z",
+        "variable_type": "Numeric",
+        "symbol": "WNDDOM",
+        "name": "Wind Direction [DOM]",
+        "sampling_operation": 1,
+        "measurement_variable": 10,
+        "unit": 15,
+        "precision": 3,
+        "scale": 0,
+        "code_table": null,
+        "color": "#685489",
+        "range_min": null,
+        "range_max": null,
+        "range_min_hourly": 0.0,
+        "range_max_hourly": 360.0,
+        "step": null,
+        "step_hourly": 60.0,
+        "persistence": null,
+        "persistence_hourly": null,
+        "persistence_window": null,
+        "persistence_window_hourly": null,
+        "default_representation": "line",
+        "synoptic_code_form": ""
+    }
 }
 ]

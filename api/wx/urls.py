@@ -146,6 +146,7 @@ urlpatterns = [
     path('wx/reports/synop/load/', views.synop_load, name='load-synop-report'),
     path('wx/reports/synop/update/', views.synop_update, name='update-synop-report'),
     path('wx/reports/synop/calc-pressure/', views.synop_pressure_calc, name='calculate-pressure-difference'),
+    path('wx/reports/synop/calc-precip/', views.synop_precip_calc, name='calculate-24-hr-precipitation'),
     path('wx/reports/synop/delete/', views.synop_delete, name='delete-synop-report-row'),
     path('wx/reports/synop/form/', views.SynopFormView.as_view(), name='synop-message-form'),
     path('wx/reports/synop/form/load/', views.synop_load_form, name='load-synop-message-form'),

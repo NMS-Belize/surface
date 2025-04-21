@@ -247,7 +247,7 @@
                     <!-- Tabs to switch between Local and Regional settings -->
                     <v-tabs v-model="selectedSettingsTab" centered>
                         <v-tab key="default">Default Settings</v-tab>
-                        <v-tab key="transition">Transition Settings</v-tab>
+                        <v-tab key="transition">Hybrid Settings</v-tab>
                     </v-tabs>
 
                     <v-scroll-x-transition>
@@ -351,7 +351,7 @@
                                     class="mt-2 mb-2"
                                     rounded="0"
                                 >
-                                    To adjust transition settings, enable Transition Station
+                                    To adjust hybrid settings, enable Hybrid Station
                                 </v-alert>
                             </v-scroll-x-transition>
 
@@ -596,6 +596,36 @@
                                 height="350"
                                 @click:row="(event, { item }) => nextSlide(item.id)"
                             >
+                                <template v-slot:item.station__name="{ item }">
+                                    <!-- change the color of the station name based on the publishing setting -->
+                                    <span
+                                        v-if="item.publishing"
+                                        style="color: green;"
+                                    >
+                                        [[ item.station__name ]]
+                                    </span>
+                                    <span
+                                        v-if="!item.publishing"
+                                        style="color: orange;"
+                                    >
+                                        [[ item.station__name ]]
+                                    </span>
+
+                                    <!-- and the link icon and the hybrid station name if hybrid station is true -->
+                                    <v-icon
+                                        v-if="item.transition"
+                                        style="color: #0096FF;"
+                                    >
+                                        mdi-link-variant
+                                    </v-icon>
+                                    <span 
+                                        v-if="item.transition"
+                                        style="color: purple;"
+                                    >
+                                        [[ item.transit_station__name ]]
+                                    </span>
+                                </template>
+                            
                                 <template v-slot:item.station__wigos="{ value }">
                                     <span :style="{ color: /\d/.test(value) ? 'inherit' : 'red' }">
                                         [[ value ]]
@@ -798,15 +828,15 @@
                     :disabled="disable_all_stations ? true : false"
                 ></v-switch>
 
-                <!-- Transition Stations -->
+                <!-- hybrid Stations -->
                 <v-switch 
                     v-model="transition" 
                     hide-details 
                     inset
                     class="bolder-v-switch-weight"
-                    label="Transition Stations" 
+                    label="hybrid Stations" 
                     color="purple"
-                    :disabled="disable_transition ? true : false"
+                    :disabled="disable_hybrid ? true : false"
                 ></v-switch>
 
                 <!-- publishing switch -->
@@ -864,6 +894,36 @@
                             height="500"
                             @click:row="(event, { item }) => openStationDialog(item)"
                         >
+                            <template v-slot:item.station__name="{ item }">
+                                <!-- change the color of the station name based on the publishing setting -->
+                                <span
+                                    v-if="item.publishing"
+                                    style="color: green;"
+                                >
+                                    [[ item.station__name ]]
+                                </span>
+                                <span
+                                    v-if="!item.publishing"
+                                    style="color: orange;"
+                                >
+                                    [[ item.station__name ]]
+                                </span>
+
+                                <!-- and the link icon and the hybrid station name if hybrid station is true -->
+                                <v-icon
+                                    v-if="item.transition"
+                                    style="color: #0096FF;"
+                                >
+                                    mdi-link-variant
+                                </v-icon>
+                                <span 
+                                    v-if="item.transition"
+                                    style="color: purple;"
+                                >
+                                    [[ item.transit_station__name ]]
+                                </span>
+                            </template>
+
                             <template v-slot:item.status="{ item }">
                                 <v-chip
                                     v-for="(status, index) in item.status"
@@ -871,7 +931,7 @@
                                     :color="getColor(status)"
                                     outlined
                                     label
-                                    :style="{ marginLeft: index > 0 && index < item.status.length ? '5px' : '0' }"
+                                    :style="{ marginLeft: index > 0 && index < item.status.length ? '5px' : '0', marginTop: '8px', marginBottom: '8px' }"
                                 >
                                     [[ status ]]
                                 </v-chip>
@@ -923,7 +983,7 @@
                     not_publishing: false,
                     transition: false,
                     disable_all_stations: false,
-                    disable_transition: true,
+                    disable_hybrid: true,
                     disable_publishing: true,
                     disable_not_publishing: true,
                     selectedInterval: '5s',
@@ -1092,7 +1152,7 @@
                     else if (status == "Not Publishing"){
                         return "orange"
                     }
-                    else if (status == "Transition"){
+                    else if (status == "Hybrid"){
                         return "purple"
                     }
                     else {
@@ -1767,14 +1827,14 @@
                     if (newValue == true) {
                         this.disable_not_publishing = true;
                         this.disable_publishing = true;
-                        this.disable_transition = true;
+                        this.disable_hybrid = true;
                         this.filterReloadControl(); // assess the state of the filters and load an appropriate table
                     } 
                     else {
                         this.disable_not_publishing = false;
                         this.disable_all_stations = false;
                         this.disable_publishing = false;
-                        this.disable_transition = false;
+                        this.disable_hybrid = false;
                         this.publishing = true;
                         this.filterReloadControl(); // assess the state of the filters and load an appropriate table
                     }

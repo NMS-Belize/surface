@@ -576,6 +576,124 @@
       },
 
 
+
+      customPrecipFieldValidator(value, callback) {
+        if(value == null) {
+          callback(true);
+          return
+        }
+
+        const requestedDateHour = moment(this.requestedData.date).set('hour', this.validating.row); 
+        const rowDatetime = requestedDateHour.format('YYYY-MM-DD HH:mm');
+        const nowDatetime = moment().format('YYYY-MM-DD HH:mm');
+
+
+        // confirm that precipitation indicator is not 4
+        const hot = this.$refs.synopTable.hotInstance;
+        const precip_indicator_cell_value = hot.getDataAtCell(this.validating.row, 1);
+
+        // console.log(`This is the precipitation indicator cell value: ${precip_indicator_cell_value}`)
+
+        if (precip_indicator_cell_value == 4) {
+          error = `Can not update Precipitation value as Preciptation Indicator is ${precip_indicator_cell_value}`;
+          this.addErrorMessage(this.validating.row, this.validating.column, error);
+          callback(false);
+          return
+        }
+
+
+       
+        // Compare the formatted dates
+        if (rowDatetime > nowDatetime) {
+          error = `Can not insert future data at "${rowDatetime}", current time is ${nowDatetime}.`;
+          this.addErrorMessage(this.validating.row, this.validating.column, error);
+          callback(false);
+          return
+        }
+
+        
+        const numValue = Number(value)
+        if (isNaN(numValue)) {
+          error = `"${value}" is not a number.`;
+          this.addErrorMessage(this.validating.row, this.validating.column, error);
+          callback(false);
+          return
+        } 
+
+        // Calculating total 24-hour precipitation if precipitation changes.
+        this.calc_24_hr_precipitation(this.validating, rowDatetime, numValue);
+
+        const ranges = this.columnRanges[this.validating.column];
+
+        if (ranges == null){
+          callback(true);
+          return
+        }
+
+        const isValid = ranges.min <= numValue && numValue <= ranges.max;
+        if (!isValid){
+          error = `Value must be between ${ranges.min} and ${ranges.max}.`;
+          this.addErrorMessage(this.validating.row, this.validating.column, error);
+          callback(false);
+        }
+
+        callback(isValid);
+      },
+
+
+
+      customCloudFieldValidator(value, callback) {
+        if(value == null) {
+          callback(true);
+          return
+        }
+
+        const requestedDateHour = moment(this.requestedData.date).set('hour', this.validating.row); 
+        const rowDatetime = requestedDateHour.format('YYYY-MM-DD HH:mm');
+        const nowDatetime = moment().format('YYYY-MM-DD HH:mm');
+
+       
+        // Compare the formatted dates
+        if (rowDatetime > nowDatetime) {
+          error = `Can not insert future data at "${rowDatetime}", current time is ${nowDatetime}.`;
+          this.addErrorMessage(this.validating.row, this.validating.column, error);
+          callback(false);
+          return
+        }
+
+        // allow the column to accept "/"
+        if (value != "/") {
+          const numValue = Number(value)
+          if (isNaN(numValue)) {
+            error = `"${value}" is not a number.`;
+            this.addErrorMessage(this.validating.row, this.validating.column, error);
+            callback(false);
+            return
+          } 
+
+          const ranges = this.columnRanges[this.validating.column];
+
+          if (ranges == null){
+            callback(true);
+            return
+          }
+
+          const isValid = ranges.min <= numValue && numValue <= ranges.max;
+          if (!isValid){
+            error = `Value must be between ${ranges.min} and ${ranges.max}.`;
+            this.addErrorMessage(this.validating.row, this.validating.column, error);
+            callback(false);
+          }
+
+          callback(isValid);
+        }
+        else {
+          callback(true);
+        }
+      },
+
+
+
       // Error message functions
       addErrorMessage(row, prop, error=null) {
         this.errors.push({
@@ -646,11 +764,44 @@
           .then(response => {
             if (typeof(response.data.dataset) === 'number'){
               calc_column_value = response.data.dataset;
-              hot.setDataAtCell(validating.row, 15, calc_column_value); // Update the corresponding cell
+              hot.setDataAtCell(validating.row, 14, calc_column_value); // Update the corresponding cell
             }
           })
           .catch(error => {
-            console.error("Error occurred updateing the 24 Hr barometric change:", error); // Log any errors
+            console.error("Error occurred updating the 24 Hr barometric change column:", error); // Log any errors
+          });
+
+
+        }
+      },
+
+      // calculate 24 hour total precipitation
+      calc_24_hr_precipitation(validating, rowDatetime, numValue) {
+        // Calculating total precipitation of 24 hours once a precipitation value is entered
+        if (validating.column == "0")
+        {
+          // callback(true);
+
+          const hot = this.$refs.synopTable.hotInstance;
+          const current_precipitation_value= numValue; // getting the number value
+
+          let { stationId, interval, date } = this.requestedData;
+          const url = `/wx/reports/synop/calc-precip/?station_id=${stationId}`
+          
+          // send a request back to the server to retrieve the 24-hour total
+          axios.post(url, {
+            date: rowDatetime,
+            precipitation_value: current_precipitation_value
+          })
+          .then(response => {
+            if (typeof(response.data.dataset) === 'number'){
+              calc_column_value = response.data.dataset;
+              // console.log(`This is the value that that was calculated ${calc_column_value}`);
+              hot.setDataAtCell(validating.row, 16, calc_column_value); // Update the corresponding cell
+            }
+          })
+          .catch(error => {
+            console.error("Error occurred updating the 24 Hr Precipitation column:", error); // Log any errors
           });
 
 
@@ -661,6 +812,8 @@
     },
     beforeMount(){
       Handsontable.validators.registerValidator('numericFieldValidator', this.numericFieldValidator);
+      Handsontable.validators.registerValidator('customPrecipFieldValidator', this.customPrecipFieldValidator);
+      Handsontable.validators.registerValidator('customCloudFieldValidator', this.customCloudFieldValidator);
       Handsontable.validators.registerValidator('dropdownFieldValidator', this.dropdownFieldValidator);
       Handsontable.validators.registerValidator('textFieldValidator', this.textFieldValidator);
       Handsontable.renderers.registerRenderer('deleteButtonRenderer', this.deleteButtonRenderer);

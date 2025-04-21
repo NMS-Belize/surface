@@ -7659,9 +7659,9 @@ def get_synop_table_config():
     variable_symbols = [
         'WINDINDR', 'PRECIND', 'STATIND', 'LOWCLHFt', 'VISBY-km',
         'CLDTOT', 'WNDDIR', 'WNDSPD', 'TEMP', 'TDEWPNT', 'TEMPWB',
-        'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECSLR', 'PRECDUR', 'PRSWX',
+        'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECIP', 'PREC24H', 'PRECDUR', 'PRSWX',
         'W1', 'W2', 'Nh', 'CL', 'CM', 'CH', 'STSKY',
-        'DL', 'DM', 'DH', 'TEMPMAX', 'TEMPMIN', 'PREC24H', 'N1', 'C1', 'hhFt1',
+        'DL', 'DM', 'DH', 'TEMPMAX', 'TEMPMIN', 'N1', 'C1', 'hhFt1',
         'N2', 'C2', 'hhFt2', 'N3', 'C3', 'hhFt3', 'N4', 'C4', 'hhFt4', 'SpPhenom'
     ]
     
@@ -7693,7 +7693,7 @@ def get_synop_table_config():
 
     columns = []
     for variable in variable_list:
-        if (variable.variable_type=='Numeric' and variable.id!=4057):
+        if (variable.variable_type=='Numeric' and variable.id not in [0, 4057, 4055, 4058, 4059, 4060, 4061]):
             var_type='numeric'
             numeric_format = '0'
             if variable.scale > 0:
@@ -7706,6 +7706,32 @@ def get_synop_table_config():
                 'numericFormat': {'pattern': numeric_format},
                 'validator': 'numericFieldValidator'
             }
+        elif (variable.variable_type=='Numeric' and variable.id in [0]):
+            var_type='numeric'
+            numeric_format = '0'
+            if variable.scale > 0:
+                numeric_format = '0.'+'0'*variable.scale
+
+            new_column = {
+                'data': str(variable.id),
+                'name': str(variable.symbol),
+                'type': var_type,
+                'numericFormat': {'pattern': numeric_format},
+                'validator': 'customPrecipFieldValidator'
+            }
+        elif (variable.variable_type=='Numeric' and variable.id in [4058, 4059, 4060, 4061]):
+            var_type='numeric'
+            numeric_format = '0'
+            if variable.scale > 0:
+                numeric_format = '0.'+'0'*variable.scale
+
+            new_column = {
+                'data': str(variable.id),
+                'name': str(variable.symbol),
+                'type': var_type,
+                'numericFormat': {'pattern': numeric_format},
+                'validator': 'customCloudFieldValidator'
+            }
         elif(variable.variable_type=='Code'):
             var_type='dropdown'
             new_column = {
@@ -7716,7 +7742,7 @@ def get_synop_table_config():
                 'strict': 'true',
                 'validator': 'dropdownFieldValidator'
             }   
-        elif (variable.variable_type=='Numeric' and variable.id==4057): # the 24hr barometric change column
+        elif (variable.variable_type=='Numeric' and variable.id in [4057, 4055]): # the 24hr barometric change column
             var_type='numeric'
             numeric_format = '0'
             if variable.scale > 0:
@@ -7729,7 +7755,7 @@ def get_synop_table_config():
                 'numericFormat': {'pattern': numeric_format},
                 'validator': 'numericFieldValidator',
                 'readOnly': 'true',
-            }         
+            }      
         else:
             var_type='text'
             numeric_format=None
@@ -7805,7 +7831,13 @@ class SynopView(LoginRequiredMixin, TemplateView):
         station_id = request.GET.get('station_id', 'null')
         date = request.GET.get('date', datetime.date.today().isoformat())
         context['station_id'] = station_id
-        context['date'] = date
+         # context['date'] = date
+
+        # changing the date so that if reflects that users timezone
+        offset = datetime.timedelta(minutes=(settings.TIMEZONE_OFFSET))
+        dt_object = datetime.datetime.now() + offset
+
+        context['date'] = dt_object.date()
 
         return self.render_to_response(context)    
 
@@ -7856,6 +7888,56 @@ def synop_pressure_calc(request):
             logger.error(f"An error occured whilst retrieving 24hr baromatric change value: {dataset['messages']}")
         
     return JsonResponse({'dataset': pressure_difference}, status=status.HTTP_200_OK)
+
+
+
+@csrf_exempt
+def synop_precip_calc(request):
+    if request.method == 'POST':
+        station_id = int(request.GET['station_id'])
+        data = json.loads(request.body)  # Parse JSON data
+        precip_value = float(data.get('precipitation_value')) 
+        precip_24_hr = 0
+        date_value = data.get('date')
+
+        station = Station.objects.get(pk=station_id) 
+        # Invert the station's UTC offset (minutes) to convert its local time to UTC.
+        offset = datetime.timedelta(minutes=(-1 * station.utc_offset_minutes))
+
+        # Convert the string to a datetime object:
+        dt_object = datetime.datetime.strptime(date_value, "%Y-%m-%d %H:%M")
+        dt_object = dt_object + offset
+
+        # Subtract 24 hours:
+        dt_24_hours_ago = dt_object - timedelta(days=1)
+
+        # Format the resulting datetime object back into a string:
+        formatted_dt_24_hours_ago = dt_24_hours_ago.strftime("%Y-%m-%dT%H:%MZ")
+
+        # Format the datetime object also
+        formatted_dt_object = dt_object.strftime("%Y-%m-%dT%H:%MZ")
+
+        precipitation_variable_id = 0
+
+        sql_string = """
+            SELECT measured
+            FROM raw_data
+            WHERE station_id = %s
+            AND variable_id = %s
+            AND datetime BETWEEN %s AND %s;
+        """
+
+        if sql_string:
+            with connection.cursor() as cursor:
+
+                cursor.execute(sql_string, [station_id, precipitation_variable_id, formatted_dt_24_hours_ago, formatted_dt_object])
+
+                rows = cursor.fetchall()
+            
+                # adding to get the total precipitation in 24 hours
+                precip_24_hr = sum(row[0] for row in rows if row[0] != -99.9) + precip_value
+        
+    return JsonResponse({'dataset': precip_24_hr}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -8686,7 +8768,8 @@ def wis2dashboard_records_list(request):
             "station__is_synoptic", 
             "publish_success", 
             "publish_fail",
-            "transition"
+            "transition",
+            "transit_station__name"
         ))
 
         # calculate the total success and fails to create the graph
@@ -8702,9 +8785,9 @@ def wis2dashboard_records_list(request):
             if record['publishing']:
                 station_status.append("Publishing")
 
-                # transition status
+                # hybrid status
                 if record['transition']:
-                    station_status.append("Transition")
+                    station_status.append("Hybrid")
 
                 # getting the automatic/manual status
                 if record['station__is_automatic']:
@@ -8721,7 +8804,7 @@ def wis2dashboard_records_list(request):
 
                 # transition status
                 if record['transition']:
-                    station_status.append("Transition")
+                    station_status.append("Hybrid")
 
                 # getting the automatic/manual status
                 if record['station__is_automatic']:
