@@ -2995,7 +2995,297 @@ def export_station_to_oscar_wigos(selected_ids, api_token, cleaned_data):
 
 
 # MANUAL STATIONS ONLY** Tasks the looks for stations that are set for international exchange (see STATION model) and transmits them to wis2box
-def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
+def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit, add_gts, wsi):
+    wis2_logs = []  # Stores log messages for debugging and reporting
+    wis2_message = []
+    regional_success = False
+    local_success = False
+
+    # keep track of the logs to send back
+    def log_message(message):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        formatted_message = f"[{timestamp}] {message}"
+        wis2_logs.append(formatted_message)  # Store it in wis2_logs
+        
+    # query the data base and get all available values and log messages
+    data_row, manual_logs, mws_checks = get_maunal_data(station_name, id)
+
+    # update the wis2_logs with the logs
+    for log_msg in manual_logs:
+        wis2_logs.append(log_msg)
+
+    # if mws checks passed continue on with transmission
+    if not mws_checks:
+        return wis2_logs, wis2_message, False
+
+    # Helper function to upload CSV to MinIO storage
+    def upload_to_minio(credentials, label, path):
+        try:
+            if label == "regional":
+                client = Minio(
+                    endpoint=f"{credentials.regional_wis2_ip_address}:{credentials.regional_wis2_port}",
+                    access_key=credentials.regional_wis2_username,
+                    secret_key=str(credentials.get_regional_password()),
+                    secure=False,
+                    http_client=urllib3.PoolManager(
+                        timeout=10.0,  # 10-second timeout
+                        retries=urllib3.util.Retry(
+                            total=1,  # Retry once
+                            backoff_factor=0,  # No backoff (instant retry)
+                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
+                        )
+                    )
+                )
+                
+            else:
+                client = Minio(
+                    endpoint=f"{credentials.local_wis2_ip_address}:{credentials.local_wis2_port}",
+                    access_key=credentials.local_wis2_username,
+                    secret_key=str(credentials.get_local_password()), 
+                    secure=False,
+                    http_client=urllib3.PoolManager(
+                        timeout=10.0,  # 10-second timeout
+                        retries=urllib3.util.Retry(
+                            total=1,  # Retry once
+                            backoff_factor=0,  # No backoff (instant retry)
+                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
+                        )
+                    )
+                )
+            
+            if add_gts:
+                # Function to set tag for file based on hour
+                def set_tag(hour, minute):
+                    if hour % 6 == 0 and minute == 0:
+                        return 'main'
+                    elif hour % 3 == 0 and minute == 0:
+                        return 'intermediate'
+                    elif minute == 0:
+                        return 'non-standard'
+                    else:
+                        return 'other'
+                    
+                # Now get the tag
+                tag = set_tag(data_row['hour'], data_row['minute'])
+
+                # setting the base stations id as the id used in the file name
+                filename = f"wmo_data_{wsi}_{tag}.csv"
+            else:
+                filename = f'wmo_data_{wsi}.csv'
+
+            # Note that 'settings.WIS2BOX_TOPIC_HIERARCHY + filename' simply just tacks on the filename no '/' separation
+            # see 'https://docs.wis2box.wis.wmo.int/en/latest/user/data-ingest.html' for and example
+            # client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + filename, temp_csv_path)
+            # Note: The filename and the path are not the same, but i don't believe this affects wis2 reception if an error occurs consider 
+            # having the names match
+            client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + '/' + filename, path)
+
+            # Add the file name
+            log_message(f"File sent to WIS2BOX under name: {filename}")
+
+            logging.info(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
+            log_message(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
+            return True
+        except Exception as e:
+            logging.error(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
+            log_message(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
+            return False
+
+    try:
+        # Save the data into a temporary CSV file
+        with tempfile.NamedTemporaryFile(suffix='.csv', mode='w+', delete=False) as temp_csv:
+            csv_writer = csv.DictWriter(temp_csv, fieldnames=data_row.keys())
+            csv_writer.writeheader()
+            csv_writer.writerow(data_row)
+            temp_csv_path = temp_csv.name
+
+            # Capture the CSV content into a string
+            temp_csv.seek(0)  # Move to the beginning of the file
+            csv_content = temp_csv.read()
+
+        # Transmit data to regional and local WIS2Box if required
+        if regional_transmit:
+            regional_success = upload_to_minio(RegionalWisCredentials.objects.first(), "regional", temp_csv_path)
+            if regional_success:
+                log_message('Push to the Regional WIS2BOX was successfull')
+            else:
+                log_message('Push to the Regional WIS2BOX failed')
+        if local_transmit:
+            local_success = upload_to_minio(LocalWisCredentials.objects.first(), "local", temp_csv_path)
+            if local_success:
+                log_message('Push to the Local WIS2BOX was successfull')
+            else:
+                log_message('Push to the Local WIS2BOX failed')
+
+        # Add the CSV data to the list
+        wis2_message.append(csv_content)
+    finally:
+        # Clean up the temporary CSV file
+        os.remove(temp_csv_path)
+        logging.info(f'AWS Transmission for Station: {station_name} complete')
+        log_message(f'AWS Transmission for Station: {station_name} complete')
+
+        # if both regional and local transmission are selected both pushes must be success to get a 'success status'
+        if regional_transmit and local_transmit:
+            success_push = regional_success and local_success
+        # else if only regional transmission is set the 'success status' is based on only regional transmission
+        elif regional_transmit:
+            success_push = regional_success
+        # else if only local transmission is set the 'success status' is based on only local transmission
+        elif local_transmit:
+            success_push = local_success
+        else:
+            success_push = False
+
+    return wis2_logs, wis2_message, success_push
+
+
+# AWS STATIONS ONLY** Tasks the looks for stations that are set for international exchange (see STATION model) and transmits them to wis2box
+def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit, add_gts, wsi):
+    wis2_logs = []  # Stores log messages for debugging and reporting
+    wis2_message = []
+    regional_success = False
+    local_success = False
+
+    # keep track of the logs to send back
+    def log_message(message):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        formatted_message = f"[{timestamp}] {message}"
+        wis2_logs.append(formatted_message)  # Store it in wis2_logs
+
+    # query the data base and get all available values and log messages
+    data_row, aws_logs, aws_checks = get_aws_data(station_name, id)
+
+    # update the wis2_logs with the logs
+    for log_msg in aws_logs:
+        wis2_logs.append(log_msg)
+
+    # if aws checks passed continue on with transmission
+    if not aws_checks:
+        return wis2_logs, wis2_message, False
+
+    # Helper function to upload CSV to MinIO storage
+    def upload_to_minio(credentials, label, path):
+        try:
+            if label == "regional":
+                client = Minio(
+                    endpoint=f"{credentials.regional_wis2_ip_address}:{credentials.regional_wis2_port}",
+                    access_key=credentials.regional_wis2_username,
+                    secret_key=str(credentials.get_regional_password()),
+                    secure=False,
+                    http_client=urllib3.PoolManager(
+                        timeout=10.0,  # 10-second timeout
+                        retries=urllib3.util.Retry(
+                            total=1,  # Retry once
+                            backoff_factor=0,  # No backoff (instant retry)
+                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
+                        )
+                    )
+                )
+                
+            else:
+                client = Minio(
+                    endpoint=f"{credentials.local_wis2_ip_address}:{credentials.local_wis2_port}",
+                    access_key=credentials.local_wis2_username,
+                    secret_key=str(credentials.get_local_password()), 
+                    secure=False,
+                    http_client=urllib3.PoolManager(
+                        timeout=10.0,  # 10-second timeout
+                        retries=urllib3.util.Retry(
+                            total=1,  # Retry once
+                            backoff_factor=0,  # No backoff (instant retry)
+                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
+                        )
+                    )
+                )
+                
+            if add_gts:
+                # Function to set tag for file based on hour
+                def set_tag(hour, minute):
+                    if hour % 6 == 0 and minute == 0:
+                        return 'main'
+                    elif hour % 3 == 0 and minute == 0:
+                        return 'intermediate'
+                    elif minute == 0:
+                        return 'non-standard'
+                    else:
+                        return 'other'
+                    
+                # Now get the tag
+                tag = set_tag(data_row['hour'], data_row['minute'])
+
+                filename = f"wmo_data_{wsi}_{tag}.csv"
+            else:
+                filename = f'wmo_data_{wsi}.csv'
+
+            # Note that 'settings.WIS2BOX_TOPIC_HIERARCHY + filename' simply just tacks on the filename no '/' separation
+            # see 'https://docs.wis2box.wis.wmo.int/en/latest/user/data-ingest.html' for and example
+            # client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + filename, temp_csv_path)
+            client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + '/' + filename, path)
+
+            # Add the file name
+            log_message(f"File sent to WIS2BOX under name: {filename}")
+
+            logging.info(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
+            log_message(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
+            return True
+        except Exception as e:
+            logging.error(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
+            log_message(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
+            return False
+
+    try:
+        # Save the data into a temporary CSV file
+        with tempfile.NamedTemporaryFile(suffix='.csv', mode='w+', delete=False) as temp_csv:
+            csv_writer = csv.DictWriter(temp_csv, fieldnames=data_row.keys())
+            csv_writer.writeheader()
+            csv_writer.writerow(data_row)
+            temp_csv_path = temp_csv.name
+
+            # Capture the CSV content into a string
+            temp_csv.seek(0)  # Move to the beginning of the file
+            csv_content = temp_csv.read()
+
+        # Transmit data to regional and local WIS2Box if required
+        if regional_transmit:
+            regional_success = upload_to_minio(RegionalWisCredentials.objects.first(), "regional", temp_csv_path)
+            if regional_success:
+                log_message('Push to the Regional WIS2BOX was successfull')
+            else:
+                log_message('Push to the Regional WIS2BOX failed')
+        if local_transmit:
+            local_success = upload_to_minio(LocalWisCredentials.objects.first(), "local", temp_csv_path)
+            if local_success:
+                log_message('Push to the Local WIS2BOX was successfull')
+            else:
+                log_message('Push to the Local WIS2BOX failed')
+
+        # Add the CSV data to the list
+        wis2_message.append(csv_content)
+
+    finally:
+        # Clean up the temporary CSV file
+        os.remove(temp_csv_path)
+        logging.info(f'AWS Transmission for Station: {station_name} complete')
+        log_message(f'AWS Transmission for Station: {station_name} complete')
+        
+        # if both regional and local transmission are selected both pushes must be success to get a 'success status'
+        if regional_transmit and local_transmit:
+            success_push = regional_success and local_success
+        # else if only regional transmission is set the 'success status' is based on only regional transmission
+        elif regional_transmit:
+            success_push = regional_success
+        # else if only local transmission is set the 'success status' is based on only local transmission
+        elif local_transmit:
+            success_push = local_success
+        else:
+            success_push = False
+
+    return wis2_logs, wis2_message, success_push
+
+
+# transmit for hybrid stations
+def hybrid_transmit_wis2box(id, station_name, regional_transmit, local_transmit, hybrid_station_id, base_aws, add_gts, hybrid_station_name, wsi):
     wis2_logs = []  # Stores log messages for debugging and reporting
     wis2_message = []
     regional_success = False
@@ -3013,35 +3303,463 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
         formatted_message = f"[{timestamp}] {message}"
         wis2_logs.append(formatted_message)  # Store it in wis2_logs
 
-    # Helper function to execute database queries safely
-    def execute_query(query, params, error_message):
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(query, params)
-                cursor_results = cursor.fetchall()
-                # log_message(f"Query result: {cursor_results}")
-                return [list(row) for row in cursor_results]
-        except Exception as e:
-            log_message(f"{error_message}: {e}")
-            logger.error(f"{error_message}: {e}")
-            return []
-        
-
-    # checking if there is data in the database at the top of the hour (if not the output will be an error)
-    # Query latest datetime entries for both tables
-    # hourly_summary_status = execute_query("SELECT MAX(datetime) FROM hourly_summary WHERE station_id = %s", [id], "Error fetching data")
-    raw_data_status = execute_query("SELECT MAX(datetime) FROM raw_data WHERE station_id = %s", [id], "Error fetching data")
-
-    # Check if either has data for the current hour
-    # if hourly_summary_status or raw_data_status:
-    if raw_data_status:
-        if not raw_data_status or raw_data_status[0][0] < unformatted_now:
-            log_message(f"Comparing DB time {raw_data_status[0][0]} with current time {unformatted_now}")
-            log_message(f"NO data exists in the Raw Data Table at timeslot [{formatted_now}] for Station: {station_name}")
-            return wis2_logs, wis2_message, False
+    # setting which station to get AWS data from depending on the base_aws data
+    # see the Wis2BoxPublish model for more information
+    if not base_aws:
+        secondary_station = id
+        id = hybrid_station_id
     else:
-        log_message(f"NO data exists in the Database at timeslot [{formatted_now}] for Station: {station_name}")
+        secondary_station = hybrid_station_id
+    
+
+    # query the data base and get all available values and log messages
+    aws_data_row, aws_logs, aws_checks = get_aws_data(f"HYBRID STATION:[{station_name}][{hybrid_station_name}]", id)
+
+    # query the data base and get all available values and log messages
+    mws_data_row, manual_logs, mws_checks = get_maunal_data(f"HYBRID STATION:[{station_name}][{hybrid_station_name}]", secondary_station)
+
+    # update the wis2_logs with the aws logs
+    for log_msg in aws_logs:
+        wis2_logs.append(log_msg)
+
+    # update the wis2_logs with the mws logs
+    for log_msg in manual_logs:
+        wis2_logs.append(log_msg)
+
+
+    # IF BOTH AWS STATION CHECKS AND MWS STATION CHECKS FAIL A HYBRID TRANSMISSION CANNOT HAPPEN
+    if not aws_checks and not mws_checks:
         return wis2_logs, wis2_message, False
+    
+    # dictionary to hold all the values along with the column names going in the message. (a combination of AWS and MWS data)
+    data_row = {}
+
+    # load data_row with data from the AWS station
+    for col in aws_data_row:
+        if col == "station_pressure":
+            if aws_data_row[col] == None:
+                data_row[col] = mws_data_row["pressure_at_station_level"]
+                data_row["pressure_at_sea_level_hpa"] = mws_data_row["pressure_at_sea_level_hpa"]
+                data_row["24_hour_barometric_change"] = mws_data_row["24_hour_barometric_change"]
+            else:
+                data_row[col] = aws_data_row[col]
+
+        elif col == "msl_pressure":
+            if aws_data_row["station_pressure"] == None:
+                pass
+            else:
+                data_row[col] = aws_data_row[col]
+
+        elif col == "air_temperature":
+            if aws_data_row[col] == None:
+                data_row[col] = mws_data_row["air_temperature"]
+            else:
+                data_row[col] = aws_data_row[col]
+
+        elif col == "dewpoint_temperature":
+            if aws_data_row[col] == None:
+                data_row[col] = mws_data_row["dewpoint_temperature"]
+            else:
+                data_row[col] = aws_data_row[col]
+            
+            data_row["maximum_air_temperature"] = mws_data_row["maximum_air_temperature"]
+            data_row["minimum_air_temperature"] = mws_data_row["minimum_air_temperature"]
+            data_row["wetbulb_temperature"] = mws_data_row["wetbulb_temperature"]
+
+        elif col == "relative_humidity":
+            if aws_data_row[col] == None:
+                data_row[col] = mws_data_row["relative_humidity"]
+            else:
+                data_row[col] = aws_data_row[col]
+
+        elif col == "wind_direction":
+            data_row["wind_indicator"] = mws_data_row["wind_indicator"]
+
+            if aws_data_row[col] == None:
+                data_row[col] = mws_data_row["wind_direction"]
+            else:
+                data_row[col] = aws_data_row[col]
+
+        elif col == "wind_speed":
+            if aws_data_row[col] == None:
+                data_row[col] = mws_data_row["wind_speed"]
+            else:
+                data_row[col] = aws_data_row[col]
+
+        elif col == "total_precipitation_1_hour":
+            data_row["precipitation_indicator"] = mws_data_row["precipitation_indicator"]
+            data_row["precipitation_period_duration"] = mws_data_row["precipitation_period_duration"]
+
+            if aws_data_row[col] == None:
+                data_row[col] = mws_data_row["precipitation"]
+            else:
+                data_row[col] = aws_data_row[col]
+
+        elif col == "total_precipitation_24_hours":
+            if aws_data_row[col] == None:
+                data_row[col] = mws_data_row["total_precipitation_24_hours"]
+            else:
+                data_row[col] = aws_data_row[col]
+
+        else:
+            data_row[col] = aws_data_row[col]
+
+    # load data_row with remaining data from the MWS station
+    remaining_mws_col = ["station_operation_indicator","lowest_cloud_height","visibility","cloud_cover_tot",
+                         "present_weather","past_weather_w_1","past_weather_w_2","observed_cloud_coverage",
+                         "low_cloud_type","middle_cloud_type","high_cloud_type","state_of_sky","direction_of_cl_clouds",
+                         "direction_of_cm_clouds","direction_of_ch_clouds","cloud_coverage_l1","genus_of_cloud_l1",
+                         "height_of_cloud_base_l1","cloud_coverage_l2","genus_of_cloud_l2","height_of_cloud_base_l2",
+                         "cloud_coverage_l3","genus_of_cloud_l3","height_of_cloud_base_l3","cloud_coverage_l4",
+                         "genus_of_cloud_l4","height_of_cloud_base_l4","special_phenomenon"
+                        ]
+    
+    for col in remaining_mws_col:
+        data_row[col] = mws_data_row[col]
+
+    # confirm the station metadata was added if not use the MWS metadata
+    mws_metadata = ["wsi_series","wsi_issuer","wsi_issue_number","wsi_local",
+                    "wmo_block_number","wmo_station_number","station_type",
+                    "year","month","day","hour","minute","latitude","longitude",
+                    'thermometer_height', 'anemometer_height', 'station_height_above_msl', 
+                    'barometer_height_above_msl', 'rain_sensor_height']
+    
+    if data_row["hour"] == None:
+        for col in mws_metadata:
+                data_row[col] = mws_data_row[col] 
+
+    # set the station type to hybrid. 2 is the code for hybrid (both manned and automatic)
+    log_message("This is a hybrid transmision therefore station_type will be changed:")
+    data_row["station_type"] = 2
+    log_message("Data for 'station_type' value [2].")
+
+
+    # Helper function to upload CSV to MinIO storage
+    def upload_to_minio(credentials, label, path):
+        try:
+            if label == "regional":
+                client = Minio(
+                    endpoint=f"{credentials.regional_wis2_ip_address}:{credentials.regional_wis2_port}",
+                    access_key=credentials.regional_wis2_username,
+                    secret_key=str(credentials.get_regional_password()),
+                    secure=False,
+                    http_client=urllib3.PoolManager(
+                        timeout=10.0,  # 10-second timeout
+                        retries=urllib3.util.Retry(
+                            total=1,  # Retry once
+                            backoff_factor=0,  # No backoff (instant retry)
+                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
+                        )
+                    )
+                )
+                
+            else:
+                client = Minio(
+                    endpoint=f"{credentials.local_wis2_ip_address}:{credentials.local_wis2_port}",
+                    access_key=credentials.local_wis2_username,
+                    secret_key=str(credentials.get_local_password()), 
+                    secure=False,
+                    http_client=urllib3.PoolManager(
+                        timeout=10.0,  # 10-second timeout
+                        retries=urllib3.util.Retry(
+                            total=1,  # Retry once
+                            backoff_factor=0,  # No backoff (instant retry)
+                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
+                        )
+                    )
+                )
+            
+            if add_gts:
+                # Function to set tag for file based on hour
+                def set_tag(hour, minute):
+                    if hour % 6 == 0 and minute == 0:
+                        return 'main'
+                    elif hour % 3 == 0 and minute == 0:
+                        return 'intermediate'
+                    elif minute == 0:
+                        return 'non-standard'
+                    else:
+                        return 'other'
+                    
+                # Now get the tag
+                tag = set_tag(data_row['hour'], data_row['minute'])
+
+                # setting the base stations id as the id used in the file name
+                if base_aws:
+                    filename = f"wmo_data_{wsi}_{tag}.csv"
+                else:
+                    filename = f"wmo_data_{wsi}_{tag}.csv"
+            else:
+                filename = f'wmo_data_{wsi}.csv'
+
+            # Note that 'settings.WIS2BOX_TOPIC_HIERARCHY + filename' simply just tacks on the filename no '/' separation
+            # see 'https://docs.wis2box.wis.wmo.int/en/latest/user/data-ingest.html' for and example
+            # client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + filename, temp_csv_path)
+            # Note: The filename and the path are not the same, but i don't believe this affects wis2 reception if an error occurs consider 
+            # having the names match
+            client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + '/' + filename, path)
+
+            # Add the file name
+            log_message(f"File sent to WIS2BOX under name: {filename}")
+
+            logging.info(f"Data transfer to {label} WIS2Box successful for Station: HYBRID STATION:[{station_name}][{hybrid_station_name}]")
+            log_message(f"Data transfer to {label} WIS2Box successful for Station: HYBRID STATION:[{station_name}][{hybrid_station_name}]")
+            return True
+        except Exception as e:
+            logging.error(f"{label} WIS2Box Connection Error for station HYBRID STATION:[{station_name}][{hybrid_station_name}]: {e}")
+            log_message(f"{label} WIS2Box Connection Error for station HYBRID STATION:[{station_name}][{hybrid_station_name}]: {e}")
+            return False
+
+    try:
+        # Save the data into a temporary CSV file
+        with tempfile.NamedTemporaryFile(suffix='.csv', mode='w+', delete=False) as temp_csv:
+            csv_writer = csv.DictWriter(temp_csv, fieldnames=data_row.keys())
+            csv_writer.writeheader()
+            csv_writer.writerow(data_row)
+            temp_csv_path = temp_csv.name
+
+            # Capture the CSV content into a string
+            temp_csv.seek(0)  # Move to the beginning of the file
+            csv_content = temp_csv.read()
+
+        # Transmit data to regional and local WIS2Box if required
+        if regional_transmit:
+            regional_success = upload_to_minio(RegionalWisCredentials.objects.first(), "regional", temp_csv_path)
+            if regional_success:
+                log_message('Push to the Regional WIS2BOX was successfull')
+            else:
+                log_message('Push to the Regional WIS2BOX failed')
+        if local_transmit:
+            local_success = upload_to_minio(LocalWisCredentials.objects.first(), "local", temp_csv_path)
+            if local_success:
+                log_message('Push to the Local WIS2BOX was successfull')
+            else:
+                log_message('Push to the Local WIS2BOX failed')
+
+        # Add the CSV data to the list
+        wis2_message.append(csv_content)
+    finally:
+        # Clean up the temporary CSV file
+        os.remove(temp_csv_path)
+        logging.info(f'AWS Transmission for Station: {station_name} complete')
+        log_message(f'AWS Transmission for Station: {station_name} complete')
+
+        # if both regional and local transmission are selected both pushes must be success to get a 'success status'
+        if regional_transmit and local_transmit:
+            success_push = regional_success and local_success
+        # else if only regional transmission is set the 'success status' is based on only regional transmission
+        elif regional_transmit:
+            success_push = regional_success
+        # else if only local transmission is set the 'success status' is based on only local transmission
+        elif local_transmit:
+            success_push = local_success
+        else:
+            success_push = False
+
+    return wis2_logs, wis2_message, success_push
+
+
+@shared_task
+def wis2publish_cleanup():
+    # clean up logs older than 24 hours
+    try:
+        # Delete logs older than 24 hours
+        time_threshold = now() - timedelta(hours=24)
+        deleted_count, _ = Wis2BoxPublishLogs.objects.filter(created_at__lt=time_threshold).delete()
+
+        logger.info(f"WIS2 Publish Cleanup tasks: Successfully deleted {deleted_count} logs older than 24 hours")
+    except Exception as e:
+        logger.error("WIS2 Publish Cleanup tasks: Failed to delete logs older than 24 hours")
+        logger.exception(f"Error: {e}")
+
+    # Update publish logs number and fail logs number
+    try:
+        # Annotate each Wis2BoxPublish record with the count of related success and fail logs
+        wis2publish_updates = Wis2BoxPublish.objects.annotate(
+            success_count=Count('wis2boxpublishlogs', filter=Q(wis2boxpublishlogs__success_log=True)),
+            fail_count=Count('wis2boxpublishlogs', filter=Q(wis2boxpublishlogs__success_log=False))
+        )
+
+        update_count = 0  # Counter to track the number of successful updates
+
+        # Iterate over each annotated Wis2BoxPublish record and update the success/fail counts
+        for record in wis2publish_updates:
+            Wis2BoxPublish.objects.filter(id=record.id).update(
+                publish_success=record.success_count,  # Set the success count
+                publish_fail=record.fail_count  # Set the fail count
+            )
+            update_count += 1  # Increment the count of updated records
+        
+        # Log the number of records successfully updated
+        logger.info(f"WIS2 Publish Cleanup tasks: Successfully updated publish_fail and publish_success for {update_count} records in the wis2publish table")
+    except Exception as e:
+        # Log an error message if the update process fails
+        logger.error("WIS2 Publish Cleanup tasks: Failed to update publish_fail and publish_success for some records")
+        logger.exception(f"Error: {e}")  # Log the full exception traceback for debugging
+
+
+@shared_task
+def wis2publish_task():
+    now = datetime.now(pytz.UTC)
+
+    # retrieving wis2 tranmit station which are set to publishing
+    _publishing_stations = Wis2BoxPublish.objects.filter(publishing=True)
+
+    for _entry in _publishing_stations:
+        # check if the cron schedule for the station matches the time now
+        if croniter.match(_entry.publishing_offset.cron_schedule, now):
+            # check if hybrid station or not
+            if _entry.hybrid:
+                wis2push_hybrid.delay(_entry.id, now)
+            else:
+                wis2push_regular.delay(_entry.id, now)
+
+
+@shared_task
+# for instant pushing
+def wis2publish_task_now(station_id):
+    try:
+        now = datetime.now(pytz.UTC)
+
+        # grabbing a single entry base on the id
+        _entry = Wis2BoxPublish.objects.get(id=station_id)
+
+        if _entry.hybrid:
+            wis2push_hybrid(_entry.id, now)
+        else:
+            wis2push_regular(_entry.id, now)
+    except Exception as e:
+        raise e
+
+
+# push to wis2 for non hybrid stations
+@shared_task
+def wis2push_regular(entry_id, now):
+    # get the entry
+    _entry = Wis2BoxPublish.objects.get(id=entry_id)
+
+    # get station obj
+    _station_obj = Station.objects.get(id=_entry.station.id)
+
+    # get the wsi and prepare it for use in the transmission
+    wigos = _entry.station.wigos
+
+    if wigos:
+        wsi = wigos.replace('-','_').replace(' ', '') # replacing '-' with '_' (wsi will be used in the transmission file name)
+    else:
+        wsi = f"no_wsi_found_{_entry.station.id}"
+
+    # differentiating between manual and automatic stations
+    if _station_obj.is_automatic:
+        # get the data from the transmission
+        wis2_logs, wis2_message, success_push = aws_transmit_wis2box(_entry.station.id, 
+                                                                        _entry.station.name, 
+                                                                        _entry.regional_wis2, 
+                                                                        _entry.local_wis2,
+                                                                        _entry.add_gts,
+                                                                        wsi)
+    else:
+        # get the data from the transmission
+        wis2_logs, wis2_message, success_push = manual_transmit_wis2box(_entry.station.id, 
+                                                                            _entry.station.name, 
+                                                                            _entry.regional_wis2, 
+                                                                            _entry.local_wis2,
+                                                                            _entry.add_gts,
+                                                                            wsi)
+
+    message_exist = bool(wis2_message)
+
+    # create the logs entry
+    Wis2BoxPublishLogs.objects.create(
+        created_at=now, 
+        last_modified= datetime.now(tz=pytz.UTC),
+        publish_station_id=_entry.id,
+        success_log=success_push,
+        log="\n\n".join(wis2_logs),
+        wis2message_exist=message_exist,
+        wis2message="\n".join(wis2_message)
+    )
+
+    # call clean up tasks
+    wis2publish_cleanup() 
+
+
+# push to wis2 for hybrid stations
+@shared_task
+def wis2push_hybrid(entry_id, now):
+    # get the entry
+    _entry = Wis2BoxPublish.objects.get(id=entry_id)
+
+    # get the wsi and prepare it for use in the transmission
+    wigos = _entry.station.wigos
+
+    if wigos:
+        wsi = wigos.replace('-','_').replace(' ', '') # replacing '-' with '_' (wsi will be used in the transmission file name)
+    else:
+        wigos = _entry.hybrid_station.wigos
+
+        if wigos:
+            wsi = wigos.replace('-','_').replace(' ', '') # replacing '-' with '_' (wsi will be used in the transmission file name)
+        else:
+            wsi = f"no_wsi_found_{_entry.station.id}"
+
+    # get data from the transmission
+    wis2_logs, wis2_message, success_push = hybrid_transmit_wis2box(_entry.station.id, 
+                                                                        _entry.station.name, 
+                                                                        _entry.regional_wis2, 
+                                                                        _entry.local_wis2, 
+                                                                        _entry.hybrid_station.id,
+                                                                        _entry.base_aws,
+                                                                        _entry.add_gts,
+                                                                        _entry.hybrid_station.name,
+                                                                        wsi)
+
+    message_exist = bool(wis2_message)
+
+    # create the logs entry
+    Wis2BoxPublishLogs.objects.create(
+        created_at=now, 
+        last_modified= datetime.now(tz=pytz.UTC),
+        publish_station_id=_entry.id,
+        success_log=success_push,
+        log="\n\n".join(wis2_logs),
+        wis2message_exist=message_exist,
+        wis2message="\n".join(wis2_message)
+    )
+
+    # call clean up tasks
+    wis2publish_cleanup() 
+
+
+# Helper function to execute database queries safely
+def execute_query(query, params, error_message):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            cursor_results = cursor.fetchall()
+            # log_message(f"Query result: {cursor_results}")
+            return [list(row) for row in cursor_results]
+    except Exception as e:
+        logger.error(f"{error_message}: {e}")
+        return []
+    
+        
+# get manual data for WIS2 transmission
+def get_maunal_data(station_name, id):
+    # log messages
+    logs_manual_wis2_transmit = []
+
+    # Get UTC time and truncate to the hour
+    unformatted_now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+
+    # Format it as 'YYYY-MM-DD HH:MM:SS+00' for use in the queries
+    formatted_now = unformatted_now.strftime('%Y-%m-%d %H:%M:%S+00')
+
+    # keep track of the logs to send back
+    def log_message(message):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        formatted_message = f"[{timestamp}] {message}"
+        logs_manual_wis2_transmit.append(formatted_message)  # Store it in logs_manual_wis2_transmit
         
 
     logging.info(f'MWS Transmission: Processing data for Station: {station_name}')
@@ -3068,7 +3786,24 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
         'height_of_cloud_base_l2', 'cloud_coverage_l3', 'genus_of_cloud_l3',
         'height_of_cloud_base_l3', 'cloud_coverage_l4', 'genus_of_cloud_l4',
         'height_of_cloud_base_l4', 'special_phenomenon']}
+    
 
+    # checking if there is data in the database at the top of the hour (if not the output will be an error)
+    # Query latest datetime entries for both tables
+    # hourly_summary_status = execute_query("SELECT MAX(datetime) FROM hourly_summary WHERE station_id = %s", [id], "Error fetching data")
+    raw_data_status = execute_query("SELECT MAX(datetime) FROM raw_data WHERE station_id = %s", [id], "Error fetching data")
+
+    # Check if either has data for the current hour
+    # if hourly_summary_status or raw_data_status:
+    if raw_data_status:
+        if raw_data_status[0][0] is None or raw_data_status[0][0] < unformatted_now:
+            log_message(f"Comparing DB time {raw_data_status[0][0]} with current time {unformatted_now}")
+            log_message(f"NO data exists in the Raw Data Table at timeslot [{formatted_now}] for Station: {station_name}")
+            return data_row, logs_manual_wis2_transmit, False
+    else:
+        log_message(f"NO data exists in the Database at timeslot [{formatted_now}] for Station: {station_name}")
+        return data_row, logs_manual_wis2_transmit, False
+    
 
     ##########################################################################################
     # Fetch station information from the database
@@ -3146,9 +3881,6 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
     secondary_station_raw_data = execute_query(manual_data_query, [id, formatted_now], "Error fetching non coded manual data")
     secondary_station_raw_data_code = execute_query(manual_data_query_code, [id, formatted_now], "Error fetching coded manual data")
 
-    log_message(f"This is the raw data: {secondary_station_raw_data}")
-    log_message(f"This is the raw data coded form: {secondary_station_raw_data_code}")
-
     # Mapping of variable_id to dictionary keys
     variable_mapping = {
         4040: 'wind_indicator', 4041: 'precipitation_indicator', 4042: 'station_operation_indicator', 
@@ -3175,8 +3907,11 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
 
         # if the value retrieve is -99.9 that means the value is missing therefore leave the entry empty
         if str(measured_value) == "-99.9":
+            if measured_value == "/":
+                measured_value = ""
+
             if variable_id in [4058, 4059, 4060, 4061]: # replacing all cloud base height values which are blank (-99.9) to '/'
-                measured_value = "/"
+                measured_value = ""
             else:
                 measured_value = None
 
@@ -3200,6 +3935,9 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
     for row in secondary_station_raw_data_code:
         variable_id, code_value = row
 
+        if str(code_value) == "/":
+            code_value = "" # '/' should not be included in the csv file
+
         if variable_id in variable_mapping:
             if code_value and variable_id == 4043 and code_value != "/":
                 data_row[variable_mapping[variable_id]] = f"-{int(code_value) * 6}"
@@ -3214,138 +3952,13 @@ def manual_transmit_wis2box(id, station_name, regional_transmit, local_transmit)
     log_message(f'MWS Transmission: Processing data for Station Complete: {station_name}')
 
 
-    # Helper function to upload CSV to MinIO storage
-    def upload_to_minio(credentials, label, path):
-        try:
-            if label == "regional":
-                client = Minio(
-                    endpoint=f"{credentials.regional_wis2_ip_address}:{credentials.regional_wis2_port}",
-                    access_key=credentials.regional_wis2_username,
-                    secret_key=str(credentials.get_regional_password()),
-                    secure=False,
-                    http_client=urllib3.PoolManager(
-                        timeout=10.0,  # 10-second timeout
-                        retries=urllib3.util.Retry(
-                            total=1,  # Retry once
-                            backoff_factor=0,  # No backoff (instant retry)
-                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
-                        )
-                    )
-                )
-                
-            else:
-                client = Minio(
-                    endpoint=f"{credentials.local_wis2_ip_address}:{credentials.local_wis2_port}",
-                    access_key=credentials.local_wis2_username,
-                    secret_key=str(credentials.get_local_password()), 
-                    secure=False,
-                    http_client=urllib3.PoolManager(
-                        timeout=10.0,  # 10-second timeout
-                        retries=urllib3.util.Retry(
-                            total=1,  # Retry once
-                            backoff_factor=0,  # No backoff (instant retry)
-                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
-                        )
-                    )
-                )
-            
-            # if add_gts:
-            #     # Function to set tag for file based on hour
-            #     def set_tag(hour, minute):
-            #         if hour % 6 == 0 and minute == 0:
-            #             return 'main'
-            #         elif hour % 3 == 0 and minute == 0:
-            #             return 'intermediate'
-            #         elif minute == 0:
-            #             return 'non-standard'
-            #         else:
-            #             return 'other'
-                    
-            #     # Now get the tag
-            #     tag = set_tag(data_row['hour'], data_row['minute'])
-
-            #     # setting the base stations id as the id used in the file name
-            #     if base_aws:
-            #         filename = f"wmo_data_{id}_{tag}.csv"
-            #     else:
-            #         filename = f"wmo_data_{secondary_station}_{tag}.csv"
-            # else:
-            #     filename = f'wmo_data_{id}.csv'
-            filename = f'wmo_data_{id}.csv'
-
-            # Note that 'settings.WIS2BOX_TOPIC_HIERARCHY + filename' simply just tacks on the filename no '/' separation
-            # see 'https://docs.wis2box.wis.wmo.int/en/latest/user/data-ingest.html' for and example
-            # client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + filename, temp_csv_path)
-            # Note: The filename and the path are not the same, but i don't believe this affects wis2 reception if an error occurs consider 
-            # having the names match
-            client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + '/' + filename, path)
-
-            # Add the file name
-            wis2_message.append(filename)
-
-            logging.info(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
-            log_message(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
-            return True
-        except Exception as e:
-            logging.error(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
-            log_message(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
-            return False
-
-    try:
-        # Save the data into a temporary CSV file
-        with tempfile.NamedTemporaryFile(suffix='.csv', mode='w+', delete=False) as temp_csv:
-            csv_writer = csv.DictWriter(temp_csv, fieldnames=data_row.keys())
-            csv_writer.writeheader()
-            csv_writer.writerow(data_row)
-            temp_csv_path = temp_csv.name
-
-            # Capture the CSV content into a string
-            temp_csv.seek(0)  # Move to the beginning of the file
-            csv_content = temp_csv.read()
-
-        # Transmit data to regional and local WIS2Box if required
-        if regional_transmit:
-            regional_success = upload_to_minio(RegionalWisCredentials.objects.first(), "regional", temp_csv_path)
-            if regional_success:
-                log_message('Push to the Regional WIS2BOX was successfull')
-            else:
-                log_message('Push to the Regional WIS2BOX failed')
-        if local_transmit:
-            local_success = upload_to_minio(LocalWisCredentials.objects.first(), "local", temp_csv_path)
-            if local_success:
-                log_message('Push to the Local WIS2BOX was successfull')
-            else:
-                log_message('Push to the Local WIS2BOX failed')
-
-        # Add the CSV data to the list
-        wis2_message.append(csv_content)
-    finally:
-        # Clean up the temporary CSV file
-        os.remove(temp_csv_path)
-        logging.info(f'AWS Transmission for Station: {station_name} complete')
-        log_message(f'AWS Transmission for Station: {station_name} complete')
-
-        # if both regional and local transmission are selected both pushes must be success to get a 'success status'
-        if regional_transmit and local_transmit:
-            success_push = regional_success and local_success
-        # else if only regional transmission is set the 'success status' is based on only regional transmission
-        elif regional_transmit:
-            success_push = regional_success
-        # else if only local transmission is set the 'success status' is based on only local transmission
-        elif local_transmit:
-            success_push = local_success
-        else:
-            success_push = False
-
-    return wis2_logs, wis2_message, success_push
+    return data_row, logs_manual_wis2_transmit, True
 
 
-# AWS STATIONS ONLY** Tasks the looks for stations that are set for international exchange (see STATION model) and transmits them to wis2box
-def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
-    wis2_logs = []  # Stores log messages for debugging and reporting
-    wis2_message = []
-    regional_success = False
-    local_success = False
+# get aws data for WIS2 transmission
+def get_aws_data(station_name, id):
+    # log messages
+    logs_aws_wis2_transmit = []
 
     # Get UTC time and truncate to the hour
     unformatted_now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
@@ -3372,40 +3985,7 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
     def log_message(message):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         formatted_message = f"[{timestamp}] {message}"
-        wis2_logs.append(formatted_message)  # Store it in wis2_logs
-
-    # Helper function to execute database queries safely
-    def execute_query(query, params, error_message):
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(query, params)
-                cursor_results = cursor.fetchall()
-                # log_message(f"Query result: {cursor_results}")
-                return [list(row) for row in cursor_results]
-        except Exception as e:
-            log_message(f"{error_message}: {e}")
-            logger.error(f"{error_message}: {e}")
-            return []
-
-    # checking if there is data in the database at the top of the hour (if not the output will be an error)
-    # Query latest datetime entries for both tables
-    hourly_summary_status = execute_query("SELECT MAX(datetime) FROM hourly_summary WHERE station_id = %s", [id], "Error fetching data")
-    raw_data_status = execute_query("SELECT MAX(datetime) FROM raw_data WHERE station_id = %s", [id], "Error fetching data")
-
-    # Check if either has data for the current hour
-    if hourly_summary_status or raw_data_status:
-        if not hourly_summary_status or hourly_summary_status[0][0] < unformatted_now:
-            log_message(f"Comparing DB time {hourly_summary_status[0][0]} with current time {unformatted_now}")
-            log_message(f"NO data exists in the Hourly Summary Table at timeslot [{formatted_now}] for Station: {station_name}")
-            return wis2_logs, wis2_message, False
-
-        if not raw_data_status or raw_data_status[0][0] < unformatted_now:
-            log_message(f"Comparing DB time {raw_data_status[0][0]} with current time {unformatted_now}")
-            log_message(f"NO data exists in the Raw Data Table at timeslot [{formatted_now}] for Station: {station_name}")
-            return wis2_logs, wis2_message, False
-    else:
-        log_message(f"NO data exists in the Database at timeslot [{formatted_now}] for Station: {station_name}")
-        return wis2_logs, wis2_message, False
+        logs_aws_wis2_transmit.append(formatted_message)  # Store it in logs_aws_wis2_transmit
 
     logging.info(f'AWS Transmission: Processing data for Station: {station_name}')
     log_message(f'AWS Transmission: Processing data for Station: {station_name}')
@@ -3426,6 +4006,35 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
         'total_precipitation_3_hours', 'total_precipitation_6_hours',
         'total_precipitation_12_hours', 'total_precipitation_24_hours']}
 
+
+    # checking if there is data in the database at the top of the hour (if not the output will be an error)
+    # Query latest datetime entries for both tables
+    hourly_summary_status = execute_query("SELECT MAX(datetime) FROM hourly_summary WHERE station_id = %s", [id], "Error fetching data")
+    raw_data_status = execute_query("SELECT MAX(datetime) FROM raw_data WHERE station_id = %s", [id], "Error fetching data")
+
+    # Check if either has data for the current hour
+    if hourly_summary_status or raw_data_status:
+        if (
+            not hourly_summary_status or
+            hourly_summary_status[0][0] is None or
+            hourly_summary_status[0][0] < unformatted_now
+        ):
+            log_message(f"Comparing DB time {hourly_summary_status[0][0] if hourly_summary_status else 'None'} with current time {unformatted_now}")
+            log_message(f"NO data exists in the Hourly Summary Table at timeslot [{formatted_now}] for Station: {station_name}")
+            return data_row, logs_aws_wis2_transmit, False
+
+        if (
+            not raw_data_status or
+            raw_data_status[0][0] is None or
+            raw_data_status[0][0] < unformatted_now
+        ):
+            log_message(f"Comparing DB time {raw_data_status[0][0] if raw_data_status else 'None'} with current time {unformatted_now}")
+            log_message(f"NO data exists in the Raw Data Table at timeslot [{formatted_now}] for Station: {station_name}")
+            return data_row, logs_aws_wis2_transmit, False
+    else:
+        log_message(f"NO data exists in the Database at timeslot [{formatted_now}] for Station: {station_name}")
+        return data_row, logs_aws_wis2_transmit, False
+    
 
     ##########################################################################################
     # Fetch station information from the database
@@ -3632,628 +4241,4 @@ def aws_transmit_wis2box(id, station_name, regional_transmit, local_transmit):
     logging.info(f'AWS Transmission: Processing data for Station Complete: {station_name}')
     log_message(f'AWS Transmission: Processing data for Station Complete: {station_name}')
 
-
-    # Helper function to upload CSV to MinIO storage
-    def upload_to_minio(credentials, label, path):
-        try:
-            if label == "regional":
-                client = Minio(
-                    endpoint=f"{credentials.regional_wis2_ip_address}:{credentials.regional_wis2_port}",
-                    access_key=credentials.regional_wis2_username,
-                    secret_key=str(credentials.get_regional_password()),
-                    secure=False,
-                    http_client=urllib3.PoolManager(
-                        timeout=10.0,  # 10-second timeout
-                        retries=urllib3.util.Retry(
-                            total=1,  # Retry once
-                            backoff_factor=0,  # No backoff (instant retry)
-                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
-                        )
-                    )
-                )
-                
-            else:
-                client = Minio(
-                    endpoint=f"{credentials.local_wis2_ip_address}:{credentials.local_wis2_port}",
-                    access_key=credentials.local_wis2_username,
-                    secret_key=str(credentials.get_local_password()), 
-                    secure=False,
-                    http_client=urllib3.PoolManager(
-                        timeout=10.0,  # 10-second timeout
-                        retries=urllib3.util.Retry(
-                            total=1,  # Retry once
-                            backoff_factor=0,  # No backoff (instant retry)
-                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
-                        )
-                    )
-                )
-                
-            filename = f'wmo_data_{id}.csv'
-
-            # Note that 'settings.WIS2BOX_TOPIC_HIERARCHY + filename' simply just tacks on the filename no '/' separation
-            # see 'https://docs.wis2box.wis.wmo.int/en/latest/user/data-ingest.html' for and example
-            # client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + filename, temp_csv_path)
-            client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + '/' + filename, path)
-
-            logging.info(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
-            log_message(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
-            return True
-        except Exception as e:
-            logging.error(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
-            log_message(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
-            return False
-
-    try:
-        # Save the data into a temporary CSV file
-        with tempfile.NamedTemporaryFile(suffix='.csv', mode='w+', delete=False) as temp_csv:
-            csv_writer = csv.DictWriter(temp_csv, fieldnames=data_row.keys())
-            csv_writer.writeheader()
-            csv_writer.writerow(data_row)
-            temp_csv_path = temp_csv.name
-
-            # Capture the CSV content into a string
-            temp_csv.seek(0)  # Move to the beginning of the file
-            csv_content = temp_csv.read()
-
-        # Add the file path and CSV data to the list
-        wis2_message.append(temp_csv_path)
-        wis2_message.append(csv_content)
-
-        # Transmit data to regional and local WIS2Box if required
-        if regional_transmit:
-            regional_success = upload_to_minio(RegionalWisCredentials.objects.first(), "regional", temp_csv_path)
-            if regional_success:
-                log_message('Push to the Regional WIS2BOX was successfull')
-            else:
-                log_message('Push to the Regional WIS2BOX failed')
-        if local_transmit:
-            local_success = upload_to_minio(LocalWisCredentials.objects.first(), "local", temp_csv_path)
-            if local_success:
-                log_message('Push to the Local WIS2BOX was successfull')
-            else:
-                log_message('Push to the Local WIS2BOX failed')
-    finally:
-        # Clean up the temporary CSV file
-        os.remove(temp_csv_path)
-        logging.info(f'AWS Transmission for Station: {station_name} complete')
-        log_message(f'AWS Transmission for Station: {station_name} complete')
-        
-        # if both regional and local transmission are selected both pushes must be success to get a 'success status'
-        if regional_transmit and local_transmit:
-            success_push = regional_success and local_success
-        # else if only regional transmission is set the 'success status' is based on only regional transmission
-        elif regional_transmit:
-            success_push = regional_success
-        # else if only local transmission is set the 'success status' is based on only local transmission
-        elif local_transmit:
-            success_push = local_success
-        else:
-            success_push = False
-
-    return wis2_logs, wis2_message, success_push
-
-
-# transmit for transition stations
-def transition_transmit_wis2box(id, station_name, regional_transmit, local_transmit, transit_station_id, base_aws, add_gts):
-    wis2_logs = []  # Stores log messages for debugging and reporting
-    wis2_message = []
-    regional_success = False
-    local_success = False
-
-    # Get UTC time and truncate to the hour
-    unformatted_now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
-
-    # Format it as 'YYYY-MM-DD HH:MM:SS+00' for use in the queries
-    formatted_now = unformatted_now.strftime('%Y-%m-%d %H:%M:%S+00')
-
-    # keep track of the logs to send back
-    def log_message(message):
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        formatted_message = f"[{timestamp}] {message}"
-        wis2_logs.append(formatted_message)  # Store it in wis2_logs
-
-    # setting which station to get AWS data from depending on the base_aws data
-    # see the Wis2BoxPublish model for more information
-    if not base_aws:
-        secondary_station = id
-        id = transit_station_id
-    else:
-        secondary_station = transit_station_id
-        
-
-    logging.info(f'AWS Transmission: Processing data for Station: {station_name}')
-    log_message(f'AWS Transmission: Processing data for Station: {station_name}')
-
-    # Initialize data_row dictionary with default None values for each weather parameter
-    data_row = {key: None for key in [
-        'wsi_series', 'wsi_issuer', 'wsi_issue_number', 'wsi_local', 'wmo_block_number',
-        'wmo_station_number', 'station_type', 'year', 'month', 'day', 'hour', 'minute',
-        'latitude', 'longitude', 'station_height_above_msl', 'barometer_height_above_msl',
-        'station_pressure', 'msl_pressure', 'geopotential_height', 'thermometer_height',
-        'air_temperature', 'dewpoint_temperature', 'relative_humidity',
-        'method_of_ground_state_measurement', 'ground_state', 'method_of_snow_depth_measurement',
-        'snow_depth', 'precipitation_intensity', 'anemometer_height', 'time_period_of_wind',
-        'wind_direction', 'wind_speed', 'maximum_wind_gust_direction_10_minutes',
-        'maximum_wind_gust_speed_10_minutes', 'maximum_wind_gust_direction_1_hour',
-        'maximum_wind_gust_speed_1_hour', 'maximum_wind_gust_direction_3_hours',
-        'maximum_wind_gust_speed_3_hours', 'rain_sensor_height', 'total_precipitation_1_hour',
-        'total_precipitation_3_hours', 'total_precipitation_6_hours',
-        'total_precipitation_12_hours', 'total_precipitation_24_hours', 
-        # manual station data
-        'synop_key_entry_data', 'wind_indicator_manual', 'precipitation_indicator_manual', 'station_operation_indicator_manual',
-        'lowest_cloud_height_manual', 'visibility_KM_manual', 'cloud_cover_tot_manual', 'wind_direction_manual',
-        'wind_speed_manual', 'air_temperature_dry_bulb_manual', 'dew_point_temperature_manual',
-        'air_temperature_wet_bulb_manual', 'relative_humidity_manual', 'pressure_at_station_level_manual',
-        'pressure_at_sea_level_hpa_manual', 'precipitation_since_last_report_manual', 'precipitation_period_duration_manual',
-        '24_hour_barometric_change_manual', '24_hour_rainfall_manual', 'present_weather_manual',
-        'past_weather_type_1_manual', 'past_weather_type_2_manual', 'observed_cloud_coverage_manual',
-        'low_cloud_type_manual', 'middle_cloud_type_manual', 'high_cloud_type_manual', 'state_of_sky_manual',
-        'direction_of_cl_clouds_manual', 'direction_of_cm_clouds_manual', 'direction_of_ch_clouds_manual',
-        'air_temperature_dry_bulb_max_manual', 'cloud_coverage_level_1_manual', 'genus_of_cloud_level_1_manual',
-        'height_of_cloud_base_level_1_manual', 'cloud_coverage_level_2_manual', 'genus_of_cloud_level_2_manual',
-        'height_of_cloud_base_level_2_manual', 'cloud_coverage_level_3_manual', 'genus_of_cloud_level_3_manual',
-        'height_of_cloud_base_level_3_manual', 'cloud_coverage_level_4_manual', 'genus_of_cloud_level_4_manual',
-        'height_of_cloud_base_level_4_manual', 'special_phenomenon_manual']}
-
-    # Helper function to execute database queries safely
-    def execute_query(query, params, error_message):
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(query, params)
-                return [list(row) for row in cursor.fetchall()]
-        except Exception as e:
-            logging.error(f'{error_message}: {e}')
-            log_message(f'{error_message}: {e}')
-            return []
-
-    # ------------- GETTING BASE STATIONS DATA START ------------- #
-    # Fetch station information from the database
-    station_query = """
-        SELECT wigos, latitude, longitude, elevation, is_automatic
-        FROM wx_station WHERE id = %s
-    """
-    station_data = execute_query(station_query, [id], "Error fetching station info")
-    if station_data:
-        row = station_data[0]
-        wsi_parts = row[0].split("-") if row[0] else [None] * 4
-        data_row.update({
-            'wsi_series': wsi_parts[0], 
-            'wsi_issuer': wsi_parts[1],
-            'wsi_issue_number': wsi_parts[2], 
-            'wsi_local': wsi_parts[3],
-            'latitude': round(row[1], 5), 
-            'longitude': round(row[2], 5),
-            'station_height_above_msl': row[3], 
-            'barometer_height_above_msl': round(row[3] + 1.7, 2), # 1.7 metre above station_height_above_msl
-            # the settings below will be hard coded until further notice
-            'thermometer_height': 1.7, 
-            'anemometer_height': 10, 
-            'time_period_of_wind': -5,
-            'rain_sensor_height': 1.5, 
-            'station_type': 2
-        })
-
-    ##########################################################################################
-    # Fetch the latest raw data measurements for specific variables
-    raw_data_query = """
-        SELECT variable_id, measured, datetime FROM raw_data
-        WHERE station_id = %s AND datetime = %s
-        AND variable_id IN (10, 19, 30, 51, 56, 60, 61);
-    """
-    raw_data = execute_query(raw_data_query, [id, formatted_now], "Error fetching raw data")
-
-    for row in raw_data:
-        key, value = {
-            10: ('air_temperature', round(row[1] + 273.15, 2)),
-            19: ('dewpoint_temperature', round(row[1] + 273.15, 2)),
-            30: ('relative_humidity', round(row[1])),
-            51: ('wind_speed', round(row[1], 1)),
-            56: ('wind_direction', int(row[1])),
-            60: ('station_pressure', row[1] * 100),
-            61: ('msl_pressure', row[1] * 100)
-        }.get(row[0], (None, None))
-
-        if key:  # Only update if a valid key was found
-            data_row[key] = value
-    
-    # Populate year, month, day, hour, minute in data_row
-    if unformatted_now:
-        # Add the extracted date components to data_row
-        data_row['year'] = unformatted_now.year
-        data_row['month'] = unformatted_now.month
-        data_row['day'] = unformatted_now.day
-        data_row['hour'] = unformatted_now.hour
-        data_row['minute'] = unformatted_now.minute
-
-    ##########################################################################################
-    # Fetch precipitation data for the past 24 hours
-    precipitation_query = """
-        SELECT sum_value 
-        FROM hourly_summary 
-        WHERE station_id = %s 
-        AND variable_id = 0 
-        AND datetime BETWEEN %s - interval '24 hours' AND %s
-        ORDER BY datetime DESC;
-    """
-    precipitation_data = execute_query(precipitation_query, [id, formatted_now, formatted_now], "Error fetching precipitation data")
-    precip_values = [row[0] for row in precipitation_data if row]
-    if precip_values:
-
-        if precip_values[3]:
-            data_row.update({
-                'total_precipitation_3_hours': round(sum(precip_values[:3]), 1)
-            })
-        elif precip_values[6]:
-            data_row.update({
-                'total_precipitation_6_hours': round(sum(precip_values[:6]), 1)
-            })
-        elif precip_values[12]:
-            data_row.update({
-                'total_precipitation_12_hours': round(sum(precip_values[:12]), 1)
-            })
-
-        data_row.update({
-            'total_precipitation_1_hour': round(precip_values[0], 1),
-            'total_precipitation_24_hours': round(sum(precip_values), 1)
-        })
-
-
-    ##########################################################################################
-    # fetch wind SPEED 1 hour and 3 hour data
-    wind_query = """
-        SELECT max_value 
-        FROM hourly_summary hs 
-        WHERE station_id = %s 
-        AND variable_id = 51 
-        AND datetime BETWEEN %s - interval '3 hours' AND %s
-        ORDER BY datetime DESC;
-    """
-
-    wind_data = execute_query(wind_query, [id, formatted_now, formatted_now], "Error fetching wind data")
-    wind_hourly = [rows[0] for rows in wind_data if row]
-    if wind_hourly:
-        data_row['maximum_wind_gust_speed_1_hour'] = round(wind_hourly[0], 1)
-        # Find the maximum wind gust speed in the 3-hour window and then round maximum value
-        data_row['maximum_wind_gust_speed_3_hours'] = round(max(wind_hourly), 1)
-
-    # fetch wind DIRECTION 1 hour and 3 hour data
-    wind_direction_query = """
-        SELECT max_value 
-        FROM hourly_summary hs 
-        WHERE station_id = %s 
-        AND variable_id = 56 
-        AND datetime BETWEEN %s - interval '3 hours' AND %s
-        ORDER BY datetime DESC;
-    """
-    wind_direction_data = execute_query(wind_direction_query, [id, formatted_now, formatted_now], "Error fetching wind data")
-    wind_direction_hourly = [rows[0] for rows in wind_direction_data if row]
-    if wind_direction_hourly:
-        data_row['maximum_wind_gust_direction_1_hour'] = int(wind_direction_hourly[0])
-        # Find the maximum wind gust direction in the 3-hour window and then round maximum value
-        data_row['maximum_wind_gust_direction_3_hours'] = int(max(wind_direction_hourly))
-    # ------------- GETTING BASE STATIONS DATA END ------------- #
-
-
-    # ------------- GETTING SECONDARY STATIONS DATA START ------------- #
-    # query to get the measure values
-    manual_data_query = """
-        SELECT variable_id, measured
-        FROM raw_data
-        WHERE station_id = %s 
-        AND datetime = %s
-        AND variable_id IN (10, 16, 18, 19, 30, 50, 55, 60, 61,
-                            4048, 4050, 4055, 4056, 4057);
-    """
-
-    # query to get the code values
-    manual_data_query_code = """
-        SELECT variable_id, code
-        FROM raw_data
-        WHERE station_id = %s 
-        AND datetime = %s
-        AND variable_id IN (1001, 1002, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1011,
-                            1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 4005,
-                            4006, 4040, 4041, 4042, 4044, 4045, 4046, 4047, 4043);
-    """
-
-    # Execute the query
-    secondary_station_raw_data = execute_query(manual_data_query, [secondary_station, formatted_now], "Error fetching raw data")
-    secondary_station_raw_data_code = execute_query(manual_data_query_code, [secondary_station, formatted_now], "Error fetching raw data")
-
-    # Mapping of variable_id to dictionary keys
-    variable_mapping = {
-        4040: 'wind_indicator_manual', 4041: 'precipitation_indicator_manual', 4042: 'station_operation_indicator_manual', 
-        4048: 'lowest_cloud_height_manual', 4056: 'visibility_KM_manual', 1001: 'cloud_cover_tot_manual', 
-        55: 'wind_direction_manual', 50: 'wind_speed_manual', 10: 'air_temperature_dry_bulb_manual', 
-        19: 'dew_point_temperature_manual', 18: 'air_temperature_wet_bulb_manual', 30: 'relative_humidity_manual', 
-        60: 'pressure_at_station_level_manual', 61: 'pressure_at_sea_level_hpa_manual', 4050: 'precipitation_since_last_report_manual', 
-        4043: 'precipitation_period_duration_manual', 4057: '24_hour_barometric_change_manual', 4055: '24_hour_rainfall_manual', 
-        1002: 'present_weather_manual', 1003: 'past_weather_type_1_manual', 1004: 'past_weather_type_2_manual', 
-        4005: 'observed_cloud_coverage_manual', 1006: 'low_cloud_type_manual', 1007: 'middle_cloud_type_manual', 
-        1008: 'high_cloud_type_manual', 4044: 'state_of_sky_manual', 4045: 'direction_of_cl_clouds_manual', 
-        4046: 'direction_of_cm_clouds_manual', 4047: 'direction_of_ch_clouds_manual', 16: 'air_temperature_dry_bulb_max_manual', 
-        1009: 'cloud_coverage_level_1_manual', 1010: 'genus_of_cloud_level_1_manual', 1011: 'height_of_cloud_base_level_1_manual', 
-        1012: 'cloud_coverage_level_2_manual', 1013: 'genus_of_cloud_level_2_manual', 1014: 'height_of_cloud_base_level_2_manual', 
-        1015: 'cloud_coverage_level_3_manual', 1016: 'genus_of_cloud_level_3_manual', 1017: 'height_of_cloud_base_level_3_manual', 
-        1018: 'cloud_coverage_level_4_manual', 1019: 'genus_of_cloud_level_4_manual', 1020: 'height_of_cloud_base_level_4_manual', 
-        4006: 'special_phenomenon_manual'}
-
-
-    # Populate the dictionary with retrieved data
-    for row in secondary_station_raw_data:
-        variable_id, measured_value = row
-        if variable_id in variable_mapping:
-            data_row[variable_mapping[variable_id]] = measured_value   
-
-    # Populate the dictionary with retrieved data (only data entries which store codes)
-    for row in secondary_station_raw_data_code:
-        variable_id, code_value = row
-        if variable_id in variable_mapping:
-            data_row[variable_mapping[variable_id]] = code_value   
-    # ------------- GETTING SECONDARY STATIONS DATA END ------------- #
-
-
-    # Helper function to upload CSV to MinIO storage
-    def upload_to_minio(credentials, label, path):
-        try:
-            if label == "regional":
-                client = Minio(
-                    endpoint=f"{credentials.regional_wis2_ip_address}:{credentials.regional_wis2_port}",
-                    access_key=credentials.regional_wis2_username,
-                    secret_key=str(credentials.get_regional_password()),
-                    secure=False,
-                    http_client=urllib3.PoolManager(
-                        timeout=10.0,  # 10-second timeout
-                        retries=urllib3.util.Retry(
-                            total=1,  # Retry once
-                            backoff_factor=0,  # No backoff (instant retry)
-                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
-                        )
-                    )
-                )
-                
-            else:
-                client = Minio(
-                    endpoint=f"{credentials.local_wis2_ip_address}:{credentials.local_wis2_port}",
-                    access_key=credentials.local_wis2_username,
-                    secret_key=str(credentials.get_local_password()), 
-                    secure=False,
-                    http_client=urllib3.PoolManager(
-                        timeout=10.0,  # 10-second timeout
-                        retries=urllib3.util.Retry(
-                            total=1,  # Retry once
-                            backoff_factor=0,  # No backoff (instant retry)
-                            raise_on_status=False  # Do not raise exceptions on certain status codes (optional)
-                        )
-                    )
-                )
-            
-            if add_gts:
-                # Function to set tag for file based on hour
-                def set_tag(hour, minute):
-                    if hour % 6 == 0 and minute == 0:
-                        return 'main'
-                    elif hour % 3 == 0 and minute == 0:
-                        return 'intermediate'
-                    elif minute == 0:
-                        return 'non-standard'
-                    else:
-                        return 'other'
-                    
-                # Now get the tag
-                tag = set_tag(data_row['hour'], data_row['minute'])
-
-                # setting the base stations id as the id used in the file name
-                if base_aws:
-                    filename = f"wmo_data_{id}_{tag}.csv"
-                else:
-                    filename = f"wmo_data_{secondary_station}_{tag}.csv"
-            else:
-                filename = f'wmo_data_{id}.csv'
-
-            # Note that 'settings.WIS2BOX_TOPIC_HIERARCHY + filename' simply just tacks on the filename no '/' separation
-            # see 'https://docs.wis2box.wis.wmo.int/en/latest/user/data-ingest.html' for and example
-            # client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + filename, temp_csv_path)
-            # Note: The filename and the path are not the same, but i don't believe this affects wis2 reception if an error occurs consider 
-            # having the names match
-            client.fput_object('wis2box-incoming', settings.WIS2BOX_TOPIC_HIERARCHY + '/' + filename, path)
-
-            # Add the file name
-            wis2_message.append(filename)
-
-            logging.info(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
-            log_message(f"Data transfer to {label} WIS2Box successful for Station: {station_name}")
-            return True
-        except Exception as e:
-            logging.error(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
-            log_message(f"{label} WIS2Box Connection Error for station {station_name}: {e}")
-            return False
-
-    try:
-        # Save the data into a temporary CSV file
-        with tempfile.NamedTemporaryFile(suffix='.csv', mode='w+', delete=False) as temp_csv:
-            csv_writer = csv.DictWriter(temp_csv, fieldnames=data_row.keys())
-            csv_writer.writeheader()
-            csv_writer.writerow(data_row)
-            temp_csv_path = temp_csv.name
-
-            # Capture the CSV content into a string
-            temp_csv.seek(0)  # Move to the beginning of the file
-            csv_content = temp_csv.read()
-
-        # Transmit data to regional and local WIS2Box if required
-        if regional_transmit:
-            regional_success = upload_to_minio(RegionalWisCredentials.objects.first(), "regional", temp_csv_path)
-            if regional_success:
-                log_message('Push to the Regional WIS2BOX was successfull')
-            else:
-                log_message('Push to the Regional WIS2BOX failed')
-        if local_transmit:
-            local_success = upload_to_minio(LocalWisCredentials.objects.first(), "local", temp_csv_path)
-            if local_success:
-                log_message('Push to the Local WIS2BOX was successfull')
-            else:
-                log_message('Push to the Local WIS2BOX failed')
-
-        # Add the CSV data to the list
-        wis2_message.append(csv_content)
-    finally:
-        # Clean up the temporary CSV file
-        os.remove(temp_csv_path)
-        logging.info(f'AWS Transmission for Station: {station_name} complete')
-        log_message(f'AWS Transmission for Station: {station_name} complete')
-
-        # if both regional and local transmission are selected both pushes must be success to get a 'success status'
-        if regional_transmit and local_transmit:
-            success_push = regional_success and local_success
-        # else if only regional transmission is set the 'success status' is based on only regional transmission
-        elif regional_transmit:
-            success_push = regional_success
-        # else if only local transmission is set the 'success status' is based on only local transmission
-        elif local_transmit:
-            success_push = local_success
-        else:
-            success_push = False
-
-    return wis2_logs, wis2_message, success_push
-
-
-
-@shared_task
-def wis2publish_cleanup():
-    # clean up logs older than 24 hours
-    try:
-        # Delete logs older than 24 hours
-        time_threshold = now() - timedelta(hours=24)
-        deleted_count, _ = Wis2BoxPublishLogs.objects.filter(created_at__lt=time_threshold).delete()
-
-        logger.info(f"WIS2 Publish Cleanup tasks: Successfully deleted {deleted_count} logs older than 24 hours")
-    except Exception as e:
-        logger.error("WIS2 Publish Cleanup tasks: Failed to delete logs older than 24 hours")
-        logger.exception(f"Error: {e}")
-
-    # Update publish logs number and fail logs number
-    try:
-        # Annotate each Wis2BoxPublish record with the count of related success and fail logs
-        wis2publish_updates = Wis2BoxPublish.objects.annotate(
-            success_count=Count('wis2boxpublishlogs', filter=Q(wis2boxpublishlogs__success_log=True)),
-            fail_count=Count('wis2boxpublishlogs', filter=Q(wis2boxpublishlogs__success_log=False))
-        )
-
-        update_count = 0  # Counter to track the number of successful updates
-
-        # Iterate over each annotated Wis2BoxPublish record and update the success/fail counts
-        for record in wis2publish_updates:
-            Wis2BoxPublish.objects.filter(id=record.id).update(
-                publish_success=record.success_count,  # Set the success count
-                publish_fail=record.fail_count  # Set the fail count
-            )
-            update_count += 1  # Increment the count of updated records
-        
-        # Log the number of records successfully updated
-        logger.info(f"WIS2 Publish Cleanup tasks: Successfully updated publish_fail and publish_success for {update_count} records in the wis2publish table")
-    except Exception as e:
-        # Log an error message if the update process fails
-        logger.error("WIS2 Publish Cleanup tasks: Failed to update publish_fail and publish_success for some records")
-        logger.exception(f"Error: {e}")  # Log the full exception traceback for debugging
-
-
-@shared_task
-def wis2publish_task():
-    now = datetime.now(pytz.UTC)
-
-    # retrieving wis2 tranmit station which are set to publishing
-    _publishing_stations = Wis2BoxPublish.objects.filter(publishing=True)
-
-    for _entry in _publishing_stations:
-        # check if the cron schedule for the station matches the time now
-        if croniter.match(_entry.publishing_offset.cron_schedule, now):
-            # check if transition station or not
-            if _entry.transition:
-                wis2push_transition.delay(_entry.id, now)
-            else:
-                wis2push_regular.delay(_entry.id, now)
-
-
-@shared_task
-# for instant pushing
-def wis2publish_task_now(station_id):
-    try:
-        now = datetime.now(pytz.UTC)
-
-        # grabbing a single entry base on the id
-        _entry = Wis2BoxPublish.objects.get(id=station_id)
-
-        if _entry.transition:
-            wis2push_transition(_entry.id, now)
-        else:
-            wis2push_regular(_entry.id, now)
-    except Exception as e:
-        raise e
-
-
-
-# push to wis2 for non transition stations
-@shared_task
-def wis2push_regular(entry_id, now):
-    # get the entry
-    _entry = Wis2BoxPublish.objects.get(id=entry_id)
-
-    # get station obj
-    _station_obj = Station.objects.get(id=_entry.station.id)
-
-    # differentiating between manual and automatic stations
-    if _station_obj.is_automatic:
-        # get the data from the transmission
-        wis2_logs, wis2_message, success_push = aws_transmit_wis2box(_entry.station.id, _entry.station.name, _entry.regional_wis2, _entry.local_wis2)
-    else:
-        # get the data from the transmission
-        wis2_logs, wis2_message, success_push = manual_transmit_wis2box(_entry.station.id, _entry.station.name, _entry.regional_wis2, _entry.local_wis2)
-
-    message_exist = bool(wis2_message)
-
-    # create the logs entry
-    Wis2BoxPublishLogs.objects.create(
-        created_at=now, 
-        last_modified= datetime.now(tz=pytz.UTC),
-        publish_station_id=_entry.id,
-        success_log=success_push,
-        log="\n\n".join(wis2_logs),
-        wis2message_exist=message_exist,
-        wis2message="\n".join(wis2_message)
-    )
-
-    # call clean up tasks
-    wis2publish_cleanup() 
-
-
-# push to wis2 for transition stations
-@shared_task
-def wis2push_transition(entry_id, now):
-    # get the entry
-    _entry = Wis2BoxPublish.objects.get(id=entry_id)
-
-    # get data from the transmission
-    wis2_logs, wis2_message, success_push = transition_transmit_wis2box(_entry.station.id, 
-                                                                        _entry.station.name, 
-                                                                        _entry.regional_wis2, 
-                                                                        _entry.local_wis2, 
-                                                                        _entry.transit_station.id,
-                                                                        _entry.base_aws,
-                                                                        _entry.add_gts)
-
-    message_exist = bool(wis2_message)
-
-    # create the logs entry
-    Wis2BoxPublishLogs.objects.create(
-        created_at=now, 
-        last_modified= datetime.now(tz=pytz.UTC),
-        publish_station_id=_entry.id,
-        success_log=success_push,
-        log="\n\n".join(wis2_logs),
-        wis2message_exist=message_exist,
-        wis2message="\n".join(wis2_message)
-    )
-
-    # call clean up tasks
-    wis2publish_cleanup() 
+    return data_row, logs_aws_wis2_transmit, True

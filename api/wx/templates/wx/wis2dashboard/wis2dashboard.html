@@ -209,8 +209,36 @@
         <!-- configure Station Logs Dialog -->
         <v-dialog v-model="logsDialog" max-width="850">
             <v-card>
-                <v-card-title class="headline">
-                    [[ publish_logs_station_metadata.station__name ]] Logs
+                <v-card-title 
+                    class="headline"
+                >
+                    <span >
+                        [[ publish_logs_station_metadata.station__name ]]&nbsp
+                    </span>
+
+                    <!-- <span 
+                        v-if="publish_logs_station_metadata.hybrid"
+                        style="color: green;"
+                    >
+                        [[ publish_logs_station_metadata.station__name ]]&nbsp
+                    </span> -->
+
+                    <span
+                        v-if="publish_logs_station_metadata.hybrid"
+                    >
+                        <v-icon
+                            style="color: #0096FF;"
+                        >
+                            mdi-link-variant
+                        </v-icon>
+
+                        <span 
+                            style="color: purple;"
+                        >
+                            [[ publish_logs_station_metadata.hybrid_station__name]]&nbsp
+                        </span>
+                    </span>
+                    Logs
                 </v-card-title>
 
                 <v-card-text class="log-container" style="white-space: pre-line;">
@@ -247,7 +275,7 @@
                     <!-- Tabs to switch between Local and Regional settings -->
                     <v-tabs v-model="selectedSettingsTab" centered>
                         <v-tab key="default">Default Settings</v-tab>
-                        <v-tab key="transition">Hybrid Settings</v-tab>
+                        <v-tab key="hybrid">Hybrid Settings</v-tab>
                     </v-tabs>
 
                     <v-scroll-x-transition>
@@ -325,6 +353,14 @@
                                         ></v-switch>
                                     </v-col>
                                     <v-col cols="12" sm="6">
+                                        <v-switch 
+                                            v-model="wis2PushForm.add_gts" 
+                                            label="Add GTS Headers" 
+                                            inset
+                                            :disabled="!wis2PushForm.publishing"
+                                        ></v-switch>
+                                    </v-col>
+                                    <v-col cols="12" sm="12">
                                         <v-select 
                                             append-icon="more_time"
                                             v-model="wis2PushForm.publishing_offset" 
@@ -339,12 +375,12 @@
                             </v-container>
                         </v-tab-item>
 
-                        <!-- transition section -->
-                        <v-tab-item key="transition">
-                            <!-- Transition station must be enables to access other transition settings-->
+                        <!-- hybrid section -->
+                        <v-tab-item key="hybrid">
+                            <!-- hybrid station must be enables to access other hybrid settings-->
                             <v-scroll-x-transition>
                                 <v-alert 
-                                    v-if="!wis2PushForm.transition" 
+                                    v-if="!wis2PushForm.hybrid" 
                                     type="warning" 
                                     icon="warning"
                                     dense
@@ -355,37 +391,28 @@
                                 </v-alert>
                             </v-scroll-x-transition>
 
-                            <!-- Explaining how the system will behave is transition is true but transit station is not set and a save operatio occurs -->
+                            <!-- Explaining how the system will behave is hybrid is true but hybrid station is not set and a save operatio occurs -->
                             <v-scroll-x-transition>
                                 <v-alert 
-                                    v-if="wis2PushForm.transition && !wis2PushForm.transit_station" 
+                                    v-if="wis2PushForm.hybrid && !wis2PushForm.hybrid_station" 
                                     type="warning" 
                                     icon="warning"
                                     dense
                                     class="mt-2"
                                     rounded="0"
                                 >
-                                    If a transit station is not selected, this station will not publish to WIS2, and Transit Station will be turned off
+                                    If a secondary station is not selected, this station will not publish to WIS2, and hybrid Station will be turned off
                                 </v-alert>
                             </v-scroll-x-transition>
 
-                            <!-- the form for the station transition settings -->
+                            <!-- the form for the station hybrid settings -->
                             <v-container>
                                 <v-row>
-                                    <v-col cols="12" sm="6">
+                                    <v-col cols="12" sm="12">
                                         <v-switch 
-                                            v-model="wis2PushForm.transition" 
-                                            label="Transition Station" 
+                                            v-model="wis2PushForm.hybrid" 
+                                            label="Hybrid Station" 
                                             inset
-                                        ></v-switch>
-                                    </v-col>
-
-                                    <v-col cols="12" sm="6">
-                                        <v-switch 
-                                            v-model="wis2PushForm.add_gts" 
-                                            label="Add GTS Headers" 
-                                            inset
-                                            :disabled="!wis2PushForm.transition"
                                         ></v-switch>
                                     </v-col>
 
@@ -401,12 +428,12 @@
                                     <v-col cols="12" sm="6">
                                         <v-select 
                                             append-icon="my_location"
-                                            v-model="wis2PushForm.transit_station" 
+                                            v-model="wis2PushForm.hybrid_station" 
                                             :items="stationList"
                                             item-text="name"
                                             item-value="id"
-                                            label="Transit Station" 
-                                            :disabled="!wis2PushForm.transition"
+                                            label="secondary Station" 
+                                            :disabled="!wis2PushForm.hybrid"
                                             :clearable="true"
                                         ></v-select>
                                     </v-col>
@@ -421,16 +448,16 @@
                                             v-model="wis2PushForm.base_aws" 
                                             label="Base Station" 
                                             inset
-                                            :disabled="!wis2PushForm.transition"
+                                            :disabled="!wis2PushForm.hybrid"
                                         ></v-switch>
                                     </v-col>
 
                                     <v-col cols="12" sm="6" class="pt-0 mt-0">
                                         <v-switch 
-                                            v-model="wis2PushForm.transit_aws" 
-                                            label="Transit Station" 
+                                            v-model="wis2PushForm.hybrid_aws" 
+                                            label="Secondary Station" 
                                             inset
-                                            :disabled="!wis2PushForm.transition"
+                                            :disabled="!wis2PushForm.hybrid"
                                         ></v-switch>
                                     </v-col>
                                 </v-row>
@@ -477,10 +504,10 @@
         <!-- #################################### DIALOGS END #################################### -->
 
 
-        <!-- Overlay with Spinner -->
+        <!-- Overlay with Spinner
         <v-overlay v-if="loadingTableDialogOverlay" absolute opacity="0.3">
             <v-progress-circular indeterminate size="70"></v-progress-circular>
-        </v-overlay>
+        </v-overlay> -->
 
         <!-- snack bar status -->
         <v-snackbar v-model="snackbar.show" :timeout="3000" :color="snackbar.color">
@@ -524,7 +551,7 @@
             </v-alert>
         </v-scroll-x-transition>
 
-        <!-- settings and transition station options -->
+        <!-- settings and hybrid station options -->
         <v-app-bar color="white" flat rounded>
             <!-- settings button -->
             <v-menu offset-y>
@@ -613,16 +640,16 @@
 
                                     <!-- and the link icon and the hybrid station name if hybrid station is true -->
                                     <v-icon
-                                        v-if="item.transition"
+                                        v-if="item.hybrid"
                                         style="color: #0096FF;"
                                     >
                                         mdi-link-variant
                                     </v-icon>
                                     <span 
-                                        v-if="item.transition"
+                                        v-if="item.hybrid"
                                         style="color: purple;"
                                     >
-                                        [[ item.transit_station__name ]]
+                                        [[ item.hybrid_station__name ]]
                                     </span>
                                 </template>
                             
@@ -676,8 +703,24 @@
                             <h6 class="pt-4"></h6>
 
                             <v-card-text>
+                                <span>
+                                    <h5 class="pl-3">
+                                        [[ publish_logs_station_metadata.station__name ]]
+                                    </h5>
 
-                                <h5 class="pl-3">[[ publish_logs_station_metadata.station__name ]]</h5>
+                                    <span 
+                                        v-if="publish_logs_station_metadata.hybrid"
+                                    >
+                                        <h6 style="color: purple;"> 
+                                            <v-icon
+                                                style="color: #0096FF;"
+                                            >
+                                                mdi-link-variant
+                                            </v-icon>
+                                            [[ publish_logs_station_metadata.hybrid_station__name]] 
+                                        </h6>
+                                    </span>
+                                </span>
 
                                 <h6 class="pt-4 pl-3">[[ publish_logs_station_metadata.station__wigos ]]</h6>
         
@@ -813,6 +856,11 @@
 
         <!-- stations table-->
         <v-app>
+            <!-- Overlay with Spinner -->
+            <v-overlay v-if="loadingTableDialogOverlay" absolute opacity="0.3">
+                <v-progress-circular indeterminate size="70"></v-progress-circular>
+            </v-overlay>
+
             <!-- station table options -->
             <h6 class="">Select options to filter station by</h6>
             <!-- filter station buttons -->
@@ -830,7 +878,7 @@
 
                 <!-- hybrid Stations -->
                 <v-switch 
-                    v-model="transition" 
+                    v-model="hybrid" 
                     hide-details 
                     inset
                     class="bolder-v-switch-weight"
@@ -911,16 +959,16 @@
 
                                 <!-- and the link icon and the hybrid station name if hybrid station is true -->
                                 <v-icon
-                                    v-if="item.transition"
+                                    v-if="item.hybrid"
                                     style="color: #0096FF;"
                                 >
                                     mdi-link-variant
                                 </v-icon>
                                 <span 
-                                    v-if="item.transition"
+                                    v-if="item.hybrid"
                                     style="color: purple;"
                                 >
-                                    [[ item.transit_station__name ]]
+                                    [[ item.hybrid_station__name ]]
                                 </span>
                             </template>
 
@@ -981,7 +1029,7 @@
                     all_stations: true,
                     publishing: false,
                     not_publishing: false,
-                    transition: false,
+                    hybrid: false,
                     disable_all_stations: false,
                     disable_hybrid: true,
                     disable_publishing: true,
@@ -1042,7 +1090,7 @@
                         regional_password: ''
                     },
                     selectedTab: 0, // 0 = Local, 1 = Regional
-                    selectedSettingsTab: 0, // 0 = default, 1 = transition
+                    selectedSettingsTab: 0, // 0 = default, 1 = hybrid
                     localCredentialsExist: true, // Will check if a local credential exists
                     localForceCreate: false, // User confirmation to create new local entry
                     localCredentials: {}, // holds the local credentials
@@ -1059,11 +1107,11 @@
                         local_wis2: null,
                         regional_wis2: null,
                         publishing: null,
-                        transition: null,
+                        hybrid: null,
                         add_gts: null,
                         base_aws: null,
-                        transit_aws: null,
-                        transit_station: null
+                        hybrid_aws: null,
+                        hybrid_station: null
                     },
                     publishOffsetList: [],
                     invalidWigosAlert: false,
@@ -1155,6 +1203,9 @@
                     else if (status == "Hybrid"){
                         return "purple"
                     }
+                    else if (status == "GTS"){
+                        return "red"
+                    }
                     else {
                         return "grey";
                     }
@@ -1214,7 +1265,7 @@
                         // load all stations
                         this.loadItems("all");
                     }
-                    else if (this.transition == true) {
+                    else if (this.hybrid == true) {
                         if (this.publishing == true) {
                             this.loadItems("trans pub")
                         }
@@ -1437,11 +1488,11 @@
                     this.wis2PushForm.publishing_offset = apiResponse.data['publishing_offset'];
                     this.wis2PushForm.local_wis2 = apiResponse.data['local_wis2'];
                     this.wis2PushForm.regional_wis2 = apiResponse.data['regional_wis2'];
-                    this.wis2PushForm.transition = apiResponse.data['transition'];
+                    this.wis2PushForm.hybrid = apiResponse.data['hybrid'];
                     this.wis2PushForm.add_gts = apiResponse.data['add_gts'];
                     this.wis2PushForm.base_aws = apiResponse.data['base_aws'];
-                    this.wis2PushForm.transit_aws = apiResponse.data['transit_aws'];
-                    this.wis2PushForm.transit_station = apiResponse.data['transit_station'];
+                    this.wis2PushForm.hybrid_aws = apiResponse.data['hybrid_aws'];
+                    this.wis2PushForm.hybrid_station = apiResponse.data['hybrid_station'];
 
                     // open the station dialog
                     this.stationDialog = true;
@@ -1459,6 +1510,7 @@
                     if (!this.wis2PushForm.publishing) {
                         this.wis2PushForm.local_wis2 = false;
                         this.wis2PushForm.regional_wis2 = false;
+                        this.wis2PushForm.add_gts = false;
                     }
                 },
 
@@ -1840,7 +1892,7 @@
                     }
             
                 },
-                transition(newValue) {
+                hybrid(newValue) {
                     this.filterReloadControl(); // assess the state of the filters and load an appropriate table
             
                 },

@@ -20,12 +20,12 @@ def update_wis2boxPublish_on_international_exchange_change(sender, instance, **k
 @receiver(pre_save, sender=Wis2BoxPublish)
 def reset_wis2boxPublish_setting(sender, instance, **kwargs):
     """
-    Resets some settings relating to transition stations if the transit station is deleted
+    Resets some settings relating to hybrid stations if the hybrid station is deleted
     """
-    # If transit station is null (the behaviour on delete) and the station isn't a transition station, reset booleans
-    if instance.transit_station is None and instance.transition == True:
+    # If hybrid station is null (the behaviour on delete) and the station isn't a hybrid station, reset booleans
+    if instance.hybrid_station is None and instance.hybrid == True:
         instance.publishing = False
-        instance.transition = False
+        instance.hybrid = False
 
 
 @receiver(post_save, sender=Wis2BoxPublishLogs)

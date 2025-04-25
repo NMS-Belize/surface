@@ -828,11 +828,11 @@ class Wis2BoxPublish(models.Model):
     publish_fail = models.IntegerField(default=0) # this field is automatically updated by a signal (update_wis2boxPublish_on_logs_add)
     local_wis2 = models.BooleanField(default=False)
     regional_wis2 = models.BooleanField(default=False)
-    transition = models.BooleanField(default=False)
-    transit_station = models.ForeignKey(Station, related_name="transit_stations", on_delete=models.SET_NULL, null=True, blank=True)
+    hybrid = models.BooleanField(default=False)
+    hybrid_station = models.ForeignKey(Station, related_name="hybrid_stations", on_delete=models.SET_NULL, null=True, blank=True)
     add_gts = models.BooleanField(default=False) # add gts headers
     base_aws = models.BooleanField(default=True) # if true get aws data from the base station else get manual data
-    transit_aws = models.BooleanField(default=False) # if true get aws data from the transit station else get manual data
+    hybrid_aws = models.BooleanField(default=False) # if true get aws data from the hybrid station else get manual data
 
 
 # holds the local wis credentials

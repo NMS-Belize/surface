@@ -8749,9 +8749,9 @@ def wis2dashboard_records_list(request):
         elif search_criteria == 'not publishing':
             queryset = Wis2BoxPublish.objects.filter(publishing=False).select_related("station")
         elif search_criteria == 'trans pub':
-            queryset = Wis2BoxPublish.objects.filter(publishing=True, transition=True).select_related("station")
+            queryset = Wis2BoxPublish.objects.filter(publishing=True, hybrid=True).select_related("station")
         elif search_criteria == 'trans nonpub':
-            queryset = Wis2BoxPublish.objects.filter(publishing=False, transition=True).select_related("station")
+            queryset = Wis2BoxPublish.objects.filter(publishing=False, hybrid=True).select_related("station")
         else:
             queryset = Wis2BoxPublish.objects.select_related("station")
         
@@ -8768,8 +8768,9 @@ def wis2dashboard_records_list(request):
             "station__is_synoptic", 
             "publish_success", 
             "publish_fail",
-            "transition",
-            "transit_station__name"
+            "hybrid",
+            "add_gts",
+            "hybrid_station__name"
         ))
 
         # calculate the total success and fails to create the graph
@@ -8786,8 +8787,12 @@ def wis2dashboard_records_list(request):
                 station_status.append("Publishing")
 
                 # hybrid status
-                if record['transition']:
+                if record['hybrid']:
                     station_status.append("Hybrid")
+
+                # gts status
+                if record['add_gts']:
+                    station_status.append("GTS")
 
                 # getting the automatic/manual status
                 if record['station__is_automatic']:
@@ -8802,9 +8807,13 @@ def wis2dashboard_records_list(request):
             else:
                 station_status.append("Not Publishing")
 
-                # transition status
-                if record['transition']:
+                # hybrid status
+                if record['hybrid']:
                     station_status.append("Hybrid")
+
+                # gts status
+                if record['add_gts']:
+                    station_status.append("GTS")
 
                 # getting the automatic/manual status
                 if record['station__is_automatic']:
@@ -8843,7 +8852,7 @@ def publishingLogs(request, pk):
     )
 
     # getting station metadata
-    station_metadata = Wis2BoxPublish.objects.filter(id=pk).values("station__name", "station__wigos", "publish_success", "publish_fail")
+    station_metadata = Wis2BoxPublish.objects.filter(id=pk).values("station__name", "station__wigos", "publish_success", "publish_fail", "hybrid", "hybrid_station__name")
     return JsonResponse({"logs":list(logs), "station_metadata":list(station_metadata), "timezone_offset":settings.TIMEZONE_OFFSET}, safe=False)  # Convert QuerySet to list
 
 
