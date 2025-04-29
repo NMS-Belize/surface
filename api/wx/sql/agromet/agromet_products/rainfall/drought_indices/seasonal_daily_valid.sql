@@ -47,6 +47,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION smdi_function(sd_values float[]) 
+RETURNS float[] AS $$
+DECLARE
+    smdi_results float[] := '{}';
+    smdi_prev float := 0;
+    smdi_curr float;
+    sd_curr float;
+BEGIN
+    FOREACH sd_curr IN ARRAY sd_values LOOP
+        IF sd_curr IS NULL THEN smdi_curr := NULL;
+        ELSE smdi_curr := 0.5 * COALESCE(smdi_prev, 0) + (sd_curr / 50);
+        END IF;
+
+        smdi_results := smdi_results || smdi_curr;
+        
+        IF smdi_curr IS NOT NULL THEN smdi_prev := smdi_curr;
+        END IF;
+    END LOOP;
+    
+    RETURN smdi_results;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
 
 WITH lagged_data AS (
     SELECT
