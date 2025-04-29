@@ -1,0 +1,283 @@
+{% extends "base.html" %} 
+{% block content %} 
+{% load static %} 
+{% load material_form %}
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/highcharts-more.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
+
+<div class="srf-container">
+    <div class="srf-flex flex-row align-items-center justify-content-between srf-padding">
+        <span class="srf-display-1 text-uppercase">Wind Rose</span><br /><br />
+    </div>
+    
+    <div class="srf-flex justify-content-between srf-padding" id="app">
+        <v-app>
+            <div id="windRoseContainer" style="min-width: 600px; height: 500px; margin: 0 auto"></div>
+        </v-app>
+    </div>
+</div>
+
+{% endblock %} 
+
+{% block localjavascript %}
+    
+<script>
+    Vue.use(window.vuelidate.default);
+    const { required, numeric } = window.validators;
+
+    new Vue({
+        el: "#app",
+        vuetify: new Vuetify(),
+        delimiters: ["[[", "]]"],
+        data() {   
+            return {
+                windRoseData: {
+                    "N": {
+                        "frequency": 15.2,
+                        "0-5 Kt": 15,
+                        "5-10 Kt": 45,
+                        "10-15 Kt": 25,
+                        "15-20 Kt": 10,
+                        "20-25 Kt": 4,
+                        "25+ Kt": 1
+                    },
+                    "NE": {
+                        "frequency": 10.8,
+                        "0-5 Kt": 20,
+                        "5-10 Kt": 40,
+                        "10-15 Kt": 25,
+                        "15-20 Kt": 10,
+                        "20-25 Kt": 4,
+                        "25+ Kt": 1
+                    },
+                    "E": {
+                        "frequency": 8.3,
+                        "0-5 Kt": 25,
+                        "5-10 Kt": 35,
+                        "10-15 Kt": 25,
+                        "15-20 Kt": 10,
+                        "20-25 Kt": 4,
+                        "25+ Kt": 1
+                    },
+                    "SE": {
+                        "frequency": 9.7,
+                        "0-5 Kt": 18,
+                        "5-10 Kt": 42,
+                        "10-15 Kt": 25,
+                        "15-20 Kt": 10,
+                        "20-25 Kt": 4,
+                        "25+ Kt": 1
+                    },
+                    "S": {
+                        "frequency": 11.4,
+                        "0-5 Kt": 15,
+                        "5-10 Kt": 45,
+                        "10-15 Kt": 25,
+                        "15-20 Kt": 10,
+                        "20-25 Kt": 4,
+                        "25+ Kt": 1
+                    },
+                    "SW": {
+                        "frequency": 13.6,
+                        "0-5 Kt": 12,
+                        "5-10 Kt": 48,
+                        "10-15 Kt": 25,
+                        "15-20 Kt": 10,
+                        "20-25 Kt": 4,
+                        "25+ Kt": 1
+                    },
+                    "W": {
+                        "frequency": 10.2,
+                        "0-5 Kt": 18,
+                        "5-10 Kt": 42,
+                        "10-15 Kt": 25,
+                        "15-20 Kt": 10,
+                        "20-25 Kt": 4,
+                        "25+ Kt": 1
+                    },
+                    "NW": {
+                        "frequency": 8.3,
+                        "0-5 Kt": 20,
+                        "5-10 Kt": 40,
+                        "10-15 Kt": 25,
+                        "15-20 Kt": 10,
+                        "20-25 Kt": 4,
+                        "25+ Kt": 1
+                    }
+                }
+            }
+        },
+        mounted() {
+            this.renderWindRose();
+        },
+        methods: {
+            renderWindRose() {
+                // Prepare the data for Highcharts
+                const categories = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+                const windSpeedData = [
+                    {
+                        name: '0-5 Kt',
+                        data: [
+                            this.windRoseData['N']['frequency'] * this.windRoseData['N']['0-5 Kt'] / 100,
+                            this.windRoseData['NE']['frequency'] * this.windRoseData['NE']['0-5 Kt'] / 100,
+                            this.windRoseData['E']['frequency'] * this.windRoseData['E']['0-5 Kt'] / 100,
+                            this.windRoseData['SE']['frequency'] * this.windRoseData['SE']['0-5 Kt'] / 100,
+                            this.windRoseData['S']['frequency'] * this.windRoseData['S']['0-5 Kt'] / 100,
+                            this.windRoseData['SW']['frequency'] * this.windRoseData['SW']['0-5 Kt'] / 100,
+                            this.windRoseData['W']['frequency'] * this.windRoseData['W']['0-5 Kt'] / 100,
+                            this.windRoseData['NW']['frequency'] * this.windRoseData['NW']['0-5 Kt'] / 100
+                        ],
+                        color: '#ffffcc'
+                    },
+                    {
+                        name: '5-10 Kt',
+                        data: [
+                            this.windRoseData['N']['frequency'] * this.windRoseData['N']['5-10 Kt'] / 100,
+                            this.windRoseData['NE']['frequency'] * this.windRoseData['NE']['5-10 Kt'] / 100,
+                            this.windRoseData['E']['frequency'] * this.windRoseData['E']['5-10 Kt'] / 100,
+                            this.windRoseData['SE']['frequency'] * this.windRoseData['SE']['5-10 Kt'] / 100,
+                            this.windRoseData['S']['frequency'] * this.windRoseData['S']['5-10 Kt'] / 100,
+                            this.windRoseData['SW']['frequency'] * this.windRoseData['SW']['5-10 Kt'] / 100,
+                            this.windRoseData['W']['frequency'] * this.windRoseData['W']['5-10 Kt'] / 100,
+                            this.windRoseData['NW']['frequency'] * this.windRoseData['NW']['5-10 Kt'] / 100
+                        ],
+                        color: '#a1dab4'
+                    },
+                    {
+                        name: '10-15 Kt',
+                        data: [
+                            this.windRoseData['N']['frequency'] * this.windRoseData['N']['10-15 Kt'] / 100,
+                            this.windRoseData['NE']['frequency'] * this.windRoseData['NE']['10-15 Kt'] / 100,
+                            this.windRoseData['E']['frequency'] * this.windRoseData['E']['10-15 Kt'] / 100,
+                            this.windRoseData['SE']['frequency'] * this.windRoseData['SE']['10-15 Kt'] / 100,
+                            this.windRoseData['S']['frequency'] * this.windRoseData['S']['10-15 Kt'] / 100,
+                            this.windRoseData['SW']['frequency'] * this.windRoseData['SW']['10-15 Kt'] / 100,
+                            this.windRoseData['W']['frequency'] * this.windRoseData['W']['10-15 Kt'] / 100,
+                            this.windRoseData['NW']['frequency'] * this.windRoseData['NW']['10-15 Kt'] / 100
+                        ],
+                        color: '#41b6c4'
+                    },
+                    {
+                        name: '15-20 Kt',
+                        data: [
+                            this.windRoseData['N']['frequency'] * this.windRoseData['N']['15-20 Kt'] / 100,
+                            this.windRoseData['NE']['frequency'] * this.windRoseData['NE']['15-20 Kt'] / 100,
+                            this.windRoseData['E']['frequency'] * this.windRoseData['E']['15-20 Kt'] / 100,
+                            this.windRoseData['SE']['frequency'] * this.windRoseData['SE']['15-20 Kt'] / 100,
+                            this.windRoseData['S']['frequency'] * this.windRoseData['S']['15-20 Kt'] / 100,
+                            this.windRoseData['SW']['frequency'] * this.windRoseData['SW']['15-20 Kt'] / 100,
+                            this.windRoseData['W']['frequency'] * this.windRoseData['W']['15-20 Kt'] / 100,
+                            this.windRoseData['NW']['frequency'] * this.windRoseData['NW']['15-20 Kt'] / 100
+                        ],
+                        color: '#2c7fb8'
+                    },
+                    {
+                        name: '20-25 Kt',
+                        data: [
+                            this.windRoseData['N']['frequency'] * this.windRoseData['N']['20-25 Kt'] / 100,
+                            this.windRoseData['NE']['frequency'] * this.windRoseData['NE']['20-25 Kt'] / 100,
+                            this.windRoseData['E']['frequency'] * this.windRoseData['E']['20-25 Kt'] / 100,
+                            this.windRoseData['SE']['frequency'] * this.windRoseData['SE']['20-25 Kt'] / 100,
+                            this.windRoseData['S']['frequency'] * this.windRoseData['S']['20-25 Kt'] / 100,
+                            this.windRoseData['SW']['frequency'] * this.windRoseData['SW']['20-25 Kt'] / 100,
+                            this.windRoseData['W']['frequency'] * this.windRoseData['W']['20-25 Kt'] / 100,
+                            this.windRoseData['NW']['frequency'] * this.windRoseData['NW']['20-25 Kt'] / 100
+                        ],
+                        color: '#253494'
+                    },
+                    {
+                        name: '25+ Kt',
+                        data: [
+                            this.windRoseData['N']['frequency'] * this.windRoseData['N']['25+ Kt'] / 100,
+                            this.windRoseData['NE']['frequency'] * this.windRoseData['NE']['25+ Kt'] / 100,
+                            this.windRoseData['E']['frequency'] * this.windRoseData['E']['25+ Kt'] / 100,
+                            this.windRoseData['SE']['frequency'] * this.windRoseData['SE']['25+ Kt'] / 100,
+                            this.windRoseData['S']['frequency'] * this.windRoseData['S']['25+ Kt'] / 100,
+                            this.windRoseData['SW']['frequency'] * this.windRoseData['SW']['25+ Kt'] / 100,
+                            this.windRoseData['W']['frequency'] * this.windRoseData['W']['25+ Kt'] / 100,
+                            this.windRoseData['NW']['frequency'] * this.windRoseData['NW']['25+ Kt'] / 100
+                        ],
+                        color: '#081d58'
+                    }
+                ];
+
+                // Create the wind rose chart
+                Highcharts.chart('windRoseContainer', {
+                    chart: {
+                        polar: true,
+                        type: 'column'
+                    },
+                    title: {
+                        text: 'Wind Rose'
+                    },
+                    pane: {
+                        size: '85%'
+                    },
+                    legend: {
+                        align: 'right',
+                        verticalAlign: 'top',
+                        y: 100,
+                        layout: 'vertical'
+                    },
+                    xAxis: {
+                        categories: categories,
+                        tickmarkPlacement: 'on',
+                        lineWidth: 0
+                    },
+                    yAxis: {
+                        min: 0,
+                        endOnTick: false,
+                        showLastLabel: true,
+                        title: {
+                            text: 'Frequency (%)'
+                        },
+                        labels: {
+                            formatter: function () {
+                                return this.value + '%';
+                            }
+                        },
+                        reversedStacks: false
+                    },
+                    tooltip: {
+                        valueSuffix: '%',
+                        valueDecimals: 2
+                    },
+                    plotOptions: {
+                        series: {
+                            stacking: 'normal',
+                            shadow: false,
+                            groupPadding: 0,
+                            pointPlacement: 'on'
+                        }
+                    },
+                    series: windSpeedData
+                });
+            }
+        }
+    });
+    
+    $(document).ready(function(){
+        function getCookie(c_name) {
+            if(document.cookie.length > 0) {
+                c_start = document.cookie.indexOf(c_name + "=");
+                if(c_start != -1) {
+                    c_start = c_start + c_name.length + 1;
+                    c_end = document.cookie.indexOf(";", c_start);
+                    if(c_end == -1) c_end = document.cookie.length;
+                    return unescape(document.cookie.substring(c_start,c_end));
+                }
+            }
+            return "";
+        }
+    
+        $(function () {
+            axios.defaults.headers.common["X-CSRFToken"] = getCookie("csrftoken");
+            axios.defaults.headers.common["Content-Type"] = 'application/json';
+        });
+    });	    
+</script>
+{% endblock %}

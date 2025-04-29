@@ -22,68 +22,62 @@ WITH month_days AS (
     UNION ALL
     SELECT * FROM month_days
 )
-,aggreation_total_days AS(
+,aggregation_total_days AS(
     SELECT
-        year
-        ,SUM(CASE WHEN month IN (1, 2, 3) THEN days_in_month ELSE 0 END) AS "JFM_total"
-        ,SUM(CASE WHEN month IN (2, 3, 4) THEN days_in_month ELSE 0 END) AS "FMA_total"
-        ,SUM(CASE WHEN month IN (3, 4, 5) THEN days_in_month ELSE 0 END) AS "MAM_total"
-        ,SUM(CASE WHEN month IN (4, 5, 6) THEN days_in_month ELSE 0 END) AS "AMJ_total"
-        ,SUM(CASE WHEN month IN (5, 6, 7) THEN days_in_month ELSE 0 END) AS "MJJ_total"
-        ,SUM(CASE WHEN month IN (6, 7, 8) THEN days_in_month ELSE 0 END) AS "JJA_total"
-        ,SUM(CASE WHEN month IN (7, 8, 9) THEN days_in_month ELSE 0 END) AS "JAS_total"
-        ,SUM(CASE WHEN month IN (8, 9, 10) THEN days_in_month ELSE 0 END) AS "ASO_total"
-        ,SUM(CASE WHEN month IN (9, 10, 11) THEN days_in_month ELSE 0 END) AS "SON_total"
-        ,SUM(CASE WHEN month IN (10, 11, 12) THEN days_in_month ELSE 0 END) AS "OND_total"
-        ,SUM(CASE WHEN month IN (11, 12, 13) THEN days_in_month ELSE 0 END) AS "NDJ_total"
-        ,SUM(CASE WHEN month IN (0, 1, 2, 3, 4, 5) THEN days_in_month ELSE 0 END) AS "DRY_total"
-        ,SUM(CASE WHEN month IN (6, 7, 8, 9, 10, 11) THEN days_in_month ELSE 0 END) AS "WET_total"
-        ,SUM(CASE WHEN month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) THEN days_in_month ELSE 0 END) AS "ANNUAL_total"
-        ,SUM(CASE WHEN month IN (0, 1, 2, 3) THEN days_in_month ELSE 0 END) AS "DJFM_total"
+        SUM(days_in_month) FILTER(WHERE month IN ({{aggregation_months}})) AS "total_days"
     FROM extended_month_days
-    GROUP BY year
+    WHERE year BETWEEN {{start_year}} AND {{end_year}}  
 )
 ,daily_data AS (
     SELECT
         station_id
-        ,'WIND ROSE' AS product
         ,day
         ,EXTRACT(DAY FROM day) AS day_of_month
         ,EXTRACT(MONTH FROM day) AS month
         ,EXTRACT(YEAR FROM day) AS year
-        ,MAX(CASE vr.symbol WHEN 'WNDSPD' THEN 
-            CASE 
-                WHEN avg_value < 5 THEN '0-5 kt'
-                WHEN avg_value >= 5 AND avg_value < 10 THEN '5-10 kt'
-                WHEN avg_value >= 10 AND avg_value < 15 THEN '10-15 kt'
-                WHEN avg_value >= 15 AND avg_value < 20 THEN '15-20 kt'
-                WHEN avg_value >= 20 AND avg_value < 25 THEN '20-25 kt'
-                WHEN avg_value >= 25 THEN '25+ kt'
-            END
-        END) AS wnd_spd
-        ,MAX(CASE vr.symbol WHEN 'WNDDIR' THEN
-            CASE 
-                WHEN (avg_value BETWEEN 337.5 AND 360) OR (avg_value BETWEEN 0 AND 22.5) THEN 'N'
-                WHEN avg_value BETWEEN 22.5 AND 67.5 THEN 'NE'
-                WHEN avg_value BETWEEN 67.5 AND 112.5 THEN 'E'
-                WHEN avg_value BETWEEN 112.5 AND 157.5 THEN 'SE'
-                WHEN avg_value BETWEEN 157.5 AND 202.5 THEN 'S'
-                WHEN avg_value BETWEEN 202.5 AND 247.5 THEN 'SW'
-                WHEN avg_value BETWEEN 247.5 AND 292.5 THEN 'W'
-                WHEN avg_value BETWEEN 292.5 AND 337.5 THEN 'NW'
-            END
-        END) AS wnd_dir
+        ,MIN(CASE vr.symbol WHEN 'WNDDIR' THEN avg_value END) AS wnd_dir
+        ,MIN(CASE vr.symbol WHEN 'WNDSPD' THEN avg_value END) AS wnd_spd
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
-    WHERE station_id = {{station_id}}
-      AND vr.symbol = 'WNDDIR'
+    WHERE station_id = 4
+      AND vr.symbol in ('WNDDIR', 'WNDSPD')
       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
     GROUP BY station_id, day
+)
+,discretized_data AS (
+    SELECT
+        station_id
+        ,day
+        ,day_of_month
+        ,month
+        ,year
+        ,CASE
+            WHEN wnd_spd = 0 THEN '-'
+            ELSE CASE
+                WHEN (wnd_dir BETWEEN 337.5 AND 360) OR (wnd_dir BETWEEN 0 AND 22.5) THEN 'N'
+                WHEN wnd_dir BETWEEN 22.5 AND 67.5 THEN 'NE'
+                WHEN wnd_dir BETWEEN 67.5 AND 112.5 THEN 'E'
+                WHEN wnd_dir BETWEEN 112.5 AND 157.5 THEN 'SE'
+                WHEN wnd_dir BETWEEN 157.5 AND 202.5 THEN 'S'
+                WHEN wnd_dir BETWEEN 202.5 AND 247.5 THEN 'SW'
+                WHEN wnd_dir BETWEEN 247.5 AND 292.5 THEN 'W'
+                WHEN wnd_dir BETWEEN 292.5 AND 337.5 THEN 'NW'
+            END
+        END AS wnd_dir
+        ,CASE
+            WHEN wnd_spd = 0 THEN '0 kt' 
+            WHEN wnd_spd > 0 AND wnd_spd <= 5 THEN '0-5 kt'
+            WHEN wnd_spd > 5 AND wnd_spd <= 10 THEN '5-10 kt'
+            WHEN wnd_spd > 10 AND wnd_spd <= 15 THEN '10-15 kt'
+            WHEN wnd_spd > 15 AND wnd_spd <= 20 THEN '15-20 kt'
+            WHEN wnd_spd > 20 AND wnd_spd <= 25 THEN '20-25 kt'
+            WHEN wnd_spd > 25 THEN '25+ kt'
+        END AS wnd_spd    
+    FROM daily_data
 )
 ,extended_data AS(
     SELECT
         station_id
-        ,product
         ,day
         ,day_of_month
         ,CASE 
@@ -94,751 +88,76 @@ WITH month_days AS (
             WHEN month=12 THEN year+1
             WHEN month=1 THEN year-1
         END as year
-        ,wnd_spd
         ,wnd_dir
-    FROM daily_data
+        ,wnd_spd
+    FROM discretized_data
     WHERE month in (1,12)
     UNION ALL
-    SELECT * FROM daily_data
+    SELECT * FROM discretized_data
 )
 ,daily_lagged_data AS (
     SELECT
         *
-        ,CASE WHEN month IN (1, 2, 3) THEN TRUE ELSE FALSE END AS is_jfm
-        ,CASE WHEN month IN (2, 3, 4) THEN TRUE ELSE FALSE END AS is_fma
-        ,CASE WHEN month IN (3, 4, 5) THEN TRUE ELSE FALSE END AS is_mam
-        ,CASE WHEN month IN (4, 5, 6) THEN TRUE ELSE FALSE END AS is_amj
-        ,CASE WHEN month IN (5, 6, 7) THEN TRUE ELSE FALSE END AS is_mjj
-        ,CASE WHEN month IN (6, 7, 8) THEN TRUE ELSE FALSE END AS is_jja
-        ,CASE WHEN month IN (7, 8, 9) THEN TRUE ELSE FALSE END AS is_jas
-        ,CASE WHEN month IN (8, 9, 10) THEN TRUE ELSE FALSE END AS is_aso
-        ,CASE WHEN month IN (9, 10, 11) THEN TRUE ELSE FALSE END AS is_son
-        ,CASE WHEN month IN (10, 11, 12) THEN TRUE ELSE FALSE END AS is_ond
-        ,CASE WHEN month IN (11, 12, 13) THEN TRUE ELSE FALSE END AS is_ndj
-        ,CASE WHEN month IN (0, 1, 2, 3, 4, 5) THEN TRUE ELSE FALSE END AS is_dry
-        ,CASE WHEN month IN (6, 7, 8, 9, 10, 11) THEN TRUE ELSE FALSE END AS is_wet
-        ,CASE WHEN month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) THEN TRUE ELSE FALSE END AS is_annual
-        ,CASE WHEN month IN (0, 1, 2, 3) THEN TRUE ELSE FALSE END AS is_djfm        
-        ,day - 1 - LAG(day) OVER (PARTITION BY station_id, product, year ORDER BY day) AS day_gap
+        ,day - 1 - LAG(day) OVER (ORDER BY day) AS day_gap
     FROM extended_data
     WHERE year BETWEEN {{start_year}} AND {{end_year}}  
+      AND month in ({{aggregation_months}})
 )
-,aggreated_data AS (
+,data_stats AS (
     SELECT
-        st.name AS station
-        ,product
-        ,year
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_spd = '0-5 kt') AS "JFM_0_5"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_spd = '5-10 kt') AS "JFM_5_10"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_spd = '10-15 kt') AS "JFM_10_15"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_spd = '15-20 kt') AS "JFM_15_20"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_spd = '20-25 kt') AS "JFM_20_25"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_spd = '25+ kt') AS "JFM_25+"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_dir = 'N') AS "JFM_N"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_dir = 'NE') AS "JFM_NE"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_dir = 'E') AS "JFM_E"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_dir = 'SE') AS "JFM_SE"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_dir = 'S') AS "JFM_S"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_dir = 'SW') AS "JFM_SW"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_dir = 'W') AS "JFM_W"
-        ,COUNT(*) FILTER(WHERE is_jfm AND wnd_dir = 'NW') AS "JFM_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_jfm AND (day IS NOT NULL)) AS "JFM_count"
-        ,MAX(CASE WHEN ((is_jfm) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JFM_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_spd = '0-5 kt') AS "FMA_0_5"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_spd = '5-10 kt') AS "FMA_5_10"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_spd = '10-15 kt') AS "FMA_10_15"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_spd = '15-20 kt') AS "FMA_15_20"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_spd = '20-25 kt') AS "FMA_20_25"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_spd = '25+ kt') AS "FMA_25+"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_dir = 'N') AS "FMA_N"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_dir = 'NE') AS "FMA_NE"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_dir = 'E') AS "FMA_E"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_dir = 'SE') AS "FMA_SE"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_dir = 'S') AS "FMA_S"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_dir = 'SW') AS "FMA_SW"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_dir = 'W') AS "FMA_W"
-        ,COUNT(*) FILTER(WHERE is_fma AND wnd_dir = 'NW') AS "FMA_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_fma AND (day IS NOT NULL)) AS "FMA_count"
-        ,MAX(CASE WHEN ((is_fma) AND NOT (month = 2 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "FMA_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_spd = '0-5 kt') AS "MAM_0_5"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_spd = '5-10 kt') AS "MAM_5_10"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_spd = '10-15 kt') AS "MAM_10_15"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_spd = '15-20 kt') AS "MAM_15_20"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_spd = '20-25 kt') AS "MAM_20_25"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_spd = '25+ kt') AS "MAM_25+"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_dir = 'N') AS "MAM_N"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_dir = 'NE') AS "MAM_NE"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_dir = 'E') AS "MAM_E"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_dir = 'SE') AS "MAM_SE"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_dir = 'S') AS "MAM_S"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_dir = 'SW') AS "MAM_SW"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_dir = 'W') AS "MAM_W"
-        ,COUNT(*) FILTER(WHERE is_mam AND wnd_dir = 'NW') AS "MAM_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_mam AND (day IS NOT NULL)) AS "MAM_count"
-        ,MAX(CASE WHEN ((is_mam) AND NOT (month = 3 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MAM_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_spd = '0-5 kt') AS "AMJ_0_5"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_spd = '5-10 kt') AS "AMJ_5_10"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_spd = '10-15 kt') AS "AMJ_10_15"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_spd = '15-20 kt') AS "AMJ_15_20"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_spd = '20-25 kt') AS "AMJ_20_25"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_spd = '25+ kt') AS "AMJ_25+"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_dir = 'N') AS "AMJ_N"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_dir = 'NE') AS "AMJ_NE"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_dir = 'E') AS "AMJ_E"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_dir = 'SE') AS "AMJ_SE"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_dir = 'S') AS "AMJ_S"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_dir = 'SW') AS "AMJ_SW"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_dir = 'W') AS "AMJ_W"
-        ,COUNT(*) FILTER(WHERE is_amj AND wnd_dir = 'NW') AS "AMJ_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_amj AND (day IS NOT NULL)) AS "AMJ_count"
-        ,MAX(CASE WHEN ((is_amj) AND NOT (month = 4 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "AMJ_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_spd = '0-5 kt') AS "MJJ_0_5"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_spd = '5-10 kt') AS "MJJ_5_10"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_spd = '10-15 kt') AS "MJJ_10_15"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_spd = '15-20 kt') AS "MJJ_15_20"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_spd = '20-25 kt') AS "MJJ_20_25"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_spd = '25+ kt') AS "MJJ_25+"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_dir = 'N') AS "MJJ_N"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_dir = 'NE') AS "MJJ_NE"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_dir = 'E') AS "MJJ_E"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_dir = 'SE') AS "MJJ_SE"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_dir = 'S') AS "MJJ_S"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_dir = 'SW') AS "MJJ_SW"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_dir = 'W') AS "MJJ_W"
-        ,COUNT(*) FILTER(WHERE is_mjj AND wnd_dir = 'NW') AS "MJJ_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_mjj AND (day IS NOT NULL)) AS "MJJ_count"
-        ,MAX(CASE WHEN ((is_mjj) AND NOT (month = 5 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MJJ_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_spd = '0-5 kt') AS "JJA_0_5"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_spd = '5-10 kt') AS "JJA_5_10"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_spd = '10-15 kt') AS "JJA_10_15"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_spd = '15-20 kt') AS "JJA_15_20"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_spd = '20-25 kt') AS "JJA_20_25"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_spd = '25+ kt') AS "JJA_25+"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_dir = 'N') AS "JJA_N"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_dir = 'NE') AS "JJA_NE"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_dir = 'E') AS "JJA_E"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_dir = 'SE') AS "JJA_SE"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_dir = 'S') AS "JJA_S"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_dir = 'SW') AS "JJA_SW"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_dir = 'W') AS "JJA_W"
-        ,COUNT(*) FILTER(WHERE is_jja AND wnd_dir = 'NW') AS "JJA_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_jja AND (day IS NOT NULL)) AS "JJA_count"
-        ,MAX(CASE WHEN ((is_jja) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JJA_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_spd = '0-5 kt') AS "JAS_0_5"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_spd = '5-10 kt') AS "JAS_5_10"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_spd = '10-15 kt') AS "JAS_10_15"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_spd = '15-20 kt') AS "JAS_15_20"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_spd = '20-25 kt') AS "JAS_20_25"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_spd = '25+ kt') AS "JAS_25+"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_dir = 'N') AS "JAS_N"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_dir = 'NE') AS "JAS_NE"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_dir = 'E') AS "JAS_E"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_dir = 'SE') AS "JAS_SE"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_dir = 'S') AS "JAS_S"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_dir = 'SW') AS "JAS_SW"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_dir = 'W') AS "JAS_W"
-        ,COUNT(*) FILTER(WHERE is_jas AND wnd_dir = 'NW') AS "JAS_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_jas AND (day IS NOT NULL)) AS "JAS_count"
-        ,MAX(CASE WHEN ((is_jas) AND NOT (month = 7 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JAS_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_spd = '0-5 kt') AS "ASO_0_5"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_spd = '5-10 kt') AS "ASO_5_10"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_spd = '10-15 kt') AS "ASO_10_15"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_spd = '15-20 kt') AS "ASO_15_20"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_spd = '20-25 kt') AS "ASO_20_25"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_spd = '25+ kt') AS "ASO_25+"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_dir = 'N') AS "ASO_N"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_dir = 'NE') AS "ASO_NE"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_dir = 'E') AS "ASO_E"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_dir = 'SE') AS "ASO_SE"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_dir = 'S') AS "ASO_S"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_dir = 'SW') AS "ASO_SW"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_dir = 'W') AS "ASO_W"
-        ,COUNT(*) FILTER(WHERE is_aso AND wnd_dir = 'NW') AS "ASO_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_aso AND (day IS NOT NULL)) AS "ASO_count"
-        ,MAX(CASE WHEN ((is_aso) AND NOT (month = 8 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ASO_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_spd = '0-5 kt') AS "SON_0_5"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_spd = '5-10 kt') AS "SON_5_10"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_spd = '10-15 kt') AS "SON_10_15"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_spd = '15-20 kt') AS "SON_15_20"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_spd = '20-25 kt') AS "SON_20_25"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_spd = '25+ kt') AS "SON_25+"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_dir = 'N') AS "SON_N"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_dir = 'NE') AS "SON_NE"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_dir = 'E') AS "SON_E"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_dir = 'SE') AS "SON_SE"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_dir = 'S') AS "SON_S"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_dir = 'SW') AS "SON_SW"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_dir = 'W') AS "SON_W"
-        ,COUNT(*) FILTER(WHERE is_son AND wnd_dir = 'NW') AS "SON_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_son AND (day IS NOT NULL)) AS "SON_count"
-        ,MAX(CASE WHEN ((is_son) AND NOT (month = 9 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "SON_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_spd = '0-5 kt') AS "OND_0_5"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_spd = '5-10 kt') AS "OND_5_10"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_spd = '10-15 kt') AS "OND_10_15"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_spd = '15-20 kt') AS "OND_15_20"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_spd = '20-25 kt') AS "OND_20_25"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_spd = '25+ kt') AS "OND_25+"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_dir = 'N') AS "OND_N"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_dir = 'NE') AS "OND_NE"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_dir = 'E') AS "OND_E"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_dir = 'SE') AS "OND_SE"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_dir = 'S') AS "OND_S"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_dir = 'SW') AS "OND_SW"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_dir = 'W') AS "OND_W"
-        ,COUNT(*) FILTER(WHERE is_ond AND wnd_dir = 'NW') AS "OND_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_ond AND (day IS NOT NULL)) AS "OND_count"
-        ,MAX(CASE WHEN ((is_ond) AND NOT (month = 10 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "OND_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_spd = '0-5 kt') AS "NDJ_0_5"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_spd = '5-10 kt') AS "NDJ_5_10"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_spd = '10-15 kt') AS "NDJ_10_15"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_spd = '15-20 kt') AS "NDJ_15_20"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_spd = '20-25 kt') AS "NDJ_20_25"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_spd = '25+ kt') AS "NDJ_25+"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_dir = 'N') AS "NDJ_N"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_dir = 'NE') AS "NDJ_NE"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_dir = 'E') AS "NDJ_E"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_dir = 'SE') AS "NDJ_SE"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_dir = 'S') AS "NDJ_S"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_dir = 'SW') AS "NDJ_SW"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_dir = 'W') AS "NDJ_W"
-        ,COUNT(*) FILTER(WHERE is_ndj AND wnd_dir = 'NW') AS "NDJ_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_ndj AND (day IS NOT NULL)) AS "NDJ_count"
-        ,MAX(CASE WHEN ((is_ndj) AND NOT (month = 11 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "NDJ_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_spd = '0-5 kt') AS "DRY_0_5"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_spd = '5-10 kt') AS "DRY_5_10"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_spd = '10-15 kt') AS "DRY_10_15"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_spd = '15-20 kt') AS "DRY_15_20"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_spd = '20-25 kt') AS "DRY_20_25"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_spd = '25+ kt') AS "DRY_25+"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_dir = 'N') AS "DRY_N"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_dir = 'NE') AS "DRY_NE"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_dir = 'E') AS "DRY_E"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_dir = 'SE') AS "DRY_SE"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_dir = 'S') AS "DRY_S"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_dir = 'SW') AS "DRY_SW"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_dir = 'W') AS "DRY_W"
-        ,COUNT(*) FILTER(WHERE is_dry AND wnd_dir = 'NW') AS "DRY_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_dry AND (day IS NOT NULL)) AS "DRY_count"
-        ,MAX(CASE WHEN ((is_dry) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DRY_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_spd = '0-5 kt') AS "WET_0_5"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_spd = '5-10 kt') AS "WET_5_10"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_spd = '10-15 kt') AS "WET_10_15"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_spd = '15-20 kt') AS "WET_15_20"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_spd = '20-25 kt') AS "WET_20_25"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_spd = '25+ kt') AS "WET_25+"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_dir = 'N') AS "WET_N"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_dir = 'NE') AS "WET_NE"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_dir = 'E') AS "WET_E"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_dir = 'SE') AS "WET_SE"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_dir = 'S') AS "WET_S"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_dir = 'SW') AS "WET_SW"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_dir = 'W') AS "WET_W"
-        ,COUNT(*) FILTER(WHERE is_wet AND wnd_dir = 'NW') AS "WET_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_wet AND (day IS NOT NULL)) AS "WET_count"
-        ,MAX(CASE WHEN ((is_wet) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "WET_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_spd = '0-5 kt') AS "ANNUAL_0_5"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_spd = '5-10 kt') AS "ANNUAL_5_10"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_spd = '10-15 kt') AS "ANNUAL_10_15"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_spd = '15-20 kt') AS "ANNUAL_15_20"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_spd = '20-25 kt') AS "ANNUAL_20_25"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_spd = '25+ kt') "ANNUAL_25+"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_dir = 'N') AS "ANNUAL_N"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_dir = 'NE') AS "ANNUAL_NE"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_dir = 'E') AS "ANNUAL_E"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_dir = 'SE') AS "ANNUAL_SE"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_dir = 'S') AS "ANNUAL_S"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_dir = 'SW') AS "ANNUAL_SW"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_dir = 'W') AS "ANNUAL_W"
-        ,COUNT(*) FILTER(WHERE is_annual AND wnd_dir = 'NW') AS "ANNUAL_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_annual AND (day IS NOT NULL)) AS "ANNUAL_count"
-        ,MAX(CASE WHEN ((is_annual) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ANNUAL_max_day_gap"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_spd = '0-5 kt') AS "DJFM_0_5"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_spd = '5-10 kt') AS "DJFM_5_10"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_spd = '10-15 kt') AS "DJFM_10_15"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_spd = '15-20 kt') AS "DJFM_15_20"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_spd = '20-25 kt') AS "DJFM_20_25"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_spd = '25+ kt') AS "DJFM_25+"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_dir = 'N') AS "DJFM_N"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_dir = 'NE') AS "DJFM_NE"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_dir = 'E') AS "DJFM_E"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_dir = 'SE') AS "DJFM_SE"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_dir = 'S') AS "DJFM_S"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_dir = 'SW') AS "DJFM_SW"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_dir = 'W') AS "DJFM_W"
-        ,COUNT(*) FILTER(WHERE is_djfm AND wnd_dir = 'NW') AS "DJFM_NW"
-        ,COUNT(DISTINCT day) FILTER(WHERE is_djfm AND (day IS NOT NULL)) AS "DJFM_count"
-        ,MAX(CASE WHEN ((is_djfm) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DJFM_max_day_gap"
+        station_id
+        ,day_count
+        ,total_days
+        ,ROUND((100*day_count::numeric)/total_days::numeric,2) AS day_pct
+        ,max_day_gap
+    FROM (
+        SELECT
+            station_id
+            ,COUNT(DISTINCT day) FILTER(WHERE day IS NOT NULL) AS day_count
+            ,MAX(day_gap) FILTER(
+                WHERE NOT (
+                   day_of_month <= {{max_day_gap}} AND month = (SELECT MIN(month) FROM UNNEST(ARRAY[{{aggregation_months}}]) AS month)
+                )
+            ) AS "max_day_gap"
+        FROM daily_lagged_data
+        GROUP BY station_id
+    ) AS t
+    CROSS JOIN aggregation_total_days
+),aggreated_data AS (
+    SELECT
+        station_id
+        ,wnd_spd
+        ,wnd_dir
+        ,COUNT(*) AS count
     FROM daily_lagged_data dld
-    JOIN wx_station st ON st.id = dld.station_id
-    GROUP BY st.name, product, year
+    WHERE wnd_dir != '-'
+    GROUP BY station_id, wnd_spd, wnd_dir
 )
-,aggregation_pct AS (
-    SELECT
-        station
-        ,product
-        ,ad.year
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_0_5" END AS "JFM_0_5"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_5_10" END AS "JFM_5_10"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_10_15" END AS "JFM_10_15"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_15_20" END AS "JFM_15_20"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_20_25" END AS "JFM_20_25"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_25+" END AS "JFM_25+"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JFM_N"::numeric)/"JFM_count"::numeric,2) END AS "JFM_N"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JFM_NE"::numeric)/"JFM_count"::numeric,2) END AS "JFM_NE"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JFM_E"::numeric)/"JFM_count"::numeric,2) END AS "JFM_E"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JFM_SE"::numeric)/"JFM_count"::numeric,2) END AS "JFM_SE"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JFM_S"::numeric)/"JFM_count"::numeric,2) END AS "JFM_S"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JFM_SW"::numeric)/"JFM_count"::numeric,2) END AS "JFM_SW"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JFM_W"::numeric)/"JFM_count"::numeric,2) END AS "JFM_W"
-        ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JFM_NW"::numeric)/"JFM_count"::numeric,2) END AS "JFM_NW"
-        ,ROUND(((100*(CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_count" ELSE 0 END))::numeric/"JFM_total"::numeric),2) AS "JFM (% of days)"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN "FMA_0_5" END AS "FMA_0_5"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN "FMA_5_10" END AS "FMA_5_10"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN "FMA_10_15" END AS "FMA_10_15"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN "FMA_15_20" END AS "FMA_15_20"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN "FMA_20_25" END AS "FMA_20_25"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN "FMA_25+" END AS "FMA_25+"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"FMA_N"::numeric)/"FMA_count"::numeric,2) END AS "FMA_N"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"FMA_NE"::numeric)/"FMA_count"::numeric,2) END AS "FMA_NE"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"FMA_E"::numeric)/"FMA_count"::numeric,2) END AS "FMA_E"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"FMA_SE"::numeric)/"FMA_count"::numeric,2) END AS "FMA_SE"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"FMA_S"::numeric)/"FMA_count"::numeric,2) END AS "FMA_S"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"FMA_SW"::numeric)/"FMA_count"::numeric,2) END AS "FMA_SW"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"FMA_W"::numeric)/"FMA_count"::numeric,2) END AS "FMA_W"
-        ,CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"FMA_NW"::numeric)/"FMA_count"::numeric,2) END AS "FMA_NW"
-        ,ROUND(((100*(CASE WHEN "FMA_max_day_gap" <= {{max_day_gap}} THEN "FMA_count" ELSE 0 END))::numeric/"FMA_total"::numeric),2) AS "FMA (% of days)"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN "MAM_0_5" END AS "MAM_0_5"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN "MAM_5_10" END AS "MAM_5_10"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN "MAM_10_15" END AS "MAM_10_15"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN "MAM_15_20" END AS "MAM_15_20"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN "MAM_20_25" END AS "MAM_20_25"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN "MAM_25+" END AS "MAM_25+"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MAM_N"::numeric)/"MAM_count"::numeric,2) END AS "MAM_N"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MAM_NE"::numeric)/"MAM_count"::numeric,2) END AS "MAM_NE"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MAM_E"::numeric)/"MAM_count"::numeric,2) END AS "MAM_E"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MAM_SE"::numeric)/"MAM_count"::numeric,2) END AS "MAM_SE"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MAM_S"::numeric)/"MAM_count"::numeric,2) END AS "MAM_S"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MAM_SW"::numeric)/"MAM_count"::numeric,2) END AS "MAM_SW"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MAM_W"::numeric)/"MAM_count"::numeric,2) END AS "MAM_W"
-        ,CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MAM_NW"::numeric)/"MAM_count"::numeric,2) END AS "MAM_NW"
-        ,ROUND(((100*(CASE WHEN "MAM_max_day_gap" <= {{max_day_gap}} THEN "MAM_count" ELSE 0 END))::numeric/"MAM_total"::numeric),2) AS "MAM (% of days)"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN "AMJ_0_5" END AS "AMJ_0_5"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN "AMJ_5_10" END AS "AMJ_5_10"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN "AMJ_10_15" END AS "AMJ_10_15"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN "AMJ_15_20" END AS "AMJ_15_20"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN "AMJ_20_25" END AS "AMJ_20_25"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN "AMJ_25+" END AS "AMJ_25+"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"AMJ_N"::numeric)/"AMJ_count"::numeric,2) END AS "AMJ_N"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"AMJ_NE"::numeric)/"AMJ_count"::numeric,2) END AS "AMJ_NE"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"AMJ_E"::numeric)/"AMJ_count"::numeric,2) END AS "AMJ_E"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"AMJ_SE"::numeric)/"AMJ_count"::numeric,2) END AS "AMJ_SE"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"AMJ_S"::numeric)/"AMJ_count"::numeric,2) END AS "AMJ_S"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"AMJ_SW"::numeric)/"AMJ_count"::numeric,2) END AS "AMJ_SW"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"AMJ_W"::numeric)/"AMJ_count"::numeric,2) END AS "AMJ_W"
-        ,CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"AMJ_NW"::numeric)/"AMJ_count"::numeric,2) END AS "AMJ_NW"
-        ,ROUND(((100*(CASE WHEN "AMJ_max_day_gap" <= {{max_day_gap}} THEN "AMJ_count" ELSE 0 END))::numeric/"AMJ_total"::numeric),2) AS "AMJ (% of days)"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN "MJJ_0_5" END AS "MJJ_0_5"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN "MJJ_5_10" END AS "MJJ_5_10"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN "MJJ_10_15" END AS "MJJ_10_15"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN "MJJ_15_20" END AS "MJJ_15_20"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN "MJJ_20_25" END AS "MJJ_20_25"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN "MJJ_25+" END AS "MJJ_25+"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MJJ_N"::numeric)/"MJJ_count"::numeric,2) END AS "MJJ_N"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MJJ_NE"::numeric)/"MJJ_count"::numeric,2) END AS "MJJ_NE"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MJJ_E"::numeric)/"MJJ_count"::numeric,2) END AS "MJJ_E"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MJJ_SE"::numeric)/"MJJ_count"::numeric,2) END AS "MJJ_SE"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MJJ_S"::numeric)/"MJJ_count"::numeric,2) END AS "MJJ_S"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MJJ_SW"::numeric)/"MJJ_count"::numeric,2) END AS "MJJ_SW"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MJJ_W"::numeric)/"MJJ_count"::numeric,2) END AS "MJJ_W"
-        ,CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"MJJ_NW"::numeric)/"MJJ_count"::numeric,2) END AS "MJJ_NW"
-        ,ROUND(((100*(CASE WHEN "MJJ_max_day_gap" <= {{max_day_gap}} THEN "MJJ_count" ELSE 0 END))::numeric/"MJJ_total"::numeric),2) AS "MJJ (% of days)"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN "JJA_0_5" END AS "JJA_0_5"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN "JJA_5_10" END AS "JJA_5_10"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN "JJA_10_15" END AS "JJA_10_15"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN "JJA_15_20" END AS "JJA_15_20"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN "JJA_20_25" END AS "JJA_20_25"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN "JJA_25+" END AS "JJA_25+"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JJA_N"::numeric)/"JJA_count"::numeric,2) END AS "JJA_N"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JJA_NE"::numeric)/"JJA_count"::numeric,2) END AS "JJA_NE"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JJA_E"::numeric)/"JJA_count"::numeric,2) END AS "JJA_E"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JJA_SE"::numeric)/"JJA_count"::numeric,2) END AS "JJA_SE"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JJA_S"::numeric)/"JJA_count"::numeric,2) END AS "JJA_S"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JJA_SW"::numeric)/"JJA_count"::numeric,2) END AS "JJA_SW"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JJA_W"::numeric)/"JJA_count"::numeric,2) END AS "JJA_W"
-        ,CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JJA_NW"::numeric)/"JJA_count"::numeric,2) END AS "JJA_NW"
-        ,ROUND(((100*(CASE WHEN "JJA_max_day_gap" <= {{max_day_gap}} THEN "JJA_count" ELSE 0 END))::numeric/"JJA_total"::numeric),2) AS "JJA (% of days)"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN "JAS_0_5" END AS "JAS_0_5"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN "JAS_5_10" END AS "JAS_5_10"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN "JAS_10_15" END AS "JAS_10_15"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN "JAS_15_20" END AS "JAS_15_20"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN "JAS_20_25" END AS "JAS_20_25"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN "JAS_25+" END AS "JAS_25+"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JAS_N"::numeric)/"JAS_count"::numeric,2) END AS "JAS_N"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JAS_NE"::numeric)/"JAS_count"::numeric,2) END AS "JAS_NE"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JAS_E"::numeric)/"JAS_count"::numeric,2) END AS "JAS_E"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JAS_SE"::numeric)/"JAS_count"::numeric,2) END AS "JAS_SE"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JAS_S"::numeric)/"JAS_count"::numeric,2) END AS "JAS_S"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JAS_SW"::numeric)/"JAS_count"::numeric,2) END AS "JAS_SW"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JAS_W"::numeric)/"JAS_count"::numeric,2) END AS "JAS_W"
-        ,CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"JAS_NW"::numeric)/"JAS_count"::numeric,2) END AS "JAS_NW"
-        ,ROUND(((100*(CASE WHEN "JAS_max_day_gap" <= {{max_day_gap}} THEN "JAS_count" ELSE 0 END))::numeric/"JAS_total"::numeric),2) AS "JAS (% of days)"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN "ASO_0_5" END AS "ASO_0_5"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN "ASO_5_10" END AS "ASO_5_10"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN "ASO_10_15" END AS "ASO_10_15"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN "ASO_15_20" END AS "ASO_15_20"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN "ASO_20_25" END AS "ASO_20_25"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN "ASO_25+" END AS "ASO_25+"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ASO_N"::numeric)/"ASO_count"::numeric,2) END AS "ASO_N"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ASO_NE"::numeric)/"ASO_count"::numeric,2) END AS "ASO_NE"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ASO_E"::numeric)/"ASO_count"::numeric,2) END AS "ASO_E"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ASO_SE"::numeric)/"ASO_count"::numeric,2) END AS "ASO_SE"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ASO_S"::numeric)/"ASO_count"::numeric,2) END AS "ASO_S"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ASO_SW"::numeric)/"ASO_count"::numeric,2) END AS "ASO_SW"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ASO_W"::numeric)/"ASO_count"::numeric,2) END AS "ASO_W"
-        ,CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ASO_NW"::numeric)/"ASO_count"::numeric,2) END AS "ASO_NW"
-        ,ROUND(((100*(CASE WHEN "ASO_max_day_gap" <= {{max_day_gap}} THEN "ASO_count" ELSE 0 END))::numeric/"ASO_total"::numeric),2) AS "ASO (% of days)"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN "SON_0_5" END AS "SON_0_5"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN "SON_5_10" END AS "SON_5_10"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN "SON_10_15" END AS "SON_10_15"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN "SON_15_20" END AS "SON_15_20"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN "SON_20_25" END AS "SON_20_25"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN "SON_25+" END AS "SON_25+"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"SON_N"::numeric)/"SON_count"::numeric,2) END AS "SON_N"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"SON_NE"::numeric)/"SON_count"::numeric,2) END AS "SON_NE"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"SON_E"::numeric)/"SON_count"::numeric,2) END AS "SON_E"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"SON_SE"::numeric)/"SON_count"::numeric,2) END AS "SON_SE"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"SON_S"::numeric)/"SON_count"::numeric,2) END AS "SON_S"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"SON_SW"::numeric)/"SON_count"::numeric,2) END AS "SON_SW"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"SON_W"::numeric)/"SON_count"::numeric,2) END AS "SON_W"
-        ,CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"SON_NW"::numeric)/"SON_count"::numeric,2) END AS "SON_NW"
-        ,ROUND(((100*(CASE WHEN "SON_max_day_gap" <= {{max_day_gap}} THEN "SON_count" ELSE 0 END))::numeric/"SON_total"::numeric),2) AS "SON (% of days)"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN "OND_0_5" END AS "OND_0_5"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN "OND_5_10" END AS "OND_5_10"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN "OND_10_15" END AS "OND_10_15"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN "OND_15_20" END AS "OND_15_20"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN "OND_20_25" END AS "OND_20_25"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN "OND_25+" END AS "OND_25+"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"OND_N"::numeric)/"OND_count"::numeric,2) END AS "OND_N"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"OND_NE"::numeric)/"OND_count"::numeric,2) END AS "OND_NE"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"OND_E"::numeric)/"OND_count"::numeric,2) END AS "OND_E"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"OND_SE"::numeric)/"OND_count"::numeric,2) END AS "OND_SE"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"OND_S"::numeric)/"OND_count"::numeric,2) END AS "OND_S"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"OND_SW"::numeric)/"OND_count"::numeric,2) END AS "OND_SW"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"OND_W"::numeric)/"OND_count"::numeric,2) END AS "OND_W"
-        ,CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"OND_NW"::numeric)/"OND_count"::numeric,2) END AS "OND_NW"
-        ,ROUND(((100*(CASE WHEN "OND_max_day_gap" <= {{max_day_gap}} THEN "OND_count" ELSE 0 END))::numeric/"OND_total"::numeric),2) AS "OND (% of days)"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN "NDJ_0_5" END AS "NDJ_0_5"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN "NDJ_5_10" END AS "NDJ_5_10"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN "NDJ_10_15" END AS "NDJ_10_15"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN "NDJ_15_20" END AS "NDJ_15_20"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN "NDJ_20_25" END AS "NDJ_20_25"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN "NDJ_25+" END AS "NDJ_25+"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"NDJ_N"::numeric)/"NDJ_count"::numeric,2) END AS "NDJ_N"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"NDJ_NE"::numeric)/"NDJ_count"::numeric,2) END AS "NDJ_NE"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"NDJ_E"::numeric)/"NDJ_count"::numeric,2) END AS "NDJ_E"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"NDJ_SE"::numeric)/"NDJ_count"::numeric,2) END AS "NDJ_SE"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"NDJ_S"::numeric)/"NDJ_count"::numeric,2) END AS "NDJ_S"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"NDJ_SW"::numeric)/"NDJ_count"::numeric,2) END AS "NDJ_SW"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"NDJ_W"::numeric)/"NDJ_count"::numeric,2) END AS "NDJ_W"
-        ,CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"NDJ_NW"::numeric)/"NDJ_count"::numeric,2) END AS "NDJ_NW"
-        ,ROUND(((100*(CASE WHEN "NDJ_max_day_gap" <= {{max_day_gap}} THEN "NDJ_count" ELSE 0 END))::numeric/"NDJ_total"::numeric),2) AS "NDJ (% of days)"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN "DRY_0_5" END AS "DRY_0_5"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN "DRY_5_10" END AS "DRY_5_10"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN "DRY_10_15" END AS "DRY_10_15"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN "DRY_15_20" END AS "DRY_15_20"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN "DRY_20_25" END AS "DRY_20_25"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN "DRY_25+" END AS "DRY_25+"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DRY_N"::numeric)/"DRY_count"::numeric,2) END AS "DRY_N"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DRY_NE"::numeric)/"DRY_count"::numeric,2) END AS "DRY_NE"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DRY_E"::numeric)/"DRY_count"::numeric,2) END AS "DRY_E"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DRY_SE"::numeric)/"DRY_count"::numeric,2) END AS "DRY_SE"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DRY_S"::numeric)/"DRY_count"::numeric,2) END AS "DRY_S"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DRY_SW"::numeric)/"DRY_count"::numeric,2) END AS "DRY_SW"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DRY_W"::numeric)/"DRY_count"::numeric,2) END AS "DRY_W"
-        ,CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DRY_NW"::numeric)/"DRY_count"::numeric,2) END AS "DRY_NW"
-        ,ROUND(((100*(CASE WHEN "DRY_max_day_gap" <= {{max_day_gap}} THEN "DRY_count" ELSE 0 END))::numeric/"DRY_total"::numeric),2) AS "DRY (% of days)"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN "WET_0_5" END AS "WET_0_5"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN "WET_5_10" END AS "WET_5_10"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN "WET_10_15" END AS "WET_10_15"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN "WET_15_20" END AS "WET_15_20"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN "WET_20_25" END AS "WET_20_25"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN "WET_25+" END AS "WET_25+"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"WET_N"::numeric)/"WET_count"::numeric,2) END AS "WET_N"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"WET_NE"::numeric)/"WET_count"::numeric,2) END AS "WET_NE"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"WET_E"::numeric)/"WET_count"::numeric,2) END AS "WET_E"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"WET_SE"::numeric)/"WET_count"::numeric,2) END AS "WET_SE"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"WET_S"::numeric)/"WET_count"::numeric,2) END AS "WET_S"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"WET_SW"::numeric)/"WET_count"::numeric,2) END AS "WET_SW"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"WET_W"::numeric)/"WET_count"::numeric,2) END AS "WET_W"
-        ,CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"WET_NW"::numeric)/"WET_count"::numeric,2) END AS "WET_NW"
-        ,ROUND(((100*(CASE WHEN "WET_max_day_gap" <= {{max_day_gap}} THEN "WET_count" ELSE 0 END))::numeric/"WET_total"::numeric),2) AS "WET (% of days)"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN "ANNUAL_0_5" END AS "ANNUAL_0_5"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN "ANNUAL_5_10" END AS "ANNUAL_5_10"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN "ANNUAL_10_15" END AS "ANNUAL_10_15"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN "ANNUAL_15_20" END AS "ANNUAL_15_20"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN "ANNUAL_20_25" END AS "ANNUAL_20_25"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN "ANNUAL_25+" END AS "ANNUAL_25+"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ANNUAL_N"::numeric)/"ANNUAL_count"::numeric,2) END AS "ANNUAL_N"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ANNUAL_NE"::numeric)/"ANNUAL_count"::numeric,2) END AS "ANNUAL_NE"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ANNUAL_E"::numeric)/"ANNUAL_count"::numeric,2) END AS "ANNUAL_E"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ANNUAL_SE"::numeric)/"ANNUAL_count"::numeric,2) END AS "ANNUAL_SE"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ANNUAL_S"::numeric)/"ANNUAL_count"::numeric,2) END AS "ANNUAL_S"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ANNUAL_SW"::numeric)/"ANNUAL_count"::numeric,2) END AS "ANNUAL_SW"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ANNUAL_W"::numeric)/"ANNUAL_count"::numeric,2) END AS "ANNUAL_W"
-        ,CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"ANNUAL_NW"::numeric)/"ANNUAL_count"::numeric,2) END AS "ANNUAL_NW"
-        ,ROUND(((100*(CASE WHEN "ANNUAL_max_day_gap" <= {{max_day_gap}} THEN "ANNUAL_count" ELSE 0 END))::numeric/"ANNUAL_total"::numeric),2) AS "ANNUAL (% of days)"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN "DJFM_0_5" END AS "DJFM_0_5"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN "DJFM_5_10" END AS "DJFM_5_10"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN "DJFM_10_15" END AS "DJFM_10_15"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN "DJFM_15_20" END AS "DJFM_15_20"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN "DJFM_20_25" END AS "DJFM_20_25"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN "DJFM_25+" END AS "DJFM_25+"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DJFM_N"::numeric)/"DJFM_count"::numeric,2) END AS "DJFM_N"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DJFM_NE"::numeric)/"DJFM_count"::numeric,2) END AS "DJFM_NE"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DJFM_E"::numeric)/"DJFM_count"::numeric,2) END AS "DJFM_E"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DJFM_SE"::numeric)/"DJFM_count"::numeric,2) END AS "DJFM_SE"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DJFM_S"::numeric)/"DJFM_count"::numeric,2) END AS "DJFM_S"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DJFM_SW"::numeric)/"DJFM_count"::numeric,2) END AS "DJFM_SW"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DJFM_W"::numeric)/"DJFM_count"::numeric,2) END AS "DJFM_W"
-        ,CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN ROUND((100*"DJFM_NW"::numeric)/"DJFM_count"::numeric,2) END AS "DJFM_NW"
-        ,ROUND(((100*(CASE WHEN "DJFM_max_day_gap" <= {{max_day_gap}} THEN "DJFM_count" ELSE 0 END))::numeric/"DJFM_total"::numeric),2) AS "DJFM (% of days)"
-    FROM aggreated_data ad
-    LEFT JOIN aggreation_total_days atd ON atd.year=ad.year
+,wind_coordinates AS (
+    SELECT 
+        {{station_id}} AS station_id,
+        wsc.value AS wnd_spd,
+        wdc.value AS wnd_dir
+    FROM (VALUES ('0-5 kt'), ('5-10 kt'), ('10-15 kt'), ('15-20 kt'), ('20-25 kt'), ('25+ kt')) AS wsc(value)
+    CROSS JOIN (VALUES ('N'), ('NE'), ('E'), ('SE'), ('S'), ('SW'), ('W'), ('NW')) AS wdc(value)
 )
 SELECT
-    station
-    ,product
-    ,year
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_0_5" ELSE NULL END AS "JFM_0_5"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_5_10" ELSE NULL END AS "JFM_5_10"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_10_15" ELSE NULL END AS "JFM_10_15"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_15_20" ELSE NULL END AS "JFM_15_20"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_20_25" ELSE NULL END AS "JFM_20_25"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_25+" ELSE NULL END AS "JFM_25+"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_N" ELSE NULL END AS "JFM_1"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_NE" ELSE NULL END AS "JFM_2"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_E" ELSE NULL END AS "JFM_3"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_SE" ELSE NULL END AS "JFM_4"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_S" ELSE NULL END AS "JFM_5"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_SW" ELSE NULL END AS "JFM_6"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_W" ELSE NULL END AS "JFM_7"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_NW" ELSE NULL END AS "JFM_8"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_0_5" ELSE NULL END AS "JFM_9"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_5_10" ELSE NULL END AS "JFM_10"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_10_15" ELSE NULL END AS "JFM_11"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_15_20" ELSE NULL END AS "JFM_12"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_20_25" ELSE NULL END AS "JFM_13"
-    ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN "JFM_25+" ELSE NULL END AS "JFM_14"
-    ,"JFM (% of days)" 
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_N" ELSE NULL END AS "FMA_1"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_NE" ELSE NULL END AS "FMA_2"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_E" ELSE NULL END AS "FMA_3"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_SE" ELSE NULL END AS "FMA_4"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_S" ELSE NULL END AS "FMA_5"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_SW" ELSE NULL END AS "FMA_6"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_W" ELSE NULL END AS "FMA_7"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_NW" ELSE NULL END AS "FMA_8"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_0_5" ELSE NULL END AS "FMA_9"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_5_10" ELSE NULL END AS "FMA_10"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_10_15" ELSE NULL END AS "FMA_11"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_15_20" ELSE NULL END AS "FMA_12"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_20_25" ELSE NULL END AS "FMA_13"
-    ,CASE WHEN "FMA (% of days)" >= (100-{{max_day_pct}}) THEN "FMA_25+" ELSE NULL END AS "FMA_14"
-    ,"FMA (% of days)"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_N" ELSE NULL END AS "MAM_1"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_NE" ELSE NULL END AS "MAM_2"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_E" ELSE NULL END AS "MAM_3"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_SE" ELSE NULL END AS "MAM_4"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_S" ELSE NULL END AS "MAM_5"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_SW" ELSE NULL END AS "MAM_6"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_W" ELSE NULL END AS "MAM_7"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_NW" ELSE NULL END AS "MAM_8"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_0_5" ELSE NULL END AS "MAM_9"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_5_10" ELSE NULL END AS "MAM_10"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_10_15" ELSE NULL END AS "MAM_11"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_15_20" ELSE NULL END AS "MAM_12"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_20_25" ELSE NULL END AS "MAM_13"
-    ,CASE WHEN "MAM (% of days)" >= (100-{{max_day_pct}}) THEN "MAM_25+" ELSE NULL END AS "MAM_14"
-    ,"MAM (% of days)"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_N" ELSE NULL END AS "AMJ_1"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_NE" ELSE NULL END AS "AMJ_2"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_E" ELSE NULL END AS "AMJ_3"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_SE" ELSE NULL END AS "AMJ_4"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_S" ELSE NULL END AS "AMJ_5"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_SW" ELSE NULL END AS "AMJ_6"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_W" ELSE NULL END AS "AMJ_7"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_NW" ELSE NULL END AS "AMJ_8"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_0_5" ELSE NULL END AS "AMJ_9"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_5_10" ELSE NULL END AS "AMJ_10"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_10_15" ELSE NULL END AS "AMJ_11"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_15_20" ELSE NULL END AS "AMJ_12"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_20_25" ELSE NULL END AS "AMJ_13"
-    ,CASE WHEN "AMJ (% of days)" >= (100-{{max_day_pct}}) THEN "AMJ_25+" ELSE NULL END AS "AMJ_14"
-    ,"AMJ (% of days)"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_N" ELSE NULL END AS "MJJ_1"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_NE" ELSE NULL END AS "MJJ_2"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_E" ELSE NULL END AS "MJJ_3"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_SE" ELSE NULL END AS "MJJ_4"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_S" ELSE NULL END AS "MJJ_5"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_SW" ELSE NULL END AS "MJJ_6"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_W" ELSE NULL END AS "MJJ_7"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_NW" ELSE NULL END AS "MJJ_8"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_0_5" ELSE NULL END AS "MJJ_9"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_5_10" ELSE NULL END AS "MJJ_10"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_10_15" ELSE NULL END AS "MJJ_11"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_15_20" ELSE NULL END AS "MJJ_12"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_20_25" ELSE NULL END AS "MJJ_13"
-    ,CASE WHEN "MJJ (% of days)" >= (100-{{max_day_pct}}) THEN "MJJ_25+" ELSE NULL END AS "MJJ_14"
-    ,"MJJ (% of days)"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_N" ELSE NULL END AS "JJA_1"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_NE" ELSE NULL END AS "JJA_2"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_E" ELSE NULL END AS "JJA_3"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_SE" ELSE NULL END AS "JJA_4"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_S" ELSE NULL END AS "JJA_5"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_SW" ELSE NULL END AS "JJA_6"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_W" ELSE NULL END AS "JJA_7"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_NW" ELSE NULL END AS "JJA_8"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_0_5" ELSE NULL END AS "JJA_9"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_5_10" ELSE NULL END AS "JJA_10"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_10_15" ELSE NULL END AS "JJA_11"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_15_20" ELSE NULL END AS "JJA_12"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_20_25" ELSE NULL END AS "JJA_13"
-    ,CASE WHEN "JJA (% of days)" >= (100-{{max_day_pct}}) THEN "JJA_25+" ELSE NULL END AS "JJA_14"
-    ,"JJA (% of days)"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_N" ELSE NULL END AS "JAS_1"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_NE" ELSE NULL END AS "JAS_2"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_E" ELSE NULL END AS "JAS_3"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_SE" ELSE NULL END AS "JAS_4"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_S" ELSE NULL END AS "JAS_5"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_SW" ELSE NULL END AS "JAS_6"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_W" ELSE NULL END AS "JAS_7"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_NW" ELSE NULL END AS "JAS_8"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_0_5" ELSE NULL END AS "JAS_9"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_5_10" ELSE NULL END AS "JAS_10"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_10_15" ELSE NULL END AS "JAS_11"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_15_20" ELSE NULL END AS "JAS_12"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_20_25" ELSE NULL END AS "JAS_13"
-    ,CASE WHEN "JAS (% of days)" >= (100-{{max_day_pct}}) THEN "JAS_25+" ELSE NULL END AS "JAS_14"
-    ,"JAS (% of days)"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_N" ELSE NULL END AS "ASO_1"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_NE" ELSE NULL END AS "ASO_2"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_E" ELSE NULL END AS "ASO_3"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_SE" ELSE NULL END AS "ASO_4"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_S" ELSE NULL END AS "ASO_5"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_SW" ELSE NULL END AS "ASO_6"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_W" ELSE NULL END AS "ASO_7"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_NW" ELSE NULL END AS "ASO_8"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_0_5" ELSE NULL END AS "ASO_9"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_5_10" ELSE NULL END AS "ASO_10"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_10_15" ELSE NULL END AS "ASO_11"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_15_20" ELSE NULL END AS "ASO_12"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_20_25" ELSE NULL END AS "ASO_13"
-    ,CASE WHEN "ASO (% of days)" >= (100-{{max_day_pct}}) THEN "ASO_25+" ELSE NULL END AS "ASO_14"
-    ,"ASO (% of days)"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_N" ELSE NULL END AS "SON_1"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_NE" ELSE NULL END AS "SON_2"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_E" ELSE NULL END AS "SON_3"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_SE" ELSE NULL END AS "SON_4"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_S" ELSE NULL END AS "SON_5"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_SW" ELSE NULL END AS "SON_6"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_W" ELSE NULL END AS "SON_7"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_NW" ELSE NULL END AS "SON_8"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_0_5" ELSE NULL END AS "SON_9"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_5_10" ELSE NULL END AS "SON_10"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_10_15" ELSE NULL END AS "SON_11"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_15_20" ELSE NULL END AS "SON_12"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_20_25" ELSE NULL END AS "SON_13"
-    ,CASE WHEN "SON (% of days)" >= (100-{{max_day_pct}}) THEN "SON_25+" ELSE NULL END AS "SON_14"
-    ,"SON (% of days)"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_N" ELSE NULL END AS "OND_1"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_NE" ELSE NULL END AS "OND_2"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_E" ELSE NULL END AS "OND_3"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_SE" ELSE NULL END AS "OND_4"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_S" ELSE NULL END AS "OND_5"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_SW" ELSE NULL END AS "OND_6"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_W" ELSE NULL END AS "OND_7"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_NW" ELSE NULL END AS "OND_8"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_0_5" ELSE NULL END AS "OND_9"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_5_10" ELSE NULL END AS "OND_10"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_10_15" ELSE NULL END AS "OND_11"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_15_20" ELSE NULL END AS "OND_12"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_20_25" ELSE NULL END AS "OND_13"
-    ,CASE WHEN "OND (% of days)" >= (100-{{max_day_pct}}) THEN "OND_25+" ELSE NULL END AS "OND_14"
-    ,"OND (% of days)"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_N" ELSE NULL END AS "NDJ_1"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_NE" ELSE NULL END AS "NDJ_2"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_E" ELSE NULL END AS "NDJ_3"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_SE" ELSE NULL END AS "NDJ_4"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_S" ELSE NULL END AS "NDJ_5"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_SW" ELSE NULL END AS "NDJ_6"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_W" ELSE NULL END AS "NDJ_7"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_NW" ELSE NULL END AS "NDJ_8"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_0_5" ELSE NULL END AS "NDJ_9"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_5_10" ELSE NULL END AS "NDJ_10"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_10_15" ELSE NULL END AS "NDJ_11"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_15_20" ELSE NULL END AS "NDJ_12"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_20_25" ELSE NULL END AS "NDJ_13"
-    ,CASE WHEN "NDJ (% of days)" >= (100-{{max_day_pct}}) THEN "NDJ_25+" ELSE NULL END AS "NDJ_14"
-    ,"NDJ (% of days)"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_N" ELSE NULL END AS "DRY_1"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_NE" ELSE NULL END AS "DRY_2"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_E" ELSE NULL END AS "DRY_3"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_SE" ELSE NULL END AS "DRY_4"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_S" ELSE NULL END AS "DRY_5"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_SW" ELSE NULL END AS "DRY_6"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_W" ELSE NULL END AS "DRY_7"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_NW" ELSE NULL END AS "DRY_8"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_0_5" ELSE NULL END AS "DRY_9"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_5_10" ELSE NULL END AS "DRY_10"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_10_15" ELSE NULL END AS "DRY_11"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_15_20" ELSE NULL END AS "DRY_12"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_20_25" ELSE NULL END AS "DRY_13"
-    ,CASE WHEN "DRY (% of days)" >= (100-{{max_day_pct}}) THEN "DRY_25+" ELSE NULL END AS "DRY_14"
-    ,"DRY (% of days)"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_N" ELSE NULL END AS "WET_1"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_NE" ELSE NULL END AS "WET_2"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_E" ELSE NULL END AS "WET_3"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_SE" ELSE NULL END AS "WET_4"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_S" ELSE NULL END AS "WET_5"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_SW" ELSE NULL END AS "WET_6"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_W" ELSE NULL END AS "WET_7"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_NW" ELSE NULL END AS "WET_8"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_0_5" ELSE NULL END AS "WET_9"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_5_10" ELSE NULL END AS "WET_10"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_10_15" ELSE NULL END AS "WET_11"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_15_20" ELSE NULL END AS "WET_12"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_20_25" ELSE NULL END AS "WET_13"
-    ,CASE WHEN "WET (% of days)" >= (100-{{max_day_pct}}) THEN "WET_25+" ELSE NULL END AS "WET_14"
-    ,"WET (% of days)"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_N" ELSE NULL END AS "ANNUAL_1"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_NE" ELSE NULL END AS "ANNUAL_2"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_E" ELSE NULL END AS "ANNUAL_3"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_SE" ELSE NULL END AS "ANNUAL_4"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_S" ELSE NULL END AS "ANNUAL_5"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_SW" ELSE NULL END AS "ANNUAL_6"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_W" ELSE NULL END AS "ANNUAL_7"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_NW" ELSE NULL END AS "ANNUAL_8"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_0_5" ELSE NULL END AS "ANNUAL_9"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_5_10" ELSE NULL END AS "ANNUAL_10"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_10_15" ELSE NULL END AS "ANNUAL_11"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_15_20" ELSE NULL END AS "ANNUAL_12"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_20_25" ELSE NULL END AS "ANNUAL_13"
-    ,CASE WHEN "ANNUAL (% of days)" >= (100-{{max_day_pct}}) THEN "ANNUAL_25+" ELSE NULL END AS "ANNUAL_14"
-    ,"ANNUAL (% of days)"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_N" ELSE NULL END AS "DJFM_1"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_NE" ELSE NULL END AS "DJFM_2"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_E" ELSE NULL END AS "DJFM_3"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_SE" ELSE NULL END AS "DJFM_4"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_S" ELSE NULL END AS "DJFM_5"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_SW" ELSE NULL END AS "DJFM_6"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_W" ELSE NULL END AS "DJFM_7"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_NW" ELSE NULL END AS "DJFM_8"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_0_5" ELSE NULL END AS "DJFM_9"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_5_10" ELSE NULL END AS "DJFM_10"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_10_15" ELSE NULL END AS "DJFM_11"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_15_20" ELSE NULL END AS "DJFM_12"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_20_25" ELSE NULL END AS "DJFM_13"
-    ,CASE WHEN "DJFM (% of days)" >= (100-{{max_day_pct}}) THEN "DJFM_25+" ELSE NULL END AS "DJFM_14"
-    ,"DJFM (% of days)"
-FROM aggregation_pct
-ORDER BY year
+    st.name AS station,
+    'WIND ROSE' AS product,
+    wc.wnd_spd AS "Wind Speed",
+    wc.wnd_dir AS "Wind Direction",
+    CASE 
+        WHEN max_day_gap > {{max_day_gap}} OR day_pct < (100-{{max_day_pct}}) THEN NULL
+        ELSE CASE
+            WHEN count IS NULL THEN 0
+            ELSE ROUND(100 * (count / SUM(count) OVER (PARTITION BY ad.station_id)), 3)
+        END
+    END AS "Frequency"
+FROM wind_coordinates wc
+JOIN wx_station st ON st.id = wc.station_id
+LEFT JOIN aggreated_data ad 
+    ON wc.station_id = ad.station_id
+    AND wc.wnd_spd = ad.wnd_spd
+    AND wc.wnd_dir = ad.wnd_dir
+LEFT JOIN data_stats ds ON ds.station_id = ad.station_id
+ORDER BY  station, "Wind Speed", "Wind Direction"

@@ -75,7 +75,17 @@
 							:rules="[rules.required, rules.numeric]"
 							:label="parameterLabels.numericParam2"
 						/>
-					</v-col>				
+					</v-col>
+					<v-col cols="4" v-if="parameterLabels.aggregation">
+						<v-autocomplete
+							:label="parameterLabels.aggregation"
+							:items="dataAggegationList"
+							v-model="requestData.aggregation"
+							hint="*Required"
+							persistent-hint
+							:rules="[rules.required]"
+						/>									
+					</v-col>						
 				</v-row>
 				<v-row>
 					<v-col cols="2">
@@ -210,63 +220,40 @@
 					</v-col
 				</v-row>					
 			</v-form>
+
 			
-
-
+			
 			<div>
 				<template>
-					<v-card v-if="requestedData.product === 'Wind Rose' && !loading_data">
-						<v-form class="ma-4">
-							<v-row>
-								<v-col cols="4">
-									<v-autocomplete
-										label="Select Aggregation"
-										:items="dataAggegationList"
-										v-model="windRose.aggregation"
-										hint="*Required"
-										persistent-hint
-										:rules="[rules.required]"
-									/>									
-								</v-col>
-								<v-col cols="4">
-									<v-autocomplete
-										label="Select Year"
-										:items="dataYearList"
-										v-model="windRose.year"
-										hint="*Required"
-										persistent-hint
-										:rules="[rules.required]"
-									/>									
-								</v-col>
-								<v-col cols="4">
-									<v-autocomplete
-										label="Select Months"
-										:items="requestedData.months"
-										v-model="windRose.month"
-										hint="*Required"
-										persistent-hint
-										:rules="[rules.required]"
-									/>														
-								</v-col>
-							</v-row>
-						</v-form>
-						<v-card-title class="text-center"> Card Title </v-card-title>
-						<v-card-text> [[windRoseData]] </v-card-text>
-
-						<v-card-actions>
-							<v-btn> Action Button </v-btn>
-						</v-card-actions
-					</v-card>
-
 					<v-card v-if="requestedData.responseData && !loading_data">
-						<v-card-title class="text-center"> 
+						
+						<v-card-title class="text-center mb-0"> 
 							[[ requestedData.product ]]
 							<span v-if="requestedData.product==='Heat wave'"> 
 								&nbsp;(threshold temperature [[ requestedData.responseContext.threshold ]])
 							</span>
+
+							<v-btn icon @click="showing_product_info=!showing_product_info"><v-icon>mdi-information</v-icon> </v-btn>
 						</v-card-title>
-						
+
+						{% comment %} <v-card-text v-if="showing_product_info" class="mb-0 py-0">
+
+						</v-card-text>
+						 {% endcomment %}
 						<v-card-text>
+							<v-alert
+								v-if="showing_product_info"
+								type="info"
+								text
+								:dismissible="true"
+								outlined
+								@input="showing_product_info = false"
+							>
+								[[ elements[requestedData.element][requestedData.product].info ]]
+							</v-alert>
+
+							<highcharts v-if="requestedData.product==='Wind Rose'" :options="chartOptions"></highcharts>
+
 							<v-tabs v-if="productVariables"  v-model="tab" bg-color="primary" class="justify-center my-5">
 								<v-tab v-for="item in productVariables" :key="item"> [[ item ]] </v-tab>
 							</v-tabs>
@@ -301,6 +288,7 @@
  
 <script>
 	Vue.use(window.vuelidate.default);
+    Vue.use(HighchartsVue.default);
 	const { required, numeric } = window.validators;
 
 	new Vue({
@@ -321,13 +309,15 @@
 			tab: null,
 			loading_data: false,
 			showing_info: false,
+			showing_product_info: false,
 			isFormValid: false,
 			requestData: {
-				stationId: 4, //59, // 6, 
-                element: 'Wind', //'Relative Humidity',
+				stationId: 59, //4, // 59, // 6, 
+                element: 'Sunshine/Radiation', // 'Free Water Evaporation / Evapotranspiration', //'Wind', //'Relative Humidity',
 				product: null,
 				numericParam1: null,
 				numericParam2: null,
+				aggregation: null,
 				startYear: 2000,
 				endYear: 2025,
 				summaryType: 'Seasonal',
@@ -335,7 +325,7 @@
 				interavl: null,
 				validateData: true,
 				maxHourPct: 20,
-				maxDayPct: 20,
+				maxDayPct: 100,
 				maxDayGap: 5,
 			},
 			requestedData: {
@@ -344,6 +334,7 @@
 				product: null,
 				numericParam1: null,
 				numericParam2: null,
+				aggregation: null,
 				startYear: null,
 				endYear: null,
 				responseData: null,
@@ -364,20 +355,31 @@
 			elements: {
 				'Air Temperature': {
 					'Degree days': {
+						'info': "The Growing Degree Days (GDD) is calculated based on TEMPMIN and TEMPMAX variables, first its calculated the daily values using the formula ('Temp Min'+ 'Temp Max')/2- 'Base Temp', then the daily values are summed up for each aggregation.",
 						'numeric_param_1': {
 							value: 30,
 							label: 'Base Temperature',
 						},
 					},
-					'Maximum and minimum statistics': {},
+					'Maximum and minimum statistics': {
+						'info': 'Minimum and maximum temperatures for each aggregation period.'
+					},
 					'Days above or below selected temperature': {
+						'info': 'Number of days, withing the aggregation period, when TEMPMAX exceeded (above) and TEMPMIN fell below (below) a specified threshold temperature.',
 						'numeric_param_1': {
 							value: 30,
 							label: 'Threshold temperature',
 						},
 					},
-					// 'Growing season statistics': {},
+					'Growing season statistics': {
+						'info': 'Output first and last date when Growing Degree Days (GDD) is above 0 for the specified base temperature.',
+						'numeric_param_1': {
+							value: 30,
+							label: 'Base Temperature',
+						},
+					},
 					'Heat wave': {
+						'info': 'Given a percentile, a threshold temperature is calculated using historical TEMPMAX data, then the longest heat wave duration, number of heat wave events and number of hot days are calculated using the threshold temperature and a specified heat wave window.',
 						'numeric_param_1': {
 							value: 90,
 							label: 'Percentile threshold',
@@ -388,21 +390,35 @@
 						},
 					},
 				},
-			   'Rainfall': {
+				'Rainfall': {
 					'Number of days with specified amount of rainfall': {
+						'info': 'Number of days when daily precipitation (PRECIP) is equal or above a specified ammount in (mm).',
 						'numeric_param_1': {
 							value: 5,
 							label: 'Amount of rainfall',
 						},
 					},
-					// 'Drought indices ': {},
-					// 'Flood and excess rainfall': {},
-			   },
+					'Drought indices': {
+						'info': 'Calculation of Standard Precipitation Index (SPI) using precipitaiton (PRECIP) data\
+						and Soil Moisture Deficit Index (SMDI) using volumetric water content data at 1 and 4 feet.'
+					},
+					'Flood and excess rainfall': {
+						'info': 'Number of days when daily precipitation (PRECIP) is equal or above a 25, 50, 84, and 200 (mm).'
+					},
+				},
 				'Wind': {
-					'Wind Rose': {},
-					'Maximum and Average Wind speed': {},
-					// 'Diurnal variation': {},
+					'Wind Rose': {
+						'info': 'Graphical representation of wind speed and direction frequency distribution.',
+						'aggregation': {
+							value: null,
+							label: 'Aggregation',
+						},
+					},
+					'Maximum and Average Wind speed': {
+						'info': 'Maximum and average wind speed for each aggregation period.'
+					},
 					'Days of wind less than a selected speed': {
+						'info': 'Number of days when maximum daily wind speed (WNDSPD) is equal or below a specified ammount.',
 						'numeric_param_1': {
 							value: 10,
 							label: 'Threshold speed',
@@ -410,12 +426,21 @@
 					},
 				},
 				'Sunshine/Radiation':{
-					// 'Amounts of global and net radiation': {},
-					'Sunshine hours': {},
-					// 'Radiation hours': {},
+					'Sunshine hours': {
+						'info': 'Cumulative duration of sunshine hours (SUNSHNHR).'
+					},
+					'Solar Radiation': {
+						'info': 'Solar Radiation calculation following FAO-56 standards, uses TEMPMAX and TEMPMIN variables, day of year, and station latitude.\
+						The Empirical coefficient k_rs is set to 0.16 for inland and 0.19 for coastal stations.'
+					},
+					'Global and Net Radiation': {
+						'info': 'Net Radiation calculation following FAO-56 standards, uses TEMPMAX and TEMPMIN variables, day of year, station latitude and elevation.\
+						The Empirical coefficient k_rs is set to 0.16 for inland and 0.19 for coastal stations.'
+					},
 				},
 				'Relative Humidity': {
 					'Duration of a specified threshold of humidity': {
+						'info': 'Longest sequence of days that relative humidity (estimated from TEMPMAX and TEMPMIN variables) exceeded a specified threshold.',
 						'numeric_param_1': {
 							value: 80,
 							label: 'Threshold humidity',
@@ -423,32 +448,48 @@
 					},
 				},
 				'Free Water Evaporation / Evapotranspiration': {
-					'Total amount': {},
-					// 'Diurnal variation of evaporation': {},
-					// 'Evapotranspiration': {},
+					'Total amount': {
+						'info': 'Cumulative pan evaporation (EVAPPAN).'
+					},
+					'Evapotranspiration': {
+						'info': 'Evapotranspiration estimate based on Hargreaves-Samani equation, uses TEMPMAX and TEMPMIN variables, day of year,\
+						station latitude, and parameters alpha and beta, with FAO-56 recommended default values 0.0023 and 0.5 respectively.',
+						'aggregation': {
+							value: null,
+							label: 'Aggregation',
+						},
+					},
 				},
 				'Soil Temperature':{
-					'Mean and standard deviation at standard depth': {},
+					'Mean and standard deviation at standard depth': {
+						'info': 'Mean and standard deviation soil temperature at 1 and 4 feets, uses variables TSOIL1 and TSOIL4.'
+					},
 					'Dates when threshold values of temperature (germination, vegetation) are reached': {
+						'info': 'Output first and last date when soil temperature reaches specified threshold,\
+						the calculation is made for both 1 and 4 feet depths, uses variables TSOIL1 and TSOIL4.',
 						'numeric_param_1': {
 							value: 30,
 							label: 'Threshold temperature',
 						},
 					},
+				},
+				'Soil Moisture': {
+					'Soil Moisture at regular depths': {
+						'info': 'Volumetric water content measurements at 1 and 4 feet depths, uses variables VWCFT1 and VWCFT4.'
+					},
+					'Leaf area index': {
+						'info': 'Leaf Area Index (LAI) calculation based on growing degree days (GDD), from TEMPMAX and TEMPMIN variables, and precipitation values.',
+						'numeric_param_1': {
+							value: 30,
+							label: 'Base Temperature',
+						},
+					},
 				}
-				// 'Soil Moisture': {},
-					// 'Soil Moisture at regular depths': {},
-					// 'Leaf area index': {},
-				// }
-			},
-			windRose: {
-				aggregation: null,
-				year: null,
-				month: null,
 			},
 			parameterLabels: {
 				numericParam1: null,
 				numericParam2: null,
+				aggregation: null,
 			},
 			start_year_menu: false,
 			end_year_menu: false,
@@ -498,9 +539,11 @@
 				if (this.requestData.product) {
 					this.requestData.numericParam1 = this.elements[element][product].numeric_param_1?.value || null
 					this.requestData.numericParam2 = this.elements[element][product].numeric_param_2?.value || null
+					this.requestData.aggregation = this.elements[element][product].aggregation?.value || null
 
 					this.parameterLabels.numericParam1 = this.elements[element][product].numeric_param_1?.label || null
 					this.parameterLabels.numericParam2 = this.elements[element][product].numeric_param_2?.label || null
+					this.parameterLabels.aggregation = this.elements[element][product].aggregation?.label || null
 				}
 				else {
 					this.requestData.numericParam1 = null
@@ -515,35 +558,89 @@
 		},	
 		computed: {
 			windRoseData() {
-				if (this.requestedData.product != 'Wind Rose') return null
+				if (this.requestedData.product != 'Wind Rose') return null;
+				if (!this.dataTable.data || !this.dataTable.data.length) return null;
+			
+				const speedBins = [
+					{ name: '0-5 kt', color: '#A6D96A', min: 0, max: 5 },      // Light Green
+					{ name: '5-10 kt', color: '#66BD63', min: 5, max: 10 },    // Medium Green
+					{ name: '10-15 kt', color: '#1A9850', min: 10, max: 15 },  // Dark Green
+					{ name: '15-20 kt', color: '#4575B4', min: 15, max: 20 },  // Light Blue
+					{ name: '20-25 kt', color: '#313695', min: 20, max: 25 },  // Dark Blue
+					{ name: '25+ kt', color: '#762A83', min: 25, max: Infinity } // Purple (for highest winds)
+				];
+			
+				const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+			
+				// Initialize data structure for each speed bin
+				const seriesData = speedBins.map(speedBin => {
+					const filteredData =  this.dataTable.data.filter(entry => entry['Wind Speed']===speedBin.name)
+					const frequencyData = directions.map(dir => filteredData
+						.find(entry => entry['Wind Direction'] === dir)['Frequency']
+					);					
+			
+					return {
+						name: speedBin.name,
+						color: speedBin.color,
+						data: frequencyData
+					};
+				});
 
-				const {aggregation, year, month} = this.windRose
-
-				if (!aggregation || !year) return null
-				if (!this.dataTable.data) return null
-
-				let str = null
-				if (this.requestedData.summaryType == 'Seasonal') {
-					str = this.dataTable.data.find(entry => entry.year === year)[aggregation]
-				}
-				else{
-					if (!month) return null
-					str = this.dataTable.data.find(entry => entry.year === year && entry.month === month)[aggregation]
-				}
-				
-				const values = str.split("/");
-				const labels = [
-					'N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW',
-					'0-5 Kt', '5-10 Kt', '10-15 Kt', '15-20 Kt', '20-25 Kt', '25+ Kt'
-				]
-
-				const result = labels.reduce((acc, label, index) => {
-					acc[label] = parseFloat(values[index]);
-					return acc;
-				}, {});
-				
-				return result
-			},
+				return seriesData;
+			},		
+			chartOptions() {
+                const categories = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+                return Object.assign({}, {
+                    chart: {
+                        polar: true,
+                        type: 'column'
+                    },
+                    title: {
+                        text: 'Wind Rose'
+                    },
+                    pane: {
+                        size: '85%'
+                    },
+                    legend: {
+                        align: 'right',
+                        verticalAlign: 'top',
+                        y: 100,
+                        layout: 'vertical'
+                    },
+                    xAxis: {
+                        categories: categories,
+                        tickmarkPlacement: 'on',
+                        lineWidth: 0
+                    },
+                    yAxis: {
+                        min: 0,
+                        endOnTick: false,
+                        showLastLabel: true,
+                        title: {
+                            text: 'Frequency (%)'
+                        },
+                        labels: {
+                            formatter: function () {
+                                return this.value + '%';
+                            }
+                        },
+                        reversedStacks: false
+                    },
+                    tooltip: {
+                        valueSuffix: '%',
+                        valueDecimals: 2
+                    },
+                    plotOptions: {
+                        series: {
+                            stacking: 'normal',
+                            shadow: false,
+                            groupPadding: 0,
+                            pointPlacement: 'on'
+                        }
+                    },
+                    series: this.windRoseData
+                });
+			  },
 			availableStartYears () {
 				const min_year = 1900
 				const max_year = moment().year()
@@ -575,6 +672,7 @@
 					'Number of days with specified amount of rainfall',
 					'Duration of a specified threshold of humidity',
 					'Wind Rose',
+					'Flood and excess rainfall',
 				]
 
 				let filteredData = this.requestedData.responseData
@@ -590,16 +688,30 @@
 				let baseHeaders = []
 
 				if (this.requestedData.summaryType==='Seasonal'){
-					baseKeys = ['station', 'year']
-					baseHeaders = [{ text: 'Year', align: 'end', value: 'year', sortable: false}];
+					if(['Wind Rose'].includes(product)) {
+						baseKeys = ['station']
+						baseHeaders = [];
+					}
+					else {
+						baseKeys = ['station', 'year']
+						baseHeaders = [
+							{ text: 'Year', align: 'end', value: 'year', sortable: false}
+						];
+					}
 					
 				}
 				else if (this.requestedData.summaryType==='Monthly'){
-					baseHeaders = [
-						{ text: 'Year', align: 'end', value: 'year', sortable: false},
-						{ text: 'Month', align: 'end', value: 'month', sortable: false}
-					];
-					baseKeys = ['station', 'year', 'month']
+					if(product === 'Wind Rose') {
+						baseKeys = ['station']
+						baseHeaders = [];
+					}
+					else {
+						baseKeys = ['station', 'year', 'month']
+						baseHeaders = [
+							{ text: 'Year', align: 'end', value: 'year', sortable: false},
+							{ text: 'Month', align: 'end', value: 'month', sortable: false}
+						];
+					}
 				}
 
 				const keys = filteredData.length? Object.keys(filteredData[0]).filter(item => !baseKeys.includes(item)): [];
@@ -610,12 +722,14 @@
 				return { headers: [...baseHeaders, ...calcHeaders], data: filteredData, colorHeaders: colorHeaders};		
 			},
 			dataAggegationList () {
-				return ['JFM', 'FMA', 'MAM', 'AMJ', 'MJJ', 'JJA', 'JAS', 'ASO', 'SON', 'OND']
-			},
-			dataYearList() {
-				const { startYear, endYear } = this.requestedData;
-				return Array.from({ length: endYear - startYear + 1 }, (_, i) => endYear - i);
-			},			  
+				{% comment %} return ['1-month', '3-month', '6-month', '12-month', '24-month'] {% endcomment %}
+				return [
+					"JFM", "FMA", "MAM", "AMJ",
+					"MJJ", "JJA", "JAS", "ASO",
+					"SON", "OND", "NDJ", "DRY",
+					"WET", "ANNUAL", "DJFM"
+				]
+			},		  
 			filteredMinMaxData () {
 				const selectedVariableId = this.productVariables[this.tab];
 				const station = this.stationList.find(station => station.id === this.requestedData.stationId)
@@ -625,9 +739,14 @@
 			productVariables (){
 				if (!this.requestedData.responseData) return null
 				const variables = this.requestedData.responseData.map(({ product }) => product);
+
+				if (this.requestedData.product === 'Global and Net Radiation') {
+					const productOrder = ['Solar Radiation', 'Global Radiation', 'Net Shortwave Radiation', 'Net Longwave Radiation', 'Net Radiation'];
+					return variables.some(value => value !== undefined)? [...new Set(variables)].sort((a, b) => productOrder.indexOf(a) - productOrder.indexOf(b)): null
+				}
 				return variables.some(value => value !== undefined)? [...new Set(variables)].sort(): null
 			}
-			
+
 		},
 		methods: {
             getData(){
@@ -648,6 +767,7 @@
 					product: this.requestedData.product,
 					numeric_param_1: this.requestedData.numericParam1,
 					numeric_param_2: this.requestedData.numericParam2,
+					aggregation: this.requestedData.aggregation,
 					start_year: this.requestedData.startYear,
 					end_year: this.requestedData.endYear,
 					summary_type: this.requestedData.summaryType,
@@ -671,6 +791,7 @@
 				.finally(() => {
 					this.loading_data = false
 				});
+
 			},
 			convertToCSV(data) {
 				const { stationId, element, product, summaryType, startYear, endYear, interval, requestedAt, months, ...rest } = this.requestedData;
@@ -739,8 +860,8 @@
 				else if (is_min) return 'blue'
 				else if (is_max) return 'red'
 				return 'black'
-			},					
-		}		
+			},
+		},
 	})
 
 	$(document).ready(function(){

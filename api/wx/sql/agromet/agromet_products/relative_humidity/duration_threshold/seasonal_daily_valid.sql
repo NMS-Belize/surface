@@ -1,3 +1,48 @@
+-- https://www.fao.org/4/x0490e/x0490e07.htm#chapter%203%20%20%20meteorological%20data
+
+-- Allen et al. (1998), FAO-56 (Equation 11).
+CREATE OR REPLACE FUNCTION saturation_vapour_pressure(
+    t float             -- °C
+) RETURNS float AS $$    -- kPa (saturation vapour pressure at T)
+DECLARE
+    e_t float;           -- kPa (saturation vapour pressure at T)
+BEGIN
+    -- Saturation vapour Pressure (e_s)
+    e_t := 0.6108 * EXP((17.27 * t) / (t + 237.3));
+    RETURN e_t;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Allen et al. (1998), FAO-56 (Equation 10).
+CREATE OR REPLACE FUNCTION relative_humidity(
+    tmax float,             -- °C
+    tmin float              -- °C
+) RETURNS float AS $$        -- %
+DECLARE
+    e_tmin float;           -- kPa (saturation vapour pressure at Tmin)
+    e_tmax float;           -- kPa (saturation vapour pressure at Tmax)
+    e_s float;              -- kPa (mean saturation vapour pressure)
+    e_a float;              -- kPa (actual vapour pressure)
+    rh float;               -- %
+BEGIN
+    -- Saturation vapour Pressure (e_t) FAO-56 (Equation 11)
+    e_tmin := saturation_vapour_pressure(tmin);
+    e_tmax := saturation_vapour_pressure(tmax);
+
+    -- Mean Saturation vapour Pressure (e_s) FAO-56 (Equation 12)
+    e_s := (e_tmin + e_tmax) / 2;
+
+    -- FAO-56 Equation 48
+    e_a := e_tmin;
+
+    -- FAO-56 Equation 10
+    rh := (e_a / e_s) * 100;
+    RETURN rh;
+END;
+$$ LANGUAGE plpgsql;
+
+
 WITH RECURSIVE month_days AS (
     SELECT
         EXTRACT(MONTH FROM day) AS month,
@@ -50,12 +95,24 @@ WITH RECURSIVE month_days AS (
         ,EXTRACT(DAY FROM day) AS day_of_month
         ,EXTRACT(MONTH FROM day) AS month
         ,EXTRACT(YEAR FROM day) AS year
-        ,CASE WHEN avg_value > {{threshold}} THEN TRUE ELSE FALSE END AS is_humidity_day
+        ,MAX(CASE WHEN vr.symbol = 'TEMPMAX' THEN max_value ELSE NULL END) AS tmax
+        ,MIN(CASE WHEN vr.symbol = 'TEMPMIN' THEN min_value ELSE NULL END) AS tmin
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     WHERE station_id = {{station_id}}
-      AND vr.symbol = 'RH'
+      AND vr.symbol IN ('TEMPMIN','TEMPMAX','RH')
       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
+    GROUP BY station_id, day
+)
+,humidity_day_calc AS (
+    SELECT
+        station_id
+        ,day
+        ,day_of_month
+        ,month
+        ,year
+        ,relative_humidity(tmax, tmin) > {{threshold}} AS is_humid_day
+    FROM daily_data
 )
 ,extended_data AS(
     SELECT
@@ -70,11 +127,11 @@ WITH RECURSIVE month_days AS (
             WHEN month=12 THEN year+1
             WHEN month=1 THEN year-1
         END as year
-        ,is_humidity_day
-    FROM daily_data
+        ,is_humid_day
+    FROM humidity_day_calc
     WHERE month in (1,12)
     UNION ALL
-    SELECT * FROM daily_data
+    SELECT * FROM humidity_day_calc
 )
 ,daily_lagged_data AS (
     SELECT
@@ -121,49 +178,49 @@ WITH RECURSIVE month_days AS (
 ,grouped_humidity_days AS (
     SELECT
         *
-        ,SUM(CASE WHEN (is_jfm AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_jfm AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_jfm
             ORDER BY "JFM_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "JFM_group_id"
-        ,SUM(CASE WHEN (is_fma AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_fma AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_fma
             ORDER BY "FMA_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "FMA_group_id"
-        ,SUM(CASE WHEN (is_mam AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_mam AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_mam
             ORDER BY "MAM_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "MAM_group_id"
-        ,SUM(CASE WHEN (is_amj AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_amj AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_amj
             ORDER BY "AMJ_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "AMJ_group_id"
-        ,SUM(CASE WHEN (is_mjj AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_mjj AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_mjj
             ORDER BY "MJJ_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "MJJ_group_id"
-        ,SUM(CASE WHEN (is_jja AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_jja AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_jja
             ORDER BY "JJA_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "JJA_group_id"
-        ,SUM(CASE WHEN (is_jas AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_jas AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_jas
             ORDER BY "JAS_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "JAS_group_id"
-        ,SUM(CASE WHEN (is_aso AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_aso AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_aso
             ORDER BY "ASO_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "ASO_group_id"
-        ,SUM(CASE WHEN (is_son AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_son AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_son
             ORDER BY "SON_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "SON_group_id"
-        ,SUM(CASE WHEN (is_ond AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_ond AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_ond
             ORDER BY "OND_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "OND_group_id"
-        ,SUM(CASE WHEN (is_ndj AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_ndj AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_ndj
             ORDER BY "NDJ_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "NDJ_group_id"
-        ,SUM(CASE WHEN (is_dry AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_dry AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_dry
             ORDER BY "DRY_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "DRY_group_id"
-        ,SUM(CASE WHEN (is_wet AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_wet AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_wet
             ORDER BY "WET_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "WET_group_id"
-        ,SUM(CASE WHEN (is_annual AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_annual AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_annual
             ORDER BY "ANNUAL_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "ANNUAL_group_id"
-        ,SUM(CASE WHEN (is_djfm AND (NOT is_humidity_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_djfm AND (NOT is_humid_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_djfm
             ORDER BY "DJFM_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "DJFM_group_id"
     FROM numbered_humidity_days
@@ -210,7 +267,7 @@ WITH RECURSIVE month_days AS (
         ,day_of_month
         ,month
         ,year
-        ,is_humidity_day
+        ,is_humid_day
         ,day_gap
         ,is_jfm
         ,is_fma
@@ -249,78 +306,78 @@ WITH RECURSIVE month_days AS (
         st.name AS station
         ,year
         ,MAX(COALESCE("JFM_seq", 0)) AS "JFM"
-        ,COUNT(*) FILTER (WHERE is_jfm AND is_humidity_day) AS "JFM_above"
-        ,COUNT(*) FILTER (WHERE is_jfm AND NOT is_humidity_day) AS "JFM_below"
+        ,COUNT(*) FILTER (WHERE is_jfm AND is_humid_day) AS "JFM_above"
+        ,COUNT(*) FILTER (WHERE is_jfm AND NOT is_humid_day) AS "JFM_below"
         ,COUNT(DISTINCT CASE WHEN ((is_jfm) AND (day IS NOT NULL)) THEN day END) AS "JFM_count"
         ,MAX(CASE WHEN ((is_jfm) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JFM_max_day_gap"
         ,MAX(COALESCE("FMA_seq", 0)) AS "FMA"
-        ,COUNT(*) FILTER (WHERE is_fma AND is_humidity_day) AS "FMA_above"
-        ,COUNT(*) FILTER (WHERE is_fma AND NOT is_humidity_day) AS "FMA_below"
+        ,COUNT(*) FILTER (WHERE is_fma AND is_humid_day) AS "FMA_above"
+        ,COUNT(*) FILTER (WHERE is_fma AND NOT is_humid_day) AS "FMA_below"
         ,COUNT(DISTINCT CASE WHEN ((is_fma) AND (day IS NOT NULL)) THEN day END) AS "FMA_count"
         ,MAX(CASE WHEN ((is_fma) AND NOT (month = 2 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "FMA_max_day_gap"
         ,MAX(COALESCE("MAM_seq", 0)) AS "MAM"
-        ,COUNT(*) FILTER (WHERE is_mam AND is_humidity_day) AS "MAM_above"
-        ,COUNT(*) FILTER (WHERE is_mam AND NOT is_humidity_day) AS "MAM_below"
+        ,COUNT(*) FILTER (WHERE is_mam AND is_humid_day) AS "MAM_above"
+        ,COUNT(*) FILTER (WHERE is_mam AND NOT is_humid_day) AS "MAM_below"
         ,COUNT(DISTINCT CASE WHEN ((is_mam) AND (day IS NOT NULL)) THEN day END) AS "MAM_count"
         ,MAX(CASE WHEN ((is_mam) AND NOT (month = 3 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MAM_max_day_gap"
         ,MAX(COALESCE("AMJ_seq", 0)) AS "AMJ"
-        ,COUNT(*) FILTER (WHERE is_amj AND is_humidity_day) AS "AMJ_above"
-        ,COUNT(*) FILTER (WHERE is_amj AND NOT is_humidity_day) AS "AMJ_below"
+        ,COUNT(*) FILTER (WHERE is_amj AND is_humid_day) AS "AMJ_above"
+        ,COUNT(*) FILTER (WHERE is_amj AND NOT is_humid_day) AS "AMJ_below"
         ,COUNT(DISTINCT CASE WHEN ((is_amj) AND (day IS NOT NULL)) THEN day END) AS "AMJ_count"
         ,MAX(CASE WHEN ((is_amj) AND NOT (month = 4 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "AMJ_max_day_gap"
         ,MAX(COALESCE("MJJ_seq", 0)) AS "MJJ"
-        ,COUNT(*) FILTER (WHERE is_mjj AND is_humidity_day) AS "MJJ_above"
-        ,COUNT(*) FILTER (WHERE is_mjj AND NOT is_humidity_day) AS "MJJ_below"
+        ,COUNT(*) FILTER (WHERE is_mjj AND is_humid_day) AS "MJJ_above"
+        ,COUNT(*) FILTER (WHERE is_mjj AND NOT is_humid_day) AS "MJJ_below"
         ,COUNT(DISTINCT CASE WHEN ((is_mjj) AND (day IS NOT NULL)) THEN day END) AS "MJJ_count"
         ,MAX(CASE WHEN ((is_mjj) AND NOT (month = 5 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MJJ_max_day_gap"
         ,MAX(COALESCE("JJA_seq", 0)) AS "JJA"
-        ,COUNT(*) FILTER (WHERE is_jja AND is_humidity_day) AS "JJA_above"
-        ,COUNT(*) FILTER (WHERE is_jja AND NOT is_humidity_day) AS "JJA_below"
+        ,COUNT(*) FILTER (WHERE is_jja AND is_humid_day) AS "JJA_above"
+        ,COUNT(*) FILTER (WHERE is_jja AND NOT is_humid_day) AS "JJA_below"
         ,COUNT(DISTINCT CASE WHEN ((is_jja) AND (day IS NOT NULL)) THEN day END) AS "JJA_count"
         ,MAX(CASE WHEN ((is_jja) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JJA_max_day_gap"
         ,MAX(COALESCE("JAS_seq", 0)) AS "JAS"
-        ,COUNT(*) FILTER (WHERE is_jas AND is_humidity_day) AS "JAS_above"
-        ,COUNT(*) FILTER (WHERE is_jas AND NOT is_humidity_day) AS "JAS_below"
+        ,COUNT(*) FILTER (WHERE is_jas AND is_humid_day) AS "JAS_above"
+        ,COUNT(*) FILTER (WHERE is_jas AND NOT is_humid_day) AS "JAS_below"
         ,COUNT(DISTINCT CASE WHEN ((is_jas) AND (day IS NOT NULL)) THEN day END) AS "JAS_count"
         ,MAX(CASE WHEN ((is_jas) AND NOT (month = 7 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JAS_max_day_gap"
         ,MAX(COALESCE("ASO_seq", 0)) AS "ASO"
-        ,COUNT(*) FILTER (WHERE is_aso AND is_humidity_day) AS "ASO_above"
-        ,COUNT(*) FILTER (WHERE is_aso AND NOT is_humidity_day) AS "ASO_below"
+        ,COUNT(*) FILTER (WHERE is_aso AND is_humid_day) AS "ASO_above"
+        ,COUNT(*) FILTER (WHERE is_aso AND NOT is_humid_day) AS "ASO_below"
         ,COUNT(DISTINCT CASE WHEN ((is_aso) AND (day IS NOT NULL)) THEN day END) AS "ASO_count"
         ,MAX(CASE WHEN ((is_aso) AND NOT (month = 8 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ASO_max_day_gap"
         ,MAX(COALESCE("SON_seq", 0)) AS "SON"
-        ,COUNT(*) FILTER (WHERE is_son AND is_humidity_day) AS "SON_above"
-        ,COUNT(*) FILTER (WHERE is_son AND NOT is_humidity_day) AS "SON_below"
+        ,COUNT(*) FILTER (WHERE is_son AND is_humid_day) AS "SON_above"
+        ,COUNT(*) FILTER (WHERE is_son AND NOT is_humid_day) AS "SON_below"
         ,COUNT(DISTINCT CASE WHEN ((is_son) AND (day IS NOT NULL)) THEN day END) AS "SON_count"
         ,MAX(CASE WHEN ((is_son) AND NOT (month = 9 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "SON_max_day_gap"
         ,MAX(COALESCE("OND_seq", 0)) AS "OND"
-        ,COUNT(*) FILTER (WHERE is_ond AND is_humidity_day) AS "OND_above"
-        ,COUNT(*) FILTER (WHERE is_ond AND NOT is_humidity_day) AS "OND_below"
+        ,COUNT(*) FILTER (WHERE is_ond AND is_humid_day) AS "OND_above"
+        ,COUNT(*) FILTER (WHERE is_ond AND NOT is_humid_day) AS "OND_below"
         ,COUNT(DISTINCT CASE WHEN ((is_ond) AND (day IS NOT NULL)) THEN day END) AS "OND_count"
         ,MAX(CASE WHEN ((is_ond) AND NOT (month = 10 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "OND_max_day_gap"
         ,MAX(COALESCE("NDJ_seq", 0)) AS "NDJ"
-        ,COUNT(*) FILTER (WHERE is_ndj AND is_humidity_day) AS "NDJ_above"
-        ,COUNT(*) FILTER (WHERE is_ndj AND NOT is_humidity_day) AS "NDJ_below"
+        ,COUNT(*) FILTER (WHERE is_ndj AND is_humid_day) AS "NDJ_above"
+        ,COUNT(*) FILTER (WHERE is_ndj AND NOT is_humid_day) AS "NDJ_below"
         ,COUNT(DISTINCT CASE WHEN ((is_ndj) AND (day IS NOT NULL)) THEN day END) AS "NDJ_count"
         ,MAX(CASE WHEN ((is_ndj) AND NOT (month = 11 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "NDJ_max_day_gap"
         ,MAX(COALESCE("DRY_seq", 0)) AS "DRY"
-        ,COUNT(*) FILTER (WHERE is_dry AND is_humidity_day) AS "DRY_above"
-        ,COUNT(*) FILTER (WHERE is_dry AND NOT is_humidity_day) AS "DRY_below"
+        ,COUNT(*) FILTER (WHERE is_dry AND is_humid_day) AS "DRY_above"
+        ,COUNT(*) FILTER (WHERE is_dry AND NOT is_humid_day) AS "DRY_below"
         ,COUNT(DISTINCT CASE WHEN ((is_dry) AND (day IS NOT NULL)) THEN day END) AS "DRY_count"
         ,MAX(CASE WHEN ((is_dry) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DRY_max_day_gap"
         ,MAX(COALESCE("WET_seq", 0)) AS "WET"
-        ,COUNT(*) FILTER (WHERE is_wet AND is_humidity_day) AS "WET_above"
-        ,COUNT(*) FILTER (WHERE is_wet AND NOT is_humidity_day) AS "WET_below"
+        ,COUNT(*) FILTER (WHERE is_wet AND is_humid_day) AS "WET_above"
+        ,COUNT(*) FILTER (WHERE is_wet AND NOT is_humid_day) AS "WET_below"
         ,COUNT(DISTINCT CASE WHEN ((is_wet) AND (day IS NOT NULL)) THEN day END) AS "WET_count"
         ,MAX(CASE WHEN ((is_wet) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "WET_max_day_gap"
         ,MAX(COALESCE("ANNUAL_seq", 0)) "ANNUAL"
-        ,COUNT(*) FILTER (WHERE is_annual AND is_humidity_day) AS "ANNUAL_above"
-        ,COUNT(*) FILTER (WHERE is_annual AND NOT is_humidity_day) AS "ANNUAL_below"
+        ,COUNT(*) FILTER (WHERE is_annual AND is_humid_day) AS "ANNUAL_above"
+        ,COUNT(*) FILTER (WHERE is_annual AND NOT is_humid_day) AS "ANNUAL_below"
         ,COUNT(DISTINCT CASE WHEN ((is_annual) AND (day IS NOT NULL)) THEN day END) AS "ANNUAL_count"
         ,MAX(CASE WHEN ((is_annual) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ANNUAL_max_day_gap"
         ,MAX(COALESCE("DJFM_seq", 0))AS "DJFM"
-        ,COUNT(*) FILTER (WHERE is_djfm AND is_humidity_day) AS "DJFM_above"
-        ,COUNT(*) FILTER (WHERE is_djfm AND NOT is_humidity_day) AS "DJFM_below"
+        ,COUNT(*) FILTER (WHERE is_djfm AND is_humid_day) AS "DJFM_above"
+        ,COUNT(*) FILTER (WHERE is_djfm AND NOT is_humid_day) AS "DJFM_below"
         ,COUNT(DISTINCT CASE WHEN ((is_djfm) AND (day IS NOT NULL)) THEN day END) AS "DJFM_count"
         ,MAX(CASE WHEN ((is_djfm) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DJFM_max_day_gap"
     FROM fixed_consecutive_humidity_days fchd
