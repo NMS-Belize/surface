@@ -64,7 +64,7 @@ WITH RECURSIVE month_days AS (
         ,day_of_month
         ,month
         ,year
-        ,CASE WHEN max_value > {{threshold}} THEN TRUE ELSE FALSE END AS is_heat_day
+        ,CASE WHEN max_value > {{threshold}} THEN TRUE ELSE FALSE END AS is_hot_day
     FROM daily_data
 )
 ,extended_data AS(
@@ -80,7 +80,7 @@ WITH RECURSIVE month_days AS (
             WHEN month=12 THEN year+1
             WHEN month=1 THEN year-1
         END as year
-        ,is_heat_day
+        ,is_hot_day
     FROM heat_wave_data
     WHERE month in (1,12)
     UNION ALL
@@ -131,49 +131,49 @@ WITH RECURSIVE month_days AS (
 ,grouped_heat_days AS (
     SELECT
         *
-        ,SUM(CASE WHEN (is_jfm AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_jfm AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_jfm
             ORDER BY "JFM_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "JFM_group_id"
-        ,SUM(CASE WHEN (is_fma AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_fma AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_fma
             ORDER BY "FMA_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "FMA_group_id"
-        ,SUM(CASE WHEN (is_mam AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_mam AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_mam
             ORDER BY "MAM_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "MAM_group_id"
-        ,SUM(CASE WHEN (is_amj AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_amj AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_amj
             ORDER BY "AMJ_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "AMJ_group_id"
-        ,SUM(CASE WHEN (is_mjj AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_mjj AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_mjj
             ORDER BY "MJJ_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "MJJ_group_id"
-        ,SUM(CASE WHEN (is_jja AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_jja AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_jja
             ORDER BY "JJA_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "JJA_group_id"
-        ,SUM(CASE WHEN (is_jas AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_jas AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_jas
             ORDER BY "JAS_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "JAS_group_id"
-        ,SUM(CASE WHEN (is_aso AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_aso AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_aso
             ORDER BY "ASO_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "ASO_group_id"
-        ,SUM(CASE WHEN (is_son AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_son AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_son
             ORDER BY "SON_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "SON_group_id"
-        ,SUM(CASE WHEN (is_ond AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_ond AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_ond
             ORDER BY "OND_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "OND_group_id"
-        ,SUM(CASE WHEN (is_ndj AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_ndj AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_ndj
             ORDER BY "NDJ_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "NDJ_group_id"
-        ,SUM(CASE WHEN (is_dry AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_dry AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_dry
             ORDER BY "DRY_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "DRY_group_id"
-        ,SUM(CASE WHEN (is_wet AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_wet AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_wet
             ORDER BY "WET_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "WET_group_id"
-        ,SUM(CASE WHEN (is_annual AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_annual AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_annual
             ORDER BY "ANNUAL_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "ANNUAL_group_id"
-        ,SUM(CASE WHEN (is_djfm AND (NOT is_heat_day) OR day_gap > 0) THEN 1 ELSE 0 END)
+        ,SUM(CASE WHEN (is_djfm AND (NOT is_hot_day) OR day_gap > 0) THEN 1 ELSE 0 END)
             OVER (PARTITION BY year, station_id, is_djfm
             ORDER BY "DJFM_rn" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "DJFM_group_id"
     FROM numbered_heat_days
@@ -220,7 +220,7 @@ WITH RECURSIVE month_days AS (
         ,day_of_month
         ,month
         ,year
-        ,is_heat_day
+        ,is_hot_day
         ,day_gap
         ,is_jfm
         ,is_fma
@@ -258,7 +258,7 @@ WITH RECURSIVE month_days AS (
 --     SELECT
 --         *
 --         ,MAX(day_gap) OVER (PARTITION BY station_id, year ORDER BY day ROWS BETWEEN ({{heat_wave_window}}-2) PRECEDING AND CURRENT ROW) AS heat_wave_max_day_gap
---         ,SUM(is_heat_day) OVER (PARTITION BY station_id, year ORDER BY day ROWS BETWEEN ({{heat_wave_window}}-1) PRECEDING AND CURRENT ROW) AS heat_wave_duration
+--         ,SUM(is_hot_day) OVER (PARTITION BY station_id, year ORDER BY day ROWS BETWEEN ({{heat_wave_window}}-1) PRECEDING AND CURRENT ROW) AS heat_wave_duration
 --     FROM daily_lagged_data
 -- )
 -- ,heat_wave_calc AS (
@@ -276,77 +276,77 @@ WITH RECURSIVE month_days AS (
         ,year
         ,COALESCE(MAX("JFM_seq") FILTER (WHERE "JFM_seq" > {{heat_wave_window}}),0) AS "JFM_max_seq"
         ,COUNT(*) FILTER (WHERE is_jfm AND "JFM_seq" = {{heat_wave_window}}) AS "JFM_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_jfm AND is_heat_day) AS "JFM_hot_days"
+        ,COUNT(*) FILTER (WHERE is_jfm AND is_hot_day) AS "JFM_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_jfm) AND (day IS NOT NULL)) THEN day END) AS "JFM_count"
         ,MAX(CASE WHEN ((is_jfm) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JFM_max_day_gap"
         ,COALESCE(MAX("FMA_seq") FILTER (WHERE "FMA_seq" > {{heat_wave_window}}),0) AS "FMA_max_seq"
         ,COUNT(*) FILTER (WHERE is_fma AND "FMA_seq" = {{heat_wave_window}}) AS "FMA_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_fma AND is_heat_day) AS "FMA_hot_days"
+        ,COUNT(*) FILTER (WHERE is_fma AND is_hot_day) AS "FMA_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_fma) AND (day IS NOT NULL)) THEN day END) AS "FMA_count"
         ,MAX(CASE WHEN ((is_fma) AND NOT (month = 2 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "FMA_max_day_gap"
         ,COALESCE(MAX("MAM_seq") FILTER (WHERE "MAM_seq" > {{heat_wave_window}}),0) AS "MAM_max_seq"
         ,COUNT(*) FILTER (WHERE is_mam AND "MAM_seq" = {{heat_wave_window}}) AS "MAM_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_mam AND is_heat_day) AS "MAM_hot_days"
+        ,COUNT(*) FILTER (WHERE is_mam AND is_hot_day) AS "MAM_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_mam) AND (day IS NOT NULL)) THEN day END) AS "MAM_count"
         ,MAX(CASE WHEN ((is_mam) AND NOT (month = 3 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MAM_max_day_gap"
         ,COALESCE(MAX("AMJ_seq") FILTER (WHERE "AMJ_seq" > {{heat_wave_window}}),0) AS "AMJ_max_seq"
         ,COUNT(*) FILTER (WHERE is_amj AND "AMJ_seq" = {{heat_wave_window}}) AS "AMJ_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_amj AND is_heat_day) AS "AMJ_hot_days"
+        ,COUNT(*) FILTER (WHERE is_amj AND is_hot_day) AS "AMJ_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_amj) AND (day IS NOT NULL)) THEN day END) AS "AMJ_count"
         ,MAX(CASE WHEN ((is_amj) AND NOT (month = 4 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "AMJ_max_day_gap"
         ,COALESCE(MAX("MJJ_seq") FILTER (WHERE "MJJ_seq" > {{heat_wave_window}}),0) AS "MJJ_max_seq"
         ,COUNT(*) FILTER (WHERE is_mjj AND "MJJ_seq" = {{heat_wave_window}}) AS "MJJ_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_mjj AND is_heat_day) AS "MJJ_hot_days"
+        ,COUNT(*) FILTER (WHERE is_mjj AND is_hot_day) AS "MJJ_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_mjj) AND (day IS NOT NULL)) THEN day END) AS "MJJ_count"
         ,MAX(CASE WHEN ((is_mjj) AND NOT (month = 5 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MJJ_max_day_gap"
         ,COALESCE(MAX("JJA_seq") FILTER (WHERE "JJA_seq" > {{heat_wave_window}}),0) AS "JJA_max_seq"
         ,COUNT(*) FILTER (WHERE is_jja AND "JJA_seq" = {{heat_wave_window}}) AS "JJA_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_jja AND is_heat_day) AS "JJA_hot_days"
+        ,COUNT(*) FILTER (WHERE is_jja AND is_hot_day) AS "JJA_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_jja) AND (day IS NOT NULL)) THEN day END) AS "JJA_count"
         ,MAX(CASE WHEN ((is_jja) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JJA_max_day_gap"
         ,COALESCE(MAX("JAS_seq") FILTER (WHERE "JAS_seq" > {{heat_wave_window}}),0) AS "JAS_max_seq"
         ,COUNT(*) FILTER (WHERE is_jas AND "JAS_seq" = {{heat_wave_window}}) AS "JAS_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_jas AND is_heat_day) AS "JAS_hot_days"
+        ,COUNT(*) FILTER (WHERE is_jas AND is_hot_day) AS "JAS_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_jas) AND (day IS NOT NULL)) THEN day END) AS "JAS_count"
         ,MAX(CASE WHEN ((is_jas) AND NOT (month = 7 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JAS_max_day_gap"
         ,COALESCE(MAX("ASO_seq") FILTER (WHERE "ASO_seq" > {{heat_wave_window}}),0) AS "ASO_max_seq"
         ,COUNT(*) FILTER (WHERE is_aso AND "ASO_seq" = {{heat_wave_window}}) AS "ASO_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_aso AND is_heat_day) AS "ASO_hot_days"
+        ,COUNT(*) FILTER (WHERE is_aso AND is_hot_day) AS "ASO_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_aso) AND (day IS NOT NULL)) THEN day END) AS "ASO_count"
         ,MAX(CASE WHEN ((is_aso) AND NOT (month = 8 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ASO_max_day_gap"
         ,COALESCE(MAX("SON_seq") FILTER (WHERE "SON_seq" > {{heat_wave_window}}),0) AS "SON_max_seq"
         ,COUNT(*) FILTER (WHERE is_son AND "SON_seq" = {{heat_wave_window}}) AS "SON_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_son AND is_heat_day) AS "SON_hot_days"
+        ,COUNT(*) FILTER (WHERE is_son AND is_hot_day) AS "SON_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_son) AND (day IS NOT NULL)) THEN day END) AS "SON_count"
         ,MAX(CASE WHEN ((is_son) AND NOT (month = 9 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "SON_max_day_gap"
         ,COALESCE(MAX("OND_seq") FILTER (WHERE "OND_seq" > {{heat_wave_window}}),0) AS "OND_max_seq"
         ,COUNT(*) FILTER (WHERE is_ond AND "OND_seq" = {{heat_wave_window}}) AS "OND_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_ond AND is_heat_day) AS "OND_hot_days"
+        ,COUNT(*) FILTER (WHERE is_ond AND is_hot_day) AS "OND_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_ond) AND (day IS NOT NULL)) THEN day END) AS "OND_count"
         ,MAX(CASE WHEN ((is_ond) AND NOT (month = 10 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "OND_max_day_gap"
         ,COALESCE(MAX("NDJ_seq") FILTER (WHERE "NDJ_seq" > {{heat_wave_window}}),0) AS "NDJ_max_seq"
         ,COUNT(*) FILTER (WHERE is_ndj AND "NDJ_seq" = {{heat_wave_window}}) AS "NDJ_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_ndj AND is_heat_day) AS "NDJ_hot_days"
+        ,COUNT(*) FILTER (WHERE is_ndj AND is_hot_day) AS "NDJ_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_ndj) AND (day IS NOT NULL)) THEN day END) AS "NDJ_count"
         ,MAX(CASE WHEN ((is_ndj) AND NOT (month = 11 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "NDJ_max_day_gap"
         ,COALESCE(MAX("DRY_seq") FILTER (WHERE "DRY_seq" > {{heat_wave_window}}),0) AS "DRY_max_seq"
         ,COUNT(*) FILTER (WHERE is_dry AND "DRY_seq" = {{heat_wave_window}}) AS "DRY_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_dry AND is_heat_day) AS "DRY_hot_days"
+        ,COUNT(*) FILTER (WHERE is_dry AND is_hot_day) AS "DRY_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_dry) AND (day IS NOT NULL)) THEN day END) AS "DRY_count"
         ,MAX(CASE WHEN ((is_dry) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DRY_max_day_gap"
         ,COALESCE(MAX("WET_seq") FILTER (WHERE "WET_seq" > {{heat_wave_window}}),0) AS "WET_max_seq"
         ,COUNT(*) FILTER (WHERE is_wet AND "WET_seq" = {{heat_wave_window}}) AS "WET_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_wet AND is_heat_day) AS "WET_hot_days"
+        ,COUNT(*) FILTER (WHERE is_wet AND is_hot_day) AS "WET_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_wet) AND (day IS NOT NULL)) THEN day END) AS "WET_count"
         ,MAX(CASE WHEN ((is_wet) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "WET_max_day_gap"
         ,COALESCE(MAX("ANNUAL_seq") FILTER (WHERE "ANNUAL_seq" > {{heat_wave_window}}),0) AS "ANNUAL_max_seq"
         ,COUNT(*) FILTER (WHERE is_annual AND "ANNUAL_seq" = {{heat_wave_window}}) AS "ANNUAL_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_annual AND is_heat_day) AS "ANNUAL_hot_days"
+        ,COUNT(*) FILTER (WHERE is_annual AND is_hot_day) AS "ANNUAL_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_annual) AND (day IS NOT NULL)) THEN day END) AS "ANNUAL_count"
         ,MAX(CASE WHEN ((is_annual) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ANNUAL_max_day_gap"
         ,COALESCE(MAX("DJFM_seq") FILTER (WHERE "DJFM_seq" > {{heat_wave_window}}),0) AS "DJFM_max_seq"
         ,COUNT(*) FILTER (WHERE is_djfm AND "DJFM_seq" = {{heat_wave_window}}) AS "DJFM_heat_wave_events"
-        ,COUNT(*) FILTER (WHERE is_djfm AND is_heat_day) AS "DJFM_hot_days"
+        ,COUNT(*) FILTER (WHERE is_djfm AND is_hot_day) AS "DJFM_hot_days"
         ,COUNT(DISTINCT CASE WHEN ((is_djfm) AND (day IS NOT NULL)) THEN day END) AS "DJFM_count"
         ,MAX(CASE WHEN ((is_djfm) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DJFM_max_day_gap"
     FROM fixed_consecutive_heat_days fchd

@@ -47,39 +47,29 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
-WITH lagged_data AS (
+WITH spi_lagged_data AS (
     SELECT
         *
         ,EXTRACT(DAY FROM day) AS day_of_month
-        ,day - 1 - LAG(day) OVER (PARTITION BY station_id, variable_id ORDER BY day) AS day_gap
+        ,day - 1 - LAG(day) OVER (PARTITION BY station_id, variable_id, EXTRACT(YEAR FROM day) ORDER BY day) AS day_gap
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('VWC1FT', 'VWC4FT', 'PRECIP')
-)
-,monthly_data AS (
-    SELECT
-        station_id
-        ,symbol AS variable
-        ,date_trunc('month', day::date)::date AS date
-        ,EXTRACT(YEAR FROM day::date) AS year  
-        ,EXTRACT(MONTH FROM day::date) AS month        
-        ,MAX(day_gap) AS day_gap
-        ,MAX(CASE WHEN day_of_month <= {{max_day_gap}} THEN 0 ELSE day_gap END) AS fm_day_gap
-        ,COUNT(*) AS days_records_month
-        ,MIN(min_value) AS min_value
-        ,MAX(max_value) AS max_value
-        ,AVG(avg_value) AS avg_value
-        ,SUM(sum_value) AS sum_value
-    FROM lagged_data
-    GROUP BY station_id, variable, date, year, month
+      AND vr.symbol IN ('PRECIP')
 )
 ,spi_monthly_data AS (
     SELECT
-        *
-    FROM monthly_data
-    WHERE variable = 'PRECIP'
+        station_id
+        ,date_trunc('month', day::date)::date AS date
+        ,MAX(day_gap) AS day_gap
+        ,MAX(CASE WHEN day_of_month <= {{max_day_gap}} THEN 0 ELSE day_gap END) AS fm_day_gap
+        ,COUNT(*) AS days_records_month
+        ,SUM(sum_value) AS value
+    FROM spi_lagged_data ld
+    JOIN wx_variable vr ON vr.id = ld.variable_id
+    WHERE station_id = {{station_id}}
+      AND vr.symbol = 'PRECIP'
+    GROUP BY station_id, date
 )
 ,spi_expanded_dates AS (
     SELECT {{station_id}} AS station_id, date
@@ -99,7 +89,7 @@ WITH lagged_data AS (
         ,md.day_gap
         ,md.fm_day_gap
         ,COALESCE(md.days_records_month, 0) AS days_records_month
-        ,md.sum_value AS value
+        ,md.value
     FROM spi_expanded_dates ed
     LEFT JOIN spi_monthly_data md ON md.date = ed.date AND md.station_id = ed.station_id
 )
@@ -214,120 +204,24 @@ WITH lagged_data AS (
         ,sf.window_size
         ,CASE
             WHEN NOT sf.full_w THEN 'Missing Window'
-            WHEN sf.day_gap_w > {{max_day_gap}} THEN 'Gap Exceded'||sf.day_gap_w::text
+            WHEN sf.day_gap_w > {{max_day_gap}} THEN 'Gap Exceded'
             WHEN sf.day_pct_w < (100 - {{max_day_pct}}) THEN 'Pct Exceded'
             ELSE ROUND(((sf.value_w - sgp.mean)/sgp.std)::numeric, 2)::text
         END AS spi_value_w
     FROM spi_filtered sf
     JOIN spi_gamma_params sgp ON sf.window_size = sgp.window_size
 )
-,spi_final AS (
-    SELECT
-        st.name AS station
-        ,'SPI' AS product
-        ,year
-        ,month
-        ,MAX(CASE WHEN window_size = 1 THEN spi_value_w END) AS "SPI-1"
-        ,MAX(CASE WHEN window_size = 3 THEN spi_value_w END) AS "SPI-3"
-        ,MAX(CASE WHEN window_size = 6 THEN spi_value_w END) AS "SPI-6"
-        ,MAX(CASE WHEN window_size = 12 THEN spi_value_w END) AS "SPI-12"
-        ,MAX(CASE WHEN window_size = 24 THEN spi_value_w END) AS "SPI-24"
-    FROM spi_calc sc
-    JOIN wx_station st ON st.id = sc.station_id
-    GROUP BY station, product, year, month
-    ORDER BY station, year, month
-)
-,smdi_monthly_data AS (
-    SELECT
-        *
-    FROM monthly_data
-    WHERE variable IN ('VWC1FT', 'VWC4FT')
-)
-,smdi_soil_deficit_calc AS ( 
-    SELECT
-        md.station_id
-        ,md.variable
-        ,md.fm_day_gap
-        ,ROUND((100*days_records_month/EXTRACT(DAY FROM (
-            DATE_TRUNC('MONTH', md.date)+ INTERVAL '1 MONTH' - INTERVAL '1 day'
-        )))::numeric,2) AS day_pct
-        ,md.date
-        ,md.month
-        ,CASE 
-            WHEN md.avg_value <= mlt.avg_value THEN 
-                100*(md.avg_value - mlt.avg_value)/(mlt.avg_value - mlt.min_value)
-            ELSE 100*(md.avg_value - mlt.avg_value)/(mlt.max_value - mlt.avg_value)
-        END AS soil_deficit
-    FROM smdi_monthly_data md
-    JOIN (
-        SELECT
-            station_id
-            ,variable
-            ,month
-            ,MAX(max_value) AS max_value
-            ,MIN(min_value) AS min_value
-            ,AVG(avg_value) AS avg_value
-        FROM smdi_monthly_data
-        GROUP BY station_id, variable, month        
-    ) mlt ON mlt.station_id = md.station_id
-        AND mlt.month = md.month
-        AND mlt.variable = md.variable
-)
-,smdi_calc AS (
-    SELECT
-        station_id,
-        variable,
-        EXTRACT(MONTH FROM date) AS month,
-        EXTRACT(YEAR FROM date) AS year,
-        CASE 
-            WHEN fm_day_gap > {{max_day_gap}} THEN 'Gap Exceded'
-            WHEN day_pct < (100-{{max_day_pct}}) THEN 'Pct Exceded'
-            ELSE ROUND(smdi::numeric,2)::text
-        END AS smdi_value
-    FROM (
-        SELECT
-            station_id,
-            variable,
-            UNNEST(ARRAY_AGG(fm_day_gap)) AS fm_day_gap,
-            UNNEST(ARRAY_AGG(day_pct)) AS day_pct,
-            UNNEST(ARRAY_AGG(date)) AS date,
-            UNNEST(smdi_function(ARRAY_AGG(soil_deficit ORDER BY date))) AS smdi
-        FROM smdi_soil_deficit_calc
-        GROUP BY station_id, variable
-    ) t
-)
-,smdi_final AS (
-    SELECT
-        st.name AS station
-        ,'SMDI' AS product
-        ,year
-        ,month
-        ,MAX(CASE WHEN variable = 'VWC1FT' THEN smdi_value END) AS "SMDI-1FT"
-        ,MAX(CASE WHEN variable = 'VWC4FT' THEN smdi_value END) AS "SMDI-4FT"
-    FROM smdi_calc sc
-    JOIN wx_station st ON st.id = sc.station_id
-    GROUP BY station, product, year, month
-    ORDER BY station, year, month
-)
 SELECT
     st.name AS station
-    ,'SPI and SMDI' AS product
-    ,md.year
-    ,md.month AS "Month"
-    ,"SPI-1"
-    ,"SPI-3"
-    ,"SPI-6"
-    ,"SPI-12"
-    ,"SPI-24"
-    ,"SMDI-1FT"
-    ,"SMDI-4FT"
-FROM (SELECT DISTINCT station_id, year, month FROM monthly_data) md
-JOIN wx_station st ON st.id = md.station_id
-LEFT JOIN smdi_final smdi ON smdi.station = st.name
-    AND smdi.year = md.year
-    AND smdi.month = md.month
-LEFT JOIN spi_final spi ON spi.station = st.name
-    AND spi.year = md.year
-    AND spi.month = md.month
-WHERE md.year BETWEEN {{start_year}} AND {{end_year}}
-ORDER BY station, product, md.year, md.month
+    ,'SPI' AS product
+    ,year
+    ,month AS "Month"
+    ,MAX(CASE WHEN window_size = 1 THEN spi_value_w END) AS "SPI-1"
+    ,MAX(CASE WHEN window_size = 3 THEN spi_value_w END) AS "SPI-3"
+    ,MAX(CASE WHEN window_size = 6 THEN spi_value_w END) AS "SPI-6"
+    ,MAX(CASE WHEN window_size = 12 THEN spi_value_w END) AS "SPI-12"
+    ,MAX(CASE WHEN window_size = 24 THEN spi_value_w END) AS "SPI-24"
+FROM spi_calc sc
+JOIN wx_station st ON st.id = sc.station_id
+GROUP BY station, product, year, month
+ORDER BY station, year, month;

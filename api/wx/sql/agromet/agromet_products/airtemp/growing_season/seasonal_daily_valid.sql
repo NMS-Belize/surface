@@ -1,3 +1,20 @@
+CREATE OR REPLACE FUNCTION growing_degree_days(
+    tmax float,             -- °C
+    tmin float,             -- °C
+    tbase float             -- °C
+) RETURNS float AS $$    -- °C
+DECLARE
+    gdd float;           -- °C
+BEGIN
+    IF NULL IN (tmax, tmin, tbase) THEN
+        RETURN NULL;
+    END IF;
+
+    gdd := GREATEST(0, (tmax+tmin) / 2.0 - tbase);
+    RETURN gdd;
+END;
+$$ LANGUAGE plpgsql;
+
 WITH month_days AS (
     SELECT
         EXTRACT(MONTH FROM day) AS month,
@@ -46,23 +63,32 @@ WITH month_days AS (
 ,daily_data AS (
     SELECT
         station_id
-        ,vr.symbol AS variable
         ,day
         ,EXTRACT(DAY FROM day) AS day_of_month
         ,EXTRACT(MONTH FROM day) AS month
         ,EXTRACT(YEAR FROM day) AS year
-        ,min_value
-        ,max_value
+        ,MAX(CASE WHEN vr.symbol = 'TEMPMAX' THEN max_value ELSE NULL END)::float AS tmax
+        ,MIN(CASE WHEN vr.symbol = 'TEMPMIN' THEN min_value ELSE NULL END)::float AS tmin
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('TSOIL1', 'TSOIL4')
+      AND vr.symbol IN ('TEMPMAX', 'TEMPMIN')
       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
+    GROUP BY station_id, day
+)
+,gdd_calc AS (
+    SELECT
+        station_id
+        ,day
+        ,day_of_month
+        ,month
+        ,year
+        ,growing_degree_days(tmax, tmin, {{base_temp}}) AS gdd_value
+    FROM daily_data
 )
 ,extended_data AS(
     SELECT
         station_id
-        ,variable
         ,day
         ,day_of_month
         ,CASE 
@@ -73,12 +99,11 @@ WITH month_days AS (
             WHEN month=12 THEN year+1
             WHEN month=1 THEN year-1
         END as year
-        ,min_value
-        ,max_value
-    FROM daily_data
+        ,gdd_value
+    FROM gdd_calc
     WHERE month in (1,12)
     UNION ALL
-    SELECT * FROM daily_data
+    SELECT * FROM gdd_calc
 )
 ,daily_lagged_data AS (
     SELECT
@@ -98,83 +123,81 @@ WITH month_days AS (
         ,CASE WHEN month IN (6, 7, 8, 9, 10, 11) THEN TRUE ELSE FALSE END AS is_wet
         ,CASE WHEN month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) THEN TRUE ELSE FALSE END AS is_annual
         ,CASE WHEN month IN (0, 1, 2, 3) THEN TRUE ELSE FALSE END AS is_djfm        
-        ,day - 1 - LAG(day) OVER (PARTITION BY station_id, variable, year ORDER BY day) AS day_gap
+        ,day - 1 - LAG(day) OVER (PARTITION BY station_id, year ORDER BY day) AS day_gap
     FROM extended_data
     WHERE year BETWEEN {{start_year}} AND {{end_year}}  
 )
 ,aggreated_data AS (
     SELECT
         st.name AS station
-        ,variable
         ,year
-        ,MIN(day) FILTER (WHERE (is_jfm AND min_value > {{threshold}})) AS "JFM_first_date"
-        ,MAX(day) FILTER (WHERE (is_jfm AND min_value > {{threshold}})) AS "JFM_last_date"
+        ,MIN(day) FILTER (WHERE (is_jfm AND gdd_value > 0)) AS "JFM_first_date"
+        ,MAX(day) FILTER (WHERE (is_jfm AND gdd_value > 0)) AS "JFM_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_jfm) AND (day IS NOT NULL))) AS "JFM_count"
         ,MAX(CASE WHEN ((is_jfm) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JFM_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_fma AND min_value > {{threshold}})) AS "FMA_first_date"
-        ,MAX(day) FILTER (WHERE (is_fma AND min_value > {{threshold}})) AS "FMA_last_date"
+        ,MIN(day) FILTER (WHERE (is_fma AND gdd_value > 0)) AS "FMA_first_date"
+        ,MAX(day) FILTER (WHERE (is_fma AND gdd_value > 0)) AS "FMA_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_fma) AND (day IS NOT NULL))) AS "FMA_count"
         ,MAX(CASE WHEN ((is_fma) AND NOT (month = 2 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "FMA_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_mam AND min_value > {{threshold}})) AS "MAM_first_date"
-        ,MAX(day) FILTER (WHERE (is_mam AND min_value > {{threshold}})) AS "MAM_last_date"
+        ,MIN(day) FILTER (WHERE (is_mam AND gdd_value > 0)) AS "MAM_first_date"
+        ,MAX(day) FILTER (WHERE (is_mam AND gdd_value > 0)) AS "MAM_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_mam) AND (day IS NOT NULL))) AS "MAM_count"
         ,MAX(CASE WHEN ((is_mam) AND NOT (month = 3 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MAM_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_amj AND min_value > {{threshold}})) AS "AMJ_first_date"
-        ,MAX(day) FILTER (WHERE (is_amj AND min_value > {{threshold}})) AS "AMJ_last_date"
+        ,MIN(day) FILTER (WHERE (is_amj AND gdd_value > 0)) AS "AMJ_first_date"
+        ,MAX(day) FILTER (WHERE (is_amj AND gdd_value > 0)) AS "AMJ_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_amj) AND (day IS NOT NULL))) AS "AMJ_count"
         ,MAX(CASE WHEN ((is_amj) AND NOT (month = 4 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "AMJ_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_mjj AND min_value > {{threshold}})) AS "MJJ_first_date"
-        ,MAX(day) FILTER (WHERE (is_mjj AND min_value > {{threshold}})) AS "MJJ_last_date"
+        ,MIN(day) FILTER (WHERE (is_mjj AND gdd_value > 0)) AS "MJJ_first_date"
+        ,MAX(day) FILTER (WHERE (is_mjj AND gdd_value > 0)) AS "MJJ_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_mjj) AND (day IS NOT NULL))) AS "MJJ_count"
         ,MAX(CASE WHEN ((is_mjj) AND NOT (month = 5 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "MJJ_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_jja AND min_value > {{threshold}})) AS "JJA_first_date"
-        ,MAX(day) FILTER (WHERE (is_jja AND min_value > {{threshold}})) AS "JJA_last_date"
+        ,MIN(day) FILTER (WHERE (is_jja AND gdd_value > 0)) AS "JJA_first_date"
+        ,MAX(day) FILTER (WHERE (is_jja AND gdd_value > 0)) AS "JJA_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_jja) AND (day IS NOT NULL))) AS "JJA_count"
         ,MAX(CASE WHEN ((is_jja) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JJA_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_jas AND min_value > {{threshold}})) AS "JAS_first_date"
-        ,MAX(day) FILTER (WHERE (is_jas AND min_value > {{threshold}})) AS "JAS_last_date"
+        ,MIN(day) FILTER (WHERE (is_jas AND gdd_value > 0)) AS "JAS_first_date"
+        ,MAX(day) FILTER (WHERE (is_jas AND gdd_value > 0)) AS "JAS_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_jas) AND (day IS NOT NULL))) AS "JAS_count"
         ,MAX(CASE WHEN ((is_jas) AND NOT (month = 7 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "JAS_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_aso AND min_value > {{threshold}})) AS "ASO_first_date"
-        ,MAX(day) FILTER (WHERE (is_aso AND min_value > {{threshold}})) AS "ASO_last_date"
+        ,MIN(day) FILTER (WHERE (is_aso AND gdd_value > 0)) AS "ASO_first_date"
+        ,MAX(day) FILTER (WHERE (is_aso AND gdd_value > 0)) AS "ASO_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_aso) AND (day IS NOT NULL))) AS "ASO_count"
         ,MAX(CASE WHEN ((is_aso) AND NOT (month = 8 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ASO_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_son AND min_value > {{threshold}})) AS "SON_first_date"
-        ,MAX(day) FILTER (WHERE (is_son AND min_value > {{threshold}})) AS "SON_last_date"
+        ,MIN(day) FILTER (WHERE (is_son AND gdd_value > 0)) AS "SON_first_date"
+        ,MAX(day) FILTER (WHERE (is_son AND gdd_value > 0)) AS "SON_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_son) AND (day IS NOT NULL))) AS "SON_count"
         ,MAX(CASE WHEN ((is_son) AND NOT (month = 9 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "SON_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_ond AND min_value > {{threshold}})) AS "OND_first_date"
-        ,MAX(day) FILTER (WHERE (is_ond AND min_value > {{threshold}})) AS "OND_last_date"
+        ,MIN(day) FILTER (WHERE (is_ond AND gdd_value > 0)) AS "OND_first_date"
+        ,MAX(day) FILTER (WHERE (is_ond AND gdd_value > 0)) AS "OND_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_ond) AND (day IS NOT NULL))) AS "OND_count"
         ,MAX(CASE WHEN ((is_ond) AND NOT (month = 10 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "OND_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_ndj AND min_value > {{threshold}})) AS "NDJ_first_date"
-        ,MAX(day) FILTER (WHERE (is_ndj AND min_value > {{threshold}})) AS "NDJ_last_date"
+        ,MIN(day) FILTER (WHERE (is_ndj AND gdd_value > 0)) AS "NDJ_first_date"
+        ,MAX(day) FILTER (WHERE (is_ndj AND gdd_value > 0)) AS "NDJ_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_ndj) AND (day IS NOT NULL))) AS "NDJ_count"
         ,MAX(CASE WHEN ((is_ndj) AND NOT (month = 11 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "NDJ_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_dry AND min_value > {{threshold}})) AS "DRY_first_date"
-        ,MAX(day) FILTER (WHERE (is_dry AND min_value > {{threshold}})) AS "DRY_last_date"
+        ,MIN(day) FILTER (WHERE (is_dry AND gdd_value > 0)) AS "DRY_first_date"
+        ,MAX(day) FILTER (WHERE (is_dry AND gdd_value > 0)) AS "DRY_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_dry) AND (day IS NOT NULL))) AS "DRY_count"
         ,MAX(CASE WHEN ((is_dry) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DRY_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_wet AND min_value > {{threshold}})) AS "WET_first_date"
-        ,MAX(day) FILTER (WHERE (is_wet AND min_value > {{threshold}})) AS "WET_last_date"
+        ,MIN(day) FILTER (WHERE (is_wet AND gdd_value > 0)) AS "WET_first_date"
+        ,MAX(day) FILTER (WHERE (is_wet AND gdd_value > 0)) AS "WET_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_wet) AND (day IS NOT NULL))) AS "WET_count"
         ,MAX(CASE WHEN ((is_wet) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "WET_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_annual AND min_value > {{threshold}})) AS "ANNUAL_first_date"
-        ,MAX(day) FILTER (WHERE (is_annual AND min_value > {{threshold}})) AS "ANNUAL_last_date"
+        ,MIN(day) FILTER (WHERE (is_annual AND gdd_value > 0)) AS "ANNUAL_first_date"
+        ,MAX(day) FILTER (WHERE (is_annual AND gdd_value > 0)) AS "ANNUAL_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_annual) AND (day IS NOT NULL))) AS "ANNUAL_count"
         ,MAX(CASE WHEN ((is_annual) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "ANNUAL_max_day_gap"
-        ,MIN(day) FILTER (WHERE (is_djfm AND min_value > {{threshold}})) AS "DJFM_first_date"
-        ,MAX(day) FILTER (WHERE (is_djfm AND min_value > {{threshold}})) AS "DJFM_last_date"
+        ,MIN(day) FILTER (WHERE (is_djfm AND gdd_value > 0)) AS "DJFM_first_date"
+        ,MAX(day) FILTER (WHERE (is_djfm AND gdd_value > 0)) AS "DJFM_last_date"
         ,COUNT(DISTINCT day) FILTER (WHERE ((is_djfm) AND (day IS NOT NULL))) AS "DJFM_count"
         ,MAX(CASE WHEN ((is_djfm) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) THEN day_gap ELSE 0 END) AS "DJFM_max_day_gap"
     FROM daily_lagged_data dld
     JOIN wx_station st ON st.id = dld.station_id
-    GROUP BY st.name, variable, year
+    GROUP BY st.name, year
 )
 ,aggregation_pct AS (
     SELECT
         station
-        ,variable
         ,ad.year
         ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_first_date" ELSE NULL END AS "JFM_first_date"
         ,CASE WHEN "JFM_max_day_gap" <= {{max_day_gap}} THEN "JFM_last_date" ELSE NULL END AS "JFM_last_date"
@@ -226,11 +249,7 @@ WITH month_days AS (
 )
 SELECT
     station
-    ,CASE product
-        WHEN 'First Date' THEN variable || ' First Date'
-        WHEN 'Last Date' THEN variable || ' Last Date'
-        ELSE NULL
-    END AS product
+    ,product
     ,year
     ,CASE WHEN "JFM (% of days)" >= (100-{{max_day_pct}}) THEN
         CASE product
