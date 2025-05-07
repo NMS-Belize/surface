@@ -1,1 +1,57 @@
-[{"model": "wx.stationcommunication", "pk": 1, "fields": {"created_at": "2015-06-16T01:32:19Z", "updated_at": "2019-11-29T20:55:12.829Z", "name": "Data", "description": "Mobile data", "color": "#364c95"}}, {"model": "wx.stationcommunication", "pk": 2, "fields": {"created_at": "2015-06-16T01:32:36Z", "updated_at": "2015-06-16T01:32:36Z", "name": "SAT", "description": "Satellite", "color": "#de2828"}}, {"model": "wx.stationcommunication", "pk": 3, "fields": {"created_at": "2019-11-27T18:29:01.260Z", "updated_at": "2019-11-27T18:29:01.260Z", "name": "WIFI", "description": "WiFi", "color": "#25382A"}}, {"model": "wx.stationcommunication", "pk": 4, "fields": {"created_at": "2019-11-27T18:29:46.352Z", "updated_at": "2019-11-29T20:54:28.776Z", "name": "RF", "description": "RF Link", "color": "#01A27F"}}, {"model": "wx.stationcommunication", "pk": 5, "fields": {"created_at": "2020-11-03T15:46:27.007Z", "updated_at": "2020-11-03T15:46:27.007Z", "name": "None", "description": "No communication", "color": "#ffffff"}}]
+[
+    {
+        "model": "wx.stationcommunication", 
+        "pk": 1, 
+        "fields": {
+            "created_at": "2015-06-16T01:32:19Z", 
+            "updated_at": "2019-11-29T20:55:12.829Z", 
+            "name": "Data", 
+            "description": "Mobile data", 
+            "color": "#364c95"
+        }
+    }, 
+    {
+        "model": "wx.stationcommunication", 
+        "pk": 2, 
+        "fields": {
+            "created_at": "2015-06-16T01:32:36Z", 
+            "updated_at": "2015-06-16T01:32:36Z", 
+            "name": "SAT", 
+            "description": "Satellite", 
+            "color": "#de2828"
+        }
+    }, 
+    {
+        "model": "wx.stationcommunication", 
+        "pk": 3, 
+        "fields": {
+            "created_at": "2019-11-27T18:29:01.260Z", 
+            "updated_at": "2019-11-27T18:29:01.260Z", 
+            "name": "WIFI", 
+            "description": "WiFi", 
+            "color": "#25382A"
+        }
+    }, 
+    {
+        "model": "wx.stationcommunication", 
+        "pk": 4, 
+        "fields": {
+            "created_at": "2019-11-27T18:29:46.352Z", 
+            "updated_at": "2019-11-29T20:54:28.776Z", 
+            "name": "RF", 
+            "description": "RF Link", 
+            "color": "#01A27F"
+        }
+    }, 
+    {
+        "model": "wx.stationcommunication", 
+        "pk": 5, 
+        "fields": {
+            "created_at": "2020-11-03T15:46:27.007Z", 
+            "updated_at": "2020-11-03T15:46:27.007Z", 
+            "name": "None", 
+            "description": "No communication", 
+            "color": "#ffffff"
+        }
+    }
+]

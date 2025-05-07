@@ -1105,8 +1105,12 @@
         this.getAll("api/station_communications/").then(data => {
           this.station_communications = data;
           data.forEach(station_communication => {
-            if(station_communication.name != 'None')
-              this.defaultFilter.station_communications.push(station_communication.name);
+            // does not automatically hide all stations which have "No Communication" set
+            this.defaultFilter.station_communications.push(station_communication.name);
+
+            // this automatically hides all station which have "No Communication" set
+            // if(station_communication.name != 'None')
+            //   this.defaultFilter.station_communications.push(station_communication.name);
           });
         });
       },

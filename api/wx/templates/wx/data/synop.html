@@ -764,7 +764,7 @@
           .then(response => {
             if (typeof(response.data.dataset) === 'number'){
               calc_column_value = response.data.dataset;
-              hot.setDataAtCell(validating.row, 14, calc_column_value); // Update the corresponding cell
+              hot.setDataAtCell(validating.row, 12, calc_column_value); // Update the corresponding cell
             }
           })
           .catch(error => {
@@ -797,7 +797,7 @@
             if (typeof(response.data.dataset) === 'number'){
               calc_column_value = response.data.dataset;
               // console.log(`This is the value that that was calculated ${calc_column_value}`);
-              hot.setDataAtCell(validating.row, 16, calc_column_value); // Update the corresponding cell
+              hot.setDataAtCell(validating.row, 14, calc_column_value); // Update the corresponding cell
             }
           })
           .catch(error => {

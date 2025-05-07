@@ -7657,7 +7657,7 @@ class IntervalViewSet(viewsets.ModelViewSet):
 def get_synop_table_config():
     # List of variables, in order, for synoptic station input form
     variable_symbols = [
-        'PRECIND', 'STATIND', 'LOWCLHFt', 'VISBY-km',
+        'PRECIND', 'LOWCLHFt', 'VISBY-km',
         'CLDTOT', 'WNDDIR', 'WNDSPD', 'TEMP', 'TDEWPNT', 'TEMPWB',
         'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECIP', 'PREC24H', 'PRECDUR', 'PRSWX',
         'W1', 'W2', 'Nh', 'CL', 'CM', 'CH', 'STSKY',
@@ -7879,7 +7879,7 @@ def synop_pressure_calc(request):
             value = pressure_data[station_name]['data'][0]['value']  
 
             # return the absolute value as the pressure difference
-            pressure_difference = abs(value - pressure_value) if pressure_value != -99.9 and value != -99.9 else -99.9
+            pressure_difference = (value - pressure_value) if pressure_value != -99.9 and value != -99.9 else -99.9
         else:
             pressure_difference = 'no data'
 
