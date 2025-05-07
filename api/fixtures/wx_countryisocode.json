@@ -2165,5 +2165,82 @@
             "notation": "20000",
             "description": "Legacy Station Code (20000)"
         }
+    },
+    {
+        "model": "wx.countryisocode",
+        "pk": 198,
+        "fields": {
+            "created_at": "2025-04-07T18:28:39.370Z",
+            "updated_at": "2025-04-07T18:38:39.370Z",
+            "name": "Montserrat (500)",
+            "notation": "500",
+            "description": "ISO 3166-1 numeric code for Montserrat"
+        }
+    },
+    {
+        "model": "wx.countryisocode",
+        "pk": 199,
+        "fields": {
+            "created_at": "2025-04-07T18:28:39.370Z",
+            "updated_at": "2025-04-07T18:38:39.370Z",
+            "name": "British Virgin Islands (92)",
+            "notation": "92",
+            "description": "ISO 3166-1 numeric code for British Virgin Islands"
+        }
+    },
+    {
+        "model": "wx.countryisocode",
+        "pk": 200,
+        "fields": {
+            "created_at": "2025-04-07T18:28:39.370Z",
+            "updated_at": "2025-04-07T18:38:39.370Z",
+            "name": "Cayman Islands (136)",
+            "notation": "136",
+            "description": "ISO 3166-1 numeric code for Cayman Islands"
+        }
+    },
+    {
+        "model": "wx.countryisocode",
+        "pk": 201,
+        "fields": {
+            "created_at": "2025-04-07T18:28:39.370Z",
+            "updated_at": "2025-04-07T18:38:39.370Z",
+            "name": "Curaçao (531)",
+            "notation": "531",
+            "description": "ISO 3166-1 numeric code for Curaçao"
+        }
+    },
+    {
+        "model": "wx.countryisocode",
+        "pk": 202,
+        "fields": {
+            "created_at": "2025-04-07T18:28:39.370Z",
+            "updated_at": "2025-04-07T18:38:39.370Z",
+            "name": "Aruba (533)",
+            "notation": "533",
+            "description": "ISO 3166-1 numeric code for Aruba"
+        }
+    },
+    {
+        "model": "wx.countryisocode",
+        "pk": 203,
+        "fields": {
+            "created_at": "2025-04-07T18:28:39.370Z",
+            "updated_at": "2025-04-07T18:38:39.370Z",
+            "name": "Sint Maarten [Dutch part] (534)",
+            "notation": "534",
+            "description": "ISO 3166-1 numeric code for Sint Maarten [Dutch part]"
+        }
+    },
+    {
+        "model": "wx.countryisocode",
+        "pk": 204,
+        "fields": {
+            "created_at": "2025-04-07T18:28:39.370Z",
+            "updated_at": "2025-04-07T18:38:39.370Z",
+            "name": "Saint Martin [French part] (663)",
+            "notation": "663",
+            "description": "ISO 3166-1 numeric code for Saint Martin [French part]"
+        }
     }
 ]

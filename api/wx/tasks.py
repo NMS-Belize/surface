@@ -3336,10 +3336,15 @@ def hybrid_transmit_wis2box(id, station_name, regional_transmit, local_transmit,
 
     # load data_row with data from the AWS station
     for col in aws_data_row:
+        # if aws station pressure isn't complete (meaning msl and/ or station pressure is missing) 
+        # use all three pressure readings from the manual station. Pressure from AWS stations and 
+        # pressure from MWS stations are calculated with slightly different instruments, this methond
+        # avoids any inaccuracies.
+        # either take all pressure readings from AWS or MWS but don't mix both
         if col == "station_pressure":
             if aws_data_row[col] == None:
-                data_row[col] = mws_data_row["pressure_at_station_level"]
-                data_row["pressure_at_sea_level_hpa"] = mws_data_row["pressure_at_sea_level_hpa"]
+                data_row[col] = mws_data_row[col]
+                data_row["msl_pressure"] = mws_data_row["msl_pressure"]
                 data_row["24_hour_barometric_change"] = mws_data_row["24_hour_barometric_change"]
             else:
                 data_row[col] = aws_data_row[col]
@@ -3373,8 +3378,6 @@ def hybrid_transmit_wis2box(id, station_name, regional_transmit, local_transmit,
                 data_row[col] = aws_data_row[col]
 
         elif col == "wind_direction":
-            data_row["wind_indicator"] = mws_data_row["wind_indicator"]
-
             if aws_data_row[col] == None:
                 data_row[col] = mws_data_row["wind_direction"]
             else:
@@ -3405,7 +3408,7 @@ def hybrid_transmit_wis2box(id, station_name, regional_transmit, local_transmit,
             data_row[col] = aws_data_row[col]
 
     # load data_row with remaining data from the MWS station
-    remaining_mws_col = ["station_operation_indicator","lowest_cloud_height","visibility","cloud_cover_tot",
+    remaining_mws_col = ["lowest_cloud_height","visibility","cloud_cover_tot",
                          "present_weather","past_weather_w_1","past_weather_w_2","observed_cloud_coverage",
                          "low_cloud_type","middle_cloud_type","high_cloud_type","state_of_sky","direction_of_cl_clouds",
                          "direction_of_cm_clouds","direction_of_ch_clouds","cloud_coverage_l1","genus_of_cloud_l1",
@@ -3770,13 +3773,13 @@ def get_maunal_data(station_name, id):
         'wsi_series', 'wsi_issuer', 'wsi_issue_number', 'wsi_local', 'wmo_block_number',
         'wmo_station_number', 'station_type', 'year', 'month', 'day', 'hour', 'minute',
         'latitude', 'longitude', 'station_height_above_msl', 'barometer_height_above_msl',
-        'thermometer_height', 'anemometer_height', 'time_period_of_wind', 'rain_sensor_height', 
-        'wind_indicator', 'precipitation_indicator', 'station_operation_indicator',
-        'lowest_cloud_height', 'visibility', 'cloud_cover_tot', 'wind_direction',
+        'thermometer_height', 'anemometer_height', 'time_period_of_wind', 
+        'rain_sensor_height', 'precipitation_indicator', 'lowest_cloud_height', 
+        'visibility', 'cloud_cover_tot', 'wind_direction',
         'wind_speed', 'air_temperature', 'dewpoint_temperature',
         'maximum_air_temperature', 'minimum_air_temperature',
-        'wetbulb_temperature', 'relative_humidity', 'pressure_at_station_level',
-        'pressure_at_sea_level_hpa', 'precipitation', 'precipitation_period_duration',
+        'wetbulb_temperature', 'relative_humidity', 'station_pressure',
+        'msl_pressure', 'precipitation', 'precipitation_period_duration',
         '24_hour_barometric_change', 'total_precipitation_24_hours', 'present_weather',
         'past_weather_w_1', 'past_weather_w_2', 'observed_cloud_coverage',
         'low_cloud_type', 'middle_cloud_type', 'high_cloud_type', 'state_of_sky',
@@ -3856,7 +3859,7 @@ def get_maunal_data(station_name, id):
     ##########################################################################################
 
     # ------------- GETTING MANUAL STATIONS DATA START ------------- #
-    # query to get the measure values
+    # query to get the measured values
     manual_data_query = """
         SELECT variable_id, measured
         FROM raw_data
@@ -3873,8 +3876,8 @@ def get_maunal_data(station_name, id):
         WHERE station_id = %s 
         AND datetime = %s
         AND variable_id IN (1001, 1002, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1012,
-                            1013, 1015, 1016, 1017, 1018, 1019, 1020, 4005, 4006, 4040, 
-                            4041, 4042, 4044, 4045, 4046, 4047, 4043);
+                            1013, 1015, 1016, 1018, 1019, 4005, 4006, 
+                            4041, 4044, 4045, 4046, 4047, 4043);
     """
 
     # Execute the query
@@ -3883,11 +3886,11 @@ def get_maunal_data(station_name, id):
 
     # Mapping of variable_id to dictionary keys
     variable_mapping = {
-        4040: 'wind_indicator', 4041: 'precipitation_indicator', 4042: 'station_operation_indicator', 
+        4041: 'precipitation_indicator',
         4062: 'lowest_cloud_height', 4056: 'visibility', 1001: 'cloud_cover_tot', 
         55: 'wind_direction', 50: 'wind_speed', 10: 'air_temperature', 
         19: 'dewpoint_temperature', 18: 'wetbulb_temperature', 30: 'relative_humidity', 
-        60: 'pressure_at_station_level', 61: 'pressure_at_sea_level_hpa', 0: 'precipitation', 
+        60: 'station_pressure', 61: 'msl_pressure', 0: 'precipitation', 
         4043: 'precipitation_period_duration', 4057: '24_hour_barometric_change', 4055: 'total_precipitation_24_hours', 
         1002: 'present_weather', 1003: 'past_weather_w_1', 1004: 'past_weather_w_2', 
         4005: 'observed_cloud_coverage', 1006: 'low_cloud_type', 1007: 'middle_cloud_type', 
@@ -3998,13 +4001,15 @@ def get_aws_data(station_name, id):
         'station_pressure', 'msl_pressure', 'geopotential_height', 'thermometer_height',
         'air_temperature', 'dewpoint_temperature', 'relative_humidity',
         'method_of_ground_state_measurement', 'ground_state', 'method_of_snow_depth_measurement',
-        'snow_depth', 'precipitation_intensity', 'anemometer_height', 'time_period_of_wind',
+        'snow_depth', 'anemometer_height', 'time_period_of_wind',
         'wind_direction', 'wind_speed', 'maximum_wind_gust_direction_10_minutes',
         'maximum_wind_gust_speed_10_minutes', 'maximum_wind_gust_direction_1_hour',
         'maximum_wind_gust_speed_1_hour', 'maximum_wind_gust_direction_3_hours',
         'maximum_wind_gust_speed_3_hours', 'rain_sensor_height', 'total_precipitation_1_hour',
         'total_precipitation_3_hours', 'total_precipitation_6_hours',
-        'total_precipitation_12_hours', 'total_precipitation_24_hours']}
+        'total_precipitation_12_hours', 'total_precipitation_24_hours', 'solar_radiation',
+        'soil_temperature_depth_1', 'soil_temperature_depth_2', 'soil_temperature_1', 
+        'soil_temperature_2', 'soil_moisture_1', 'soil_moisture_2']}
 
 
     # checking if there is data in the database at the top of the hour (if not the output will be an error)
@@ -4065,7 +4070,9 @@ def get_aws_data(station_name, id):
             'anemometer_height': 10, 
             'time_period_of_wind': -5,
             'rain_sensor_height': 1.5, 
-            'station_type': 0
+            'station_type': 0,
+            'soil_temperature_depth_1' : 0.30,  # 1 feet in meters
+            'soil_temperature_depth_2' : 1.22 # 4 feet in meters
         })
 
     # write info out to logs
@@ -4084,7 +4091,7 @@ def get_aws_data(station_name, id):
     raw_data_query = """
         SELECT variable_id, measured, datetime FROM raw_data
         WHERE station_id = %s AND datetime = %s
-        AND variable_id IN (10, 19, 30, 51, 56, 60, 61);
+        AND variable_id IN (10, 19, 21, 23, 30, 51, 56, 60, 61, 72);
     """
     raw_data = execute_query(raw_data_query, [id, formatted_now], "Error fetching raw data")
 
@@ -4098,7 +4105,12 @@ def get_aws_data(station_name, id):
             51: ('wind_speed', round(measured, 1)),
             56: ('wind_direction', int(measured)),
             60: ('station_pressure', measured * 100),
-            61: ('msl_pressure', measured * 100)
+            61: ('msl_pressure', measured * 100),
+            72: ('solar_radiation', measured),
+            21: ('soil_temperature_1', measured),
+            23: ('soil_temperature_2', measured)
+            # 00: ('soil_moisture_1', measured),
+            # 00: ('soil_moisture_2', measured)
         }.get(variable_id, (None, None))
 
         if key:  # Only update if a valid key was found

@@ -53,8 +53,10 @@ class Country(BaseModel):
     notation = models.CharField(max_length=16)
     name = models.CharField(max_length=256, unique=True)
     description = models.CharField(max_length=256, null=True, blank=True)
+
     class Meta:
         verbose_name_plural = "countries"
+        ordering = ['name']
 
     def __str__(self):
         return self.name
@@ -353,6 +355,9 @@ class CountryISOCode(BaseModel):
     name = models.CharField(max_length=256, unique=True)
     description = models.CharField(max_length=256, null=True, blank=True)
     notation = models.CharField(max_length=256, unique=True)
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return self.name
