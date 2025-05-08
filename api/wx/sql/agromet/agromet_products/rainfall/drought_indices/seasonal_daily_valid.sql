@@ -70,6 +70,29 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
+CREATE OR REPLACE FUNCTION smdi_function(sd_values float[]) 
+RETURNS float[] AS $$
+DECLARE
+    smdi_results float[] := '{}';
+    smdi_prev float := 0;
+    smdi_curr float;
+    sd_curr float;
+BEGIN
+    FOREACH sd_curr IN ARRAY sd_values LOOP
+        IF sd_curr IS NULL THEN smdi_curr := NULL;
+        ELSE smdi_curr := 0.5 * COALESCE(smdi_prev, 0) + (sd_curr / 50);
+        END IF;
+
+        smdi_results := smdi_results || smdi_curr;
+        
+        IF smdi_curr IS NOT NULL THEN smdi_prev := smdi_curr;
+        END IF;
+    END LOOP;
+    
+    RETURN smdi_results;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
 WITH lagged_data AS (
     SELECT
         *
@@ -236,8 +259,8 @@ WITH lagged_data AS (
         ,sf.window_size
         ,CASE
             WHEN NOT sf.full_w THEN 'Missing Window'
-            WHEN sf.day_gap_w > {{max_day_gap}} THEN 'Gap Exceded'||sf.day_gap_w::text
-            WHEN sf.day_pct_w < (100 - {{max_day_pct}}) THEN 'Pct Exceded'
+            WHEN sf.day_gap_w > {{max_day_gap}} THEN 'Gap Exceeded'||sf.day_gap_w::text
+            WHEN sf.day_pct_w < (100 - {{max_day_pct}}) THEN 'Pct Exceeded'
             ELSE ROUND(((sf.value_w - sgp.mean)/sgp.std)::numeric, 2)::text
         END AS spi_value_w
     FROM spi_filtered sf
@@ -302,8 +325,8 @@ WITH lagged_data AS (
         EXTRACT(MONTH FROM date) AS month,
         EXTRACT(YEAR FROM date) AS year,
         CASE 
-            WHEN fm_day_gap > {{max_day_gap}} THEN 'Gap Exceded'
-            WHEN day_pct < (100-{{max_day_pct}}) THEN 'Pct Exceded'
+            WHEN fm_day_gap > {{max_day_gap}} THEN 'Gap Exceeded'
+            WHEN day_pct < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
             ELSE ROUND(smdi::numeric,2)::text
         END AS smdi_value
     FROM (

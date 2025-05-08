@@ -204,8 +204,8 @@ WITH spi_lagged_data AS (
         ,sf.window_size
         ,CASE
             WHEN NOT sf.full_w THEN 'Missing Window'
-            WHEN sf.day_gap_w > {{max_day_gap}} THEN 'Gap Exceded'
-            WHEN sf.day_pct_w < (100 - {{max_day_pct}}) THEN 'Pct Exceded'
+            WHEN sf.day_gap_w > {{max_day_gap}} THEN 'Gap Exceeded'
+            WHEN sf.day_pct_w < (100 - {{max_day_pct}}) THEN 'Pct Exceeded'
             ELSE ROUND(((sf.value_w - sgp.mean)/sgp.std)::numeric, 2)::text
         END AS spi_value_w
     FROM spi_filtered sf

@@ -6995,6 +6995,7 @@ def get_agromet_products_sql_env(requestedData: dict):
         'Wind': {
             'Wind Rose': 'wind/wind_rose',
             'Maximum and Average Wind speed': 'wind/maxavg_wind_speed',
+            'Diurnal Wind Speed Variation': 'wind/diurnal_variation',
             'Days of wind less than a selected speed': 'wind/wind_speed_threshold',
         },
         'Relative Humidity': {
@@ -7003,6 +7004,7 @@ def get_agromet_products_sql_env(requestedData: dict):
         'Free Water Evaporation / Evapotranspiration': {
             'Total amount': 'evaporation/total_amount',
             'Evapotranspiration': 'evaporation/evapotranspiration',
+            'Diurnal Evaporation Variation': 'evaporation/diurnal_variation',
         },
         'Sunshine/Radiation': {
             'Sunshine hours': 'sunshine/sunshine_hours',
@@ -7058,62 +7060,51 @@ def get_agromet_products_data(request):
     elif requestedData['summary_type']=='Monthly':
         requestedData['start_date'] = f"{int(requestedData['start_year'])}-01-01"
         requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-01-01"
-
-    agromet_variable_symbols = [
-        'TEMP',
-        'TEMPAVG',
-        'TEMPMAX',
-        'TEMPMIN',
-        'EVAPPAN',
-        'PRECIP',
-        'RH',
-        'RHAVG',
-        'RHMAX',
-        'RHMIN',
-        'TSOIL1',
-        'TSOIL4',
-        'SOLARRAD',
-        'WNDDIR',
-        'WNDSPD',
-        'WNDSPAVG',
-        'WNDSPMAX',
-        'WNDSPMIN'
-    ]  
-    
+   
     config = settings.SURFACE_CONNECTION_STRING
 
-    pgia_code = '8858307' # Phillip Goldson Int'l Synop
-    station = Station.objects.get(pk=requestedData['station_id'])
-    is_hourly_summary = station.is_automatic # or station.code == pgia_code
+    if not requestedData['validate_data']:
+        requestedData['max_hour_pct']=100
+        requestedData['max_day_pct']=100
+        requestedData['max_day_gap']=9999
 
     env = get_agromet_products_sql_env(requestedData)
     context = get_agromet_products_sql_context(requestedData, env)
 
-    if requestedData['summary_type'] == 'Seasonal':
-        if requestedData['validate_data']:
-            template_name = 'seasonal_hourly_valid.sql' if is_hourly_summary else 'seasonal_daily_valid.sql'
-        else:
-            template_name = 'seasonal_hourly_raw.sql' if is_hourly_summary else 'seasonal_daily_raw.sql'       
-    elif requestedData['summary_type'] == 'Monthly':
-        if requestedData['interval'] == '7 days':
-            if requestedData['validate_data']:
-                template_name = 'monthly_7d_hourly_valid.sql' if is_hourly_summary else 'monthly_7d_daily_valid.sql'
-            else:
-                template_name = 'monthly_7d_hourly_raw.sql' if is_hourly_summary else 'monthly_7d_daily_raw.sql'
 
-        elif requestedData['interval'] == '10 days':
-            if requestedData['validate_data']:
-               template_name = 'monthly_10d_hourly_valid.sql' if is_hourly_summary else 'monthly_10d_daily_valid.sql'
-            else:
-               template_name = 'monthly_10d_hourly_raw.sql' if is_hourly_summary else 'monthly_10d_daily_raw.sql'            
-        elif requestedData['interval'] == '1 month':
-            if requestedData['validate_data']:
-                template_name = 'monthly_1m_hourly_valid.sql' if is_hourly_summary else 'monthly_1m_daily_valid.sql'
-            else:
-                template_name = 'monthly_1m_hourly_raw.sql' if is_hourly_summary else 'monthly_1m_daily_raw.sql'
-            
+    pgia_code = '8858307' # Phillip Goldson Int'l Synop
+    station = Station.objects.get(pk=requestedData['station_id'])
+    hourly_products = [
+        # Air Temp
+        'Degree days',
+        'Days above or below selected temperature',
+        'Growing season statistics',
+        'Heat wave',
+        # Relative Humidity
+        'Duration of a specified threshold of humidity',
+        # Sunshine Radiation
+        'Solar Radiation',
+        'Global and Net Radiation',
+        # Wind
+        'Diurnal Wind Speed Variation',
+        # Evaporation
+        'Diurnal Evaporation Variation',
+        'Evapotranspiration',
+    ]
+
+    is_hourly_station = station.is_automatic or station.code==pgia_code
+    is_hourly_product = requestedData['product'] in hourly_products
+    is_hourly_data = (is_hourly_station and is_hourly_product)
+
+    if is_hourly_data:
+        template_name = 'seasonal_hourly_valid.sql'
+    else:
+        template_name = 'seasonal_daily_valid.sql'
+
     template = env.get_template(template_name)
     query = template.render(context)
+
+    print(query)
 
     config = settings.SURFACE_CONNECTION_STRING
     with psycopg2.connect(config) as conn:
@@ -7150,6 +7141,7 @@ def get_agromet_products_data(request):
         'Evapotranspiration',
         'Drought indices',
         'Flood and excess rainfall',
+        # 'Diurnal Wind Speed Variation',
     ]
     
     if requestedData['product'] not in products_without_statistics:

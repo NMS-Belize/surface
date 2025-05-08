@@ -83,8 +83,8 @@ WITH smdi_lagged_data AS (
         EXTRACT(MONTH FROM date) AS month,
         EXTRACT(YEAR FROM date) AS year,
         CASE 
-            WHEN day_gap > {{max_day_gap}} THEN 'Gap Exceded'
-            WHEN day_pct < (100-{{max_day_pct}}) THEN 'Pct Exceded'
+            WHEN day_gap > {{max_day_gap}} THEN 'Gap Exceeded'
+            WHEN day_pct < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
             ELSE smdi::text
         END AS smdi_value
     FROM (

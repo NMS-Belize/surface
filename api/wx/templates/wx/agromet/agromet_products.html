@@ -24,7 +24,6 @@
 							v-model="filters.is_automatic"
 							:label='filters.is_automatic?"Automatic Stations":"Manual Stations"'
 							inset
-							disabled
 						/>
 					</v-col>
 					<v-col cols="4">
@@ -52,7 +51,7 @@
 					<v-col cols="2">
                         <v-autocomplete
 							label="Select Product"
-							:items="Object.keys(elements[requestData.element])"
+							:items="Object.keys(filteredElements[requestData.element])"
 							v-model="requestData.product"
 							required
 							hint="*Required"
@@ -110,15 +109,15 @@
 
 						/>
 					</v-col>
-					<v-col cols="3" class="d-flex justify-center">
+					{% comment %} <v-col cols="3" class="d-flex justify-center">
 						<v-switch
 							v-model="filters.is_seasonal"
 							:label='filters.is_seasonal?"Seasonal Summary":"Monthly Summary"'
 							inset
 							disabled
 					  	/> 						  
-					</v-col>
-					<v-col cols="3" v-if="!filters.is_seasonal">
+					</v-col> {% endcomment %}
+					{% comment %} <v-col cols="3" v-if="!filters.is_seasonal">
 						<v-autocomplete
 							label="Select Months"
 							:items="months"
@@ -143,7 +142,7 @@
 							hint="*Required"
 							persistent-hint
 						/>
-					</v-col>
+					</v-col> {% endcomment %}
 				</v-row>
 				<v-row>
 					<v-col cols="3" class="d-flex justify-left">
@@ -153,7 +152,6 @@
 								v-model="requestData.validateData"
 								:label="requestData.validateData ? 'Validate Data' : 'All Data'"
 								inset
-								disabled
 							  />
 							</v-col>
 							<v-col cols="auto" class="d-flex align-center">
@@ -161,7 +159,7 @@
 							</v-col>
 						</v-row>
 					</v-col>
-					<v-col cols="3" v-if="requestData.validateData">
+					<v-col cols="3" v-if="requestData.validateData && isHourlyStation">
 						<v-text-field
 							v-model="requestData.maxHourPct"
 							:rules="[rules.required, rules.numeric, rules.percentage]"
@@ -417,6 +415,9 @@
 					'Maximum and Average Wind speed': {
 						'info': 'Maximum and average wind speed for each aggregation period.'
 					},
+					'Diurnal Wind Speed Variation': {
+						'info': 'Diurnal variation of wind speed for each aggregation period.'
+					},
 					'Days of wind less than a selected speed': {
 						'info': 'Number of days when maximum daily wind speed (WNDSPD) is equal or below a specified ammount.',
 						'numeric_param_1': {
@@ -450,6 +451,9 @@
 				'Free Water Evaporation / Evapotranspiration': {
 					'Total amount': {
 						'info': 'Cumulative pan evaporation (EVAPPAN).'
+					},
+					'Diurnal Evaporation Variation':{
+						'info': 'Diurnal variation of evaporation for each aggregation period.'
 					},
 					'Evapotranspiration': {
 						'info': 'Evapotranspiration estimate based on Hargreaves-Samani equation, uses TEMPMAX and TEMPMIN variables, day of year,\
@@ -486,6 +490,26 @@
 					},
 				}
 			},
+			hourlyProducts: [
+				// Air Temp
+				'Degree days',
+				'Days above or below selected temperature',
+				'Growing season statistics',
+				'Heat wave',
+				// Relative Humidity
+				'Duration of a specified threshold of humidity',
+				// Sunshine Radiation
+				'Solar Radiation',
+				'Global and Net Radiation',
+				// Wind
+				'Diurnal Wind Speed Variation',
+				// Evaporation
+				'Diurnal Evaporation Variation'
+			],
+			hourlyOnlyProducts: [
+				'Diurnal Wind Speed Variation',
+				'Diurnal Evaporation Variation'
+			],			
 			parameterLabels: {
 				numericParam1: null,
 				numericParam2: null,
@@ -514,6 +538,7 @@
 						id: {{station.id}},
 						base_name: "{{station.name | safe }}",
 						name: "{{station.name | safe }} - {{station.code}}",
+						code: "{{station.code}}",
 						is_automatic:  {{station.is_automatic|yesno:"true,false"}},
 						latitude: {{station.latitude}},
 						longitude: {{station.longitude}}
@@ -745,6 +770,33 @@
 					return variables.some(value => value !== undefined)? [...new Set(variables)].sort((a, b) => productOrder.indexOf(a) - productOrder.indexOf(b)): null
 				}
 				return variables.some(value => value !== undefined)? [...new Set(variables)].sort(): null
+			},
+			filteredElements() {
+				if (this.isHourlyStation) {
+				  return this.elements;
+				}
+			  
+				return Object.fromEntries(
+				  Object.entries(this.elements).map(([elementName, products]) => [
+					elementName,
+					Object.fromEntries(
+					  Object.entries(products).filter(
+						([productName]) => !this.hourlyProducts.includes(productName)
+					  )
+					)
+				  ])
+				);
+			  },
+			isHourlyStation (){
+				const station = this.stationList.find(station => station.id === this.requestData.stationId)
+				const pgiaCode = '8858307'
+				
+				if (!station) return false
+				return station.is_automatic || station.code === pgiaCode
+			},
+			isHourlyData (){
+				const isHourlyProduct = this.hourlyProducts.includes(this.requestData.product)
+				return isHourlyProduct && this.isHourlyStation
 			}
 
 		},
