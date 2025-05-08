@@ -27,6 +27,8 @@
 -- END;
 -- $$ LANGUAGE plpgsql;
 
+DROP FUNCTION IF EXISTS clearsky_radiation(double precision,double precision);
+
 -- Allen et al. (1998), FAO-56 (Equation 21).
 CREATE OR REPLACE FUNCTION extraterrestrial_radiation(
     D_r float,                     -- Dimensionless (inverse relative Earth-Sun distance) [FAO-56 Eq.23]
@@ -143,7 +145,7 @@ CREATE OR REPLACE FUNCTION as_net_longwave_radiation(
     tmin float,                    -- °C (daily minimum temperature)
     latitude float,                -- ° (latitude in decimal degrees)
     elevation float,               -- m (station elevation)
-    solar_rad float,               -- MJ/m²/day (measured solar radiation)
+    solar_rad float,               -- W/m² (measured solar radiation)
     rh float,                      -- % (relative humidity)
     day_of_year integer            -- 1-366 (day of year)
 ) RETURNS float AS $$              -- MJ/m²/day (net radiation)
@@ -190,7 +192,8 @@ BEGIN
     tmax_k := tmax + 273.16;
     
     -- Solar radiation from measurement
-    R_s := solar_rad;
+    -- Convert W/m² to MJ/m²/day
+    R_s := solar_rad * 0.0036;
    
     -- Net longwave radiation [FAO-56 Eq.39]
     R_ln := net_longwave_radiation(tmin_k, tmax_k, R_s, R_so, e_a);
@@ -204,17 +207,22 @@ CREATE OR REPLACE FUNCTION as_net_radiation(
     tmin float,                    -- °C (daily minimum temperature)
     latitude float,                -- ° (latitude in decimal degrees)
     elevation float,               -- m (station elevation)
-    solar_rad float,               -- MJ/m²/day (measured solar radiation)
+    solar_rad float,               -- W/m² (measured solar radiation)
     rh float,                      -- % (relative humidity)
     day_of_year integer            -- 1-366 (day of year)
 ) RETURNS float AS $$              -- MJ/m²/day (net radiation)
 DECLARE
+    R_s float;                     -- MJ/m²/day (solar radiation)
     R_sn float;                    -- MJ/m²/day (net shortwave radiation)
     R_ln float;                    -- MJ/m²/day (net longwave radiation)
     R_n float;                     -- MJ/m²/day (net radiation)
 BEGIN 
+    -- Solar radiation from measurement
+    -- Convert W/m² to MJ/m²/day
+    R_s := solar_rad * 0.0036;
+
     -- Net shortwave radiation [FAO-56 Eq.38]
-    R_sn := net_shortwave_radiation(solar_rad);
+    R_sn := net_shortwave_radiation(R_s);
     
     -- Net longwave radiation for Automatic Stations [FAO-56 Eq.39]
     R_ln := as_net_longwave_radiation(tmax,tmin,latitude,elevation,solar_rad,rh, day_of_year);
@@ -283,14 +291,15 @@ CREATE OR REPLACE FUNCTION as_penman_monteith_evapotranspiration(
     tmax float,                    -- °C (daily maximum temperature)
     tmin float,                    -- °C (daily minimum temperature)
     atm_press float,               -- kPa (atmospheric pressure)
-    wind_spd float,                -- m/s (wind speed)
-    solar_rad float,               -- MJ/m²/day (solar radiation)
+    wind_spd float,                -- Knots (wind speed)
+    solar_rad float,               -- W/m² (solar radiation)
     rh float,                      -- % (relative humidity)
     latitude float,                -- ° (latitude in decimal degrees)
     elevation float,               -- m (station elevation)
     day_of_year integer            -- 1-366 (day of year)
 ) RETURNS float AS $$              -- mm/day (reference evapotranspiration)
 DECLARE
+    height float;                  -- m (station height in meters)
     T float;                       -- °C (mean daily temperature)
     u_2 float;                     -- m/s (wind speed at 2m)
     e_a float;                     -- kPa (actual vapour pressure)
@@ -307,9 +316,16 @@ BEGIN
     -- Mean temperature
     T := (tmin + tmax) / 2;
     
-    -- Wind speed at 2m
-    u_2 := wind_spd;
+    -- Convert Knots to m/s
+    u_2 := wind_spd * 0.514;
+
+    -- param uz: wind speed at height z
+    -- param z: height in meters
+    -- u_2 := uz * (4.87/(log(67.8 * z - 5.42)))
     
+    -- height := 10;
+    -- u_2 := u_2 * (4.87/(log(67.8 * height - 5.42)));
+       
     -- Actual vapour pressure [FAO-56 Eq.19]
     e_a := actual_vapour_pressure(tmin, tmax, rh);
     
@@ -321,7 +337,8 @@ BEGIN
     e_s := (e_tmin + e_tmax) / 2;
     
     -- Solar radiation
-    R_s := solar_rad;
+    -- Convert W/m² to MJ/m²/day
+    R_s := solar_rad * 0.0036;
     
     -- Net radiation
     R_n := as_net_radiation(tmax, tmin, latitude, elevation, solar_rad, rh, day_of_year);
@@ -341,3 +358,129 @@ BEGIN
     RETURN ET_0;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- Hargreaves-Samani
+CREATE OR REPLACE FUNCTION as_hargreaves_samani_evapotranspiration(
+    alpha float,
+    beta float,
+    tmax float,              -- °C
+    tmin float,              -- °C
+    latitude float,
+    day_of_year integer
+) RETURNS float AS $$    -- kPa (saturation vapour pressure at T)
+DECLARE
+    D_r float;                     -- Dimensionless (inverse relative Earth-Sun distance) [FAO-56 Eq.23]
+    omega_s float;                 -- Radians (sunset hour angle) [FAO-56 Eq.25]
+    phi float;                     -- Radians (latitude) 
+    delta float;                   -- Radians (solar declination) [FAO-56 Eq.24]
+    R_a float;                     -- MJ/m²/day (extraterrestrial radiation)
+    T float;                       -- °C (mean daily air temperature at 2m)
+    ET_0 float;
+BEGIN
+    -- Convert latitude to radians
+    phi := latitude * (PI() / 180);
+    
+    -- Solar declination [FAO-56 Eq.24]
+    delta := 0.409 * SIN((2 * PI() / 365 * day_of_year) - 1.39);
+    
+    -- Sunset hour angle [FAO-56 Eq.25]
+    omega_s := ACOS(-TAN(phi) * TAN(delta));    
+    
+    -- Inverse relative distance [FAO-56 Eq.23]
+    D_r := 1 + 0.033 * COS((2 * PI() / 365) * day_of_year);    
+    
+    -- Extraterrestrial radiation [FAO-56 Eq.21]
+    R_a := extraterrestrial_radiation(D_r, omega_s, phi, delta);
+
+    T := (tmax + tmin) / 2;
+    ET_0 := alpha * POWER((tmax - tmin), beta) * (T + 17.8) * R_a * 0.408;
+    RETURN ET_0;
+END;
+$$ LANGUAGE plpgsql;
+
+WITH daily_data AS (
+    SELECT
+        station_id
+        ,day
+        ,EXTRACT(DAY FROM day) AS day_of_month
+        ,EXTRACT(DOY FROM day)::integer AS day_of_year
+        ,EXTRACT(MONTH FROM day) AS month
+        ,EXTRACT(YEAR FROM day) AS year
+        ,st.latitude::float AS latitude
+        ,st.elevation::float AS elevation
+        ,{{alpha}} AS alpha
+        ,{{beta}} AS beta        
+        ,MAX(CASE WHEN vr.symbol = 'TEMP' THEN max_value ELSE NULL END)::float AS tmax
+        ,MIN(CASE WHEN vr.symbol = 'TEMP' THEN min_value ELSE NULL END)::float AS tmin
+        ,AVG(CASE WHEN vr.symbol = 'RH' THEN avg_value ELSE NULL END)::float AS rh
+        ,AVG(CASE WHEN vr.symbol = 'WNDSPD' THEN avg_value ELSE NULL END)::float AS wind_spd
+        ,AVG(CASE WHEN vr.symbol = 'PRESSTN' THEN avg_value ELSE NULL END)::float AS atm_press
+        ,SUM(CASE WHEN vr.symbol = 'SOLARRAD' THEN sum_value ELSE NULL END)::float AS solar_rad
+    FROM daily_summary ds
+    JOIN wx_variable vr ON vr.id = ds.variable_id
+    JOIN wx_station st ON st.id = ds.station_id
+    WHERE station_id = {{station_id}}
+      AND vr.symbol IN ('TEMP','SOLARRAD', 'RH', 'PRESSTN', 'WNDSPD')
+      AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
+    GROUP BY station_id, day, latitude, elevation
+)
+,evapotranspiration_calc AS(
+    SELECT
+        station_id
+        ,day_of_month
+        ,month
+        ,year
+        ,as_hargreaves_samani_evapotranspiration(alpha, beta, tmax, tmin, latitude, day_of_year) AS hargreaves_samani
+        ,as_penman_monteith_evapotranspiration(tmax, tmin, atm_press, wind_spd, solar_rad, rh, latitude, elevation, day_of_year) AS penman_monteith
+        ,elevation
+        ,atm_press
+        ,wind_spd 
+        ,solar_rad
+        ,rh
+    FROM daily_data
+)
+,extended_data AS(
+    SELECT
+        station_id
+        ,day_of_month
+        ,CASE 
+            WHEN month=12 THEN 0
+            WHEN month=1 THEN 13
+        END as month
+        ,CASE 
+            WHEN month=12 THEN year+1
+            WHEN month=1 THEN year-1
+        END as year
+        ,hargreaves_samani
+        ,penman_monteith
+        ,elevation
+        ,atm_press
+        ,wind_spd
+        ,solar_rad
+        ,rh        
+    FROM evapotranspiration_calc
+    WHERE month in (1,12)
+    UNION ALL
+    SELECT * FROM evapotranspiration_calc
+)
+SELECT
+    st.name AS station
+    ,products.product AS product
+    ,year
+    ,month
+    ,day_of_month
+    ,ROUND(st.elevation::numeric, 2) AS elevation
+    ,ROUND(atm_press::numeric, 2) AS atm_press
+    ,ROUND(wind_spd::numeric, 2) AS wind_spd
+    ,ROUND(solar_rad::numeric, 2) AS solar_rad
+    ,ROUND(rh::numeric, 2) AS rh
+    ,CASE product
+        WHEN 'HARGREAVES-SAMANI' THEN ROUND(hargreaves_samani::numeric, 2)
+        WHEN 'PENMAN-MONTEITH' THEN ROUND(penman_monteith::numeric, 2)
+    END AS evapotranspiration
+FROM extended_data ed
+JOIN wx_station st ON st.id=ed.station_id
+CROSS JOIN (VALUES ('HARGREAVES-SAMANI'), ('PENMAN-MONTEITH')) AS products(product)
+WHERE year BETWEEN {{start_year}} AND {{end_year}}  
+    AND month in ({{aggregation_months}})

@@ -63,7 +63,7 @@ WITH daily_data AS (
     JOIN wx_variable vr ON vr.id = ds.variable_id
     JOIN wx_station st ON st.id = ds.station_id
     WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('TEMPMIN', 'TEMPMAX','SOLARRAD')
+      AND vr.symbol IN ('TEMPMIN', 'TEMPMAX')
       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
     GROUP BY station_id, day, latitude
 )
@@ -100,7 +100,7 @@ SELECT
     ,year
     ,month
     ,day_of_month
-    ,evapotranspiration
+    ,ROUND(evapotranspiration, 1) AS evapotranspiration
 FROM extended_data ed
 JOIN wx_station st ON st.id=ed.station_id
 WHERE year BETWEEN {{start_year}} AND {{end_year}}  

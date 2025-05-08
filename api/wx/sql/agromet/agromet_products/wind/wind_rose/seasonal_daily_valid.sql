@@ -39,7 +39,7 @@ WITH month_days AS (
         ,MIN(CASE vr.symbol WHEN 'WNDSPD' THEN avg_value END) AS wnd_spd
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
-    WHERE station_id = 4
+    WHERE station_id = {{station_id}}
       AND vr.symbol in ('WNDDIR', 'WNDSPD')
       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
     GROUP BY station_id, day
