@@ -96,6 +96,17 @@ WITH month_days AS (
 --       AND vr.symbol= 'SOLARRAD'
 --       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
 -- )
+,solar_rad_calc AS (
+    SELECT
+        station_id
+        ,day
+        ,day_of_month
+        ,month
+        ,year
+        -- Convert W/m² to MJ/m²/day
+        ,solar_rad * 0.0036 AS solar_rad
+    FROM daily_data
+)
 ,extended_data AS(
     SELECT
         station_id

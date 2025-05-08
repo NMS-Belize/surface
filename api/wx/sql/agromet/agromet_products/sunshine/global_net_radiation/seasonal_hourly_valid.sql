@@ -99,7 +99,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
 -- Allen et al. (1998), FAO-56 (Equation 40).
 CREATE OR REPLACE FUNCTION net_radiation(
     R_ns float,                    -- MJ/m²/day (net shortwave radiation)
@@ -113,12 +112,31 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
+-- Allen et al. (1998), FAO-56 (Equation 38).
+CREATE OR REPLACE FUNCTION as_net_shortwave_radiation(
+    solar_rad float,               -- W/m²y (solar radiation)
+    albedo float DEFAULT 0.23      -- dimensionless (surface albedo)
+) RETURNS float AS $$              -- MJ/m²/day (net shortwave radiation)
+DECLARE
+    R_s float;                     -- MJ/m²y (solar radiation)
+    R_sn float;                    -- MJ/m²/day (net shortwave radiation)
+BEGIN
+    -- Solar radiation
+    -- Convert W/m² to MJ/m²/day
+    R_s := solar_rad * 0.0036;
+
+    R_sn := (1 - albedo) * R_s;
+    RETURN R_sn;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION as_net_longwave_radiation(
     tmax float,                    -- °C (daily maximum temperature)
     tmin float,                    -- °C (daily minimum temperature)
     latitude float,                -- ° (latitude in decimal degrees)
     elevation float,               -- m (station elevation)
-    solar_rad float,               -- MJ/m²/day (measured solar radiation)
+    solar_rad float,               -- W/m² (measured solar radiation)
     rh float,                      -- % (relative humidity)
     day_of_year integer            -- 1-366 (day of year)
 ) RETURNS float AS $$              -- MJ/m²/day (net radiation)
@@ -164,8 +182,9 @@ BEGIN
     tmin_k := tmin + 273.16;
     tmax_k := tmax + 273.16;
     
-    -- Solar radiation from measurement
-    R_s := solar_rad;
+    -- Solar radiation
+    -- Convert W/m² to MJ/m²/day
+    R_s := solar_rad * 0.0036;
    
     -- Net longwave radiation [FAO-56 Eq.39]
     R_ln := net_longwave_radiation(tmin_k, tmax_k, R_s, R_so, e_a);
@@ -179,17 +198,22 @@ CREATE OR REPLACE FUNCTION as_net_radiation(
     tmin float,                    -- °C (daily minimum temperature)
     latitude float,                -- ° (latitude in decimal degrees)
     elevation float,               -- m (station elevation)
-    solar_rad float,               -- MJ/m²/day (measured solar radiation)
+    solar_rad float,               -- W/m² (measured solar radiation)
     rh float,                      -- % (relative humidity)
     day_of_year integer            -- 1-366 (day of year)
 ) RETURNS float AS $$              -- MJ/m²/day (net radiation)
 DECLARE
+    R_s float;                     -- MJ/m²/day (solar radiation)
     R_sn float;                    -- MJ/m²/day (net shortwave radiation)
     R_ln float;                    -- MJ/m²/day (net longwave radiation)
     R_n float;                     -- MJ/m²/day (net radiation)
 BEGIN 
+    -- Solar radiation from measurement
+    -- Convert W/m² to MJ/m²/day
+    -- R_s := solar_rad * 0.0036;
+
     -- Net shortwave radiation [FAO-56 Eq.38]
-    R_sn := net_shortwave_radiation(solar_rad);
+    R_sn := as_net_shortwave_radiation(solar_rad);
     
     -- Net longwave radiation for Automatic Stations [FAO-56 Eq.39]
     R_ln := as_net_longwave_radiation(tmax,tmin,latitude,elevation,solar_rad,rh, day_of_year);
@@ -323,8 +347,9 @@ WITH month_days AS (
         ,day_of_month
         ,month
         ,year
-        ,solar_rad
-        ,net_shortwave_radiation(solar_rad) AS net_shortwave_rad
+        -- Convert W/m² to MJ/m²/day
+        ,solar_rad * 0.0036 AS solar_rad
+        ,as_net_shortwave_radiation(solar_rad) AS net_shortwave_rad
         ,as_net_longwave_radiation(tmax, tmin, latitude, elevation, solar_rad, rh, day_of_year) AS net_longwave_rad
         ,as_net_radiation(tmax, tmin, latitude, elevation, solar_rad, rh, day_of_year) AS net_rad
     FROM daily_data

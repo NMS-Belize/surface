@@ -1,5 +1,7 @@
 -- https://www.fao.org/4/x0490e/x0490e07.htm#chapter%203%20%20%20meteorological%20data
 
+DROP FUNCTION IF EXISTS clearsky_radiation(double precision,double precision);
+
 -- Allen et al. (1998), FAO-56 (Equation 21).
 CREATE OR REPLACE FUNCTION extraterrestrial_radiation(
     latitude float,          -- degrees (°)
