@@ -61,6 +61,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Allen et al. (1998), FAO-56 (Equation 11).
+
 CREATE OR REPLACE FUNCTION saturation_vapour_pressure(
     t float                        -- °C (air temperature)
 ) RETURNS float AS $$              -- kPa (saturation vapour pressure)
@@ -93,6 +94,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Allen et al. (1998), FAO-56 (Equation 38).
+
 CREATE OR REPLACE FUNCTION net_shortwave_radiation(
     R_s float,                     -- MJ/m²/day (solar radiation)
     albedo float DEFAULT 0.23      -- dimensionless (surface albedo)
