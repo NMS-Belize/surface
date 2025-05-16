@@ -1,7 +1,3 @@
-DROP FUNCTION IF EXISTS growing_degree_days(double precision,double precision,double precision);
-DROP FUNCTION IF EXISTS hargreaves_samani_evapotranspiration(double precision,double precision,double precision,double precision,double precision,double precision);
-DROP FUNCTION IF EXISTS as_net_radiation(double precision,double precision,double precision,double precision,double precision,double precision,integer);
-
 -- Drought indices functions
 CREATE OR REPLACE FUNCTION fit_gamma(value float[]) RETURNS float[] AS $$
 DECLARE
