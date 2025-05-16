@@ -1,29 +1,3 @@
-CREATE OR REPLACE FUNCTION consecutive_flag_calc(
-    flag_arr boolean[],
-    reset_arr boolean[]
-) RETURNS integer[] AS $$
-DECLARE
-    consecutive_seq integer[] := '{}';
-    consecutive_count int := 0;
-    index int;
-BEGIN
-    IF flag_arr IS NULL THEN RETURN consecutive_seq;
-    END IF;
-
-    FOR index IN 1 .. array_length(flag_arr, 1) LOOP
-        IF NOT flag_arr[index] THEN consecutive_count := 0;
-        ELSIF reset_arr[index] THEN consecutive_count := 1;
-        ELSE consecutive_count := consecutive_count + 1;
-        END IF;
-
-        consecutive_seq := consecutive_seq || consecutive_count;
-    END LOOP;
-
-    RETURN consecutive_seq;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
-
 -- Total number of days for each season and year
 WITH RECURSIVE month_days AS (
     SELECT

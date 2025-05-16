@@ -1,20 +1,3 @@
-CREATE OR REPLACE FUNCTION growing_degree_days(
-    tmax float,             -- °C
-    tmin float,             -- °C
-    tbase float             -- °C
-) RETURNS float AS $$    -- °C
-DECLARE
-    gdd float;           -- °C
-BEGIN
-    IF NULL IN (tmax, tmin, tbase) THEN
-        RETURN NULL;
-    END IF;
-
-    gdd := GREATEST(0, (tmax+tmin) / 2.0 - tbase);
-    RETURN gdd;
-END;
-$$ LANGUAGE plpgsql;
-
 -- Total number of days for each season and year
 WITH month_days AS (
     SELECT
@@ -85,7 +68,7 @@ WITH month_days AS (
         ,day_of_month
         ,month
         ,year
-        ,growing_degree_days(tmax, tmin, {{base_temp}}) AS gdd_value
+        ,growing_degree_days(tmin, tmax, {{base_temp}}) AS gdd_value
     FROM daily_data
 )
 ,extended_data AS(

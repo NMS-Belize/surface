@@ -6803,7 +6803,6 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
         
         
         new_rows = pd.DataFrame(stats_dict)
-        print(new_rows)
         
         # Append the new rows to the original group
         return pd.concat([group, new_rows], ignore_index=True)
@@ -6813,7 +6812,7 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
     result_df = result_df.fillna('')
     data = result_df.to_dict(orient='records')
 
-    return result_df
+    return data
 
 
 def get_agromet_products_df_min_max(df: pd.DataFrame) -> dict:
@@ -7037,6 +7036,16 @@ def get_agromet_products_sql_env(requestedData: dict):
 
 @api_view(["GET"])
 def get_agromet_products_data(request):
+    ## Load Agromet Products Functions
+    with open('/surface/wx/sql/agromet/agromet_products/agromet_products_functions.sql', 'r') as f:
+        query = f.read()
+
+    config = settings.SURFACE_CONNECTION_STRING
+    with psycopg2.connect(config) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query)
+            conn.commit()
+
     try:
         requestedData = {
             'start_year': request.GET.get('start_year'),
