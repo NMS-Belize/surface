@@ -63,29 +63,6 @@ WITH month_days AS (
       AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
 )
 ,daily_data AS (
-    SELECT 
-        station_id
-        ,day
-        ,EXTRACT(DAY FROM day) AS day_of_month
-        ,EXTRACT(MONTH FROM day) AS month
-        ,EXTRACT(YEAR FROM day) AS year
-        ,tmin
-        ,tmax
-        ,precip        
-    FROM (
-        SELECT
-            station_id
-            ,day
-            ,COUNT(DISTINCT hour) AS total_hours
-            ,MIN(CASE WHEN variable = 'TEMP' THEN min_value END) AS tmin
-            ,MAX(CASE WHEN variable = 'TEMP' THEN max_value END) AS tmax
-            ,SUM(CASE WHEN variable = 'PRECIP' THEN sum_value END) AS precip
-        FROM hourly_data
-        GROUP BY station_id, day
-    ) ddr
-    WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
-)
-,daily_data AS (
     SELECT
         station_id
         ,day

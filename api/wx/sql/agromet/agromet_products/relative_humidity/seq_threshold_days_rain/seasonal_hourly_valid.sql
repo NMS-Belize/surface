@@ -185,63 +185,63 @@ WITH RECURSIVE month_days AS (
         ,UNNEST(ARRAY_AGG(day_gap ORDER BY day)) AS day_gap
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_jfm),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_jfm)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_jfm)
         )) AS "JFM_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_fma),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_fma)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_fma)
         )) AS "FMA_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_mam),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_mam)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_mam)
         )) AS "MAM_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_amj),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_amj)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_amj)
         )) AS "AMJ_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_mjj),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_mjj)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_mjj)
         )) AS "MJJ_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_jja),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_jja)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_jja)
         )) AS "JJA_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_jas),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_jas)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_jas)
         )) AS "JAS_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_aso),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_aso)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_aso)
         )) AS "ASO_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_son),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_son)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_son)
         )) AS "SON_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_ond),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_ond)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_ond)
         )) AS "OND_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_ndj),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_ndj)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_ndj)
         )) AS "NDJ_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_dry),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_dry)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_dry)
         )) AS "DRY_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_wet),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_wet)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_wet)
         )) AS "WET_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_annual),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_annual)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_annual)
         )) AS "ANNUAL_humid_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_humid_day ORDER BY day) FILTER(WHERE is_djfm),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_djfm)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_djfm)
         )) AS "DJFM_humid_seq"
     FROM daily_lagged_data
     GROUP BY station_id, year

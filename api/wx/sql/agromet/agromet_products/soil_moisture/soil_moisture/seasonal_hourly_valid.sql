@@ -70,7 +70,6 @@ WITH month_days AS (
         ,day_of_month
         ,month
         ,year
-        ,total_hours
         ,vwc
     FROM (
         SELECT

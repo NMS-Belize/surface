@@ -232,9 +232,9 @@ WITH RECURSIVE month_days AS (
         )) AS "ANNUAL_hot_seq"
         ,UNNEST(consecutive_flag_calc(
             ARRAY_AGG(is_hot_day ORDER BY day) FILTER(WHERE is_djfm),
-            ARRAY_AGG(day_gap ORDER BY day) FILTER(WHERE is_djfm)
+            ARRAY_AGG(day_gap > 0 ORDER BY day) FILTER(WHERE is_djfm)
         )) AS "DJFM_hot_seq"
-    FROM daily_lagged_data > 0
+    FROM daily_lagged_data
     GROUP BY station_id, year
 )
 ,aggreated_data AS (
