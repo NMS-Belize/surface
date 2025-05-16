@@ -84,7 +84,47 @@ WITH month_days AS (
     FROM extended_month_days
     GROUP BY year
 )
--- Daily Data from Daily Summary
+-- Daily Data from Hourly Summary
+,hourly_data AS (
+    SELECT
+        station_id 
+        ,vr.symbol AS variable
+        ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
+        ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
+        ,min_value
+        ,max_value
+        ,avg_value
+        ,sum_value
+    FROM hourly_summary hs
+    JOIN wx_variable vr ON vr.id = hs.variable_id
+    WHERE station_id = {{station_id}}
+      AND vr.symbol IN ('TEMP', 'PRECIP')
+      AND datetime AT TIME ZONE '{{timezone}}' >= '{{ start_date }}'
+      AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
+)
+,daily_data AS (
+    SELECT 
+        station_id
+        ,day
+        ,EXTRACT(DAY FROM day) AS day_of_month
+        ,EXTRACT(MONTH FROM day) AS month
+        ,EXTRACT(YEAR FROM day) AS year
+        ,tmin
+        ,tmax
+        ,precip        
+    FROM (
+        SELECT
+            station_id
+            ,day
+            ,COUNT(DISTINCT hour) AS total_hours
+            ,MIN(CASE WHEN variable = 'TEMP' THEN min_value END) AS tmin
+            ,MAX(CASE WHEN variable = 'TEMP' THEN max_value END) AS tmax
+            ,SUM(CASE WHEN variable = 'PRECIP' THEN sum_value END) AS precip
+        FROM hourly_data
+        GROUP BY station_id, day
+    ) ddr
+    WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
+)
 ,daily_data AS (
     SELECT
         station_id
@@ -92,16 +132,58 @@ WITH month_days AS (
         ,EXTRACT(DAY FROM day) AS day_of_month
         ,EXTRACT(MONTH FROM day) AS month
         ,EXTRACT(YEAR FROM day) AS year
-        ,MAX(CASE WHEN vr.symbol = 'TEMPMAX' THEN max_value ELSE NULL END) AS tmax
-        ,MIN(CASE WHEN vr.symbol = 'TEMPMIN' THEN min_value ELSE NULL END) AS tmin
-        ,SUM(CASE WHEN vr.symbol = 'PRECIP' THEN min_value ELSE NULL END) AS precip
-    FROM daily_summary ds
-    JOIN wx_variable vr ON vr.id = ds.variable_id
-    WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('TEMPMIN', 'TEMPMAX','PRECIP')
-      AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
-    GROUP BY station_id, day
+        ,tmin
+        ,tmax
+        ,precip      
+    FROM (
+        SELECT
+            station_id
+            ,day
+            ,EXTRACT(DAY FROM day) AS day_of_month
+            ,EXTRACT(DOY FROM day)::integer AS day_of_year
+            ,EXTRACT(MONTH FROM day) AS month
+            ,EXTRACT(YEAR FROM day) AS year
+            ,COUNT(DISTINCT hour) AS total_hours
+            ,MIN(tmin) AS tmin
+            ,MAX(tmax) AS tmax
+            ,SUM(precip) AS precip
+        FROM (
+            SELECT
+                station_id
+                ,day
+                ,hour
+                ,MIN(CASE variable WHEN 'TEMP' THEN min_value ELSE NULL END)::float AS tmin
+                ,MIN(CASE variable WHEN 'TEMP' THEN max_value ELSE NULL END)::float AS tmax
+                ,MIN(CASE variable WHEN 'PRECIP' THEN sum_value ELSE NULL END)::float AS precip
+            FROM hourly_data
+            GROUP BY station_id, day, hour
+        ) hav -- Hourly Aggregated variables
+        WHERE tmin IS NOT NULL
+          AND tmax IS NOT NULL
+          AND precip IS NOT NULL
+        GROUP BY station_id, day    
+    ) ddr -- Daily Data Raw
+    JOIN wx_station st ON st.id = ddr.station_id
+    WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
 )
+-- Daily Data from Daily Summary
+-- ,daily_data AS (
+--     SELECT
+--         station_id
+--         ,day
+--         ,EXTRACT(DAY FROM day) AS day_of_month
+--         ,EXTRACT(MONTH FROM day) AS month
+--         ,EXTRACT(YEAR FROM day) AS year
+--         ,MAX(CASE WHEN vr.symbol = 'TEMP' THEN max_value ELSE NULL END) AS tmax
+--         ,MIN(CASE WHEN vr.symbol = 'TEMP' THEN min_value ELSE NULL END) AS tmin
+--         ,SUM(CASE WHEN vr.symbol = 'PRECIP' THEN min_value ELSE NULL END) AS precip
+--     FROM daily_summary ds
+--     JOIN wx_variable vr ON vr.id = ds.variable_id
+--     WHERE station_id = {{station_id}}
+--       AND vr.symbol IN ('TEMP','PRECIP')
+--       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
+--     GROUP BY station_id, day
+-- )
 ,lai_calc AS (
     SELECT
         station_id
@@ -111,9 +193,9 @@ WITH month_days AS (
         ,year
         ,leaf_area_index(tmax, tmin, {{base_temp}}, precip) AS lai
     FROM daily_data
-    WHERE tmin IS NOT NULL
+    WHERE precip IS NOT NULL
+      AND tmin IS NOT NULL
       AND tmax IS NOT NULL
-      AND precip IS NOT NULL
 )
 ,extended_data AS(
     SELECT

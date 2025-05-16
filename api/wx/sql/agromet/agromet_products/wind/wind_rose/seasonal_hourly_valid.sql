@@ -29,23 +29,77 @@ WITH month_days AS (
     FROM extended_month_days
     WHERE year BETWEEN {{start_year}} AND {{end_year}}  
 )
--- Daily Data from Daily Summary
+-- Daily Data from Hourly Summary
+,hourly_data AS (
+    SELECT
+        station_id 
+        ,vr.symbol AS variable
+        ,DATE(datetime AT TIME ZONE '{{timezone}}') AS day
+        ,EXTRACT(HOUR FROM datetime AT TIME ZONE '{{timezone}}') AS hour
+        ,min_value
+        ,max_value
+        ,avg_value
+        ,sum_value
+    FROM hourly_summary hs
+    JOIN wx_variable vr ON vr.id = hs.variable_id
+    WHERE station_id = {{station_id}}
+      AND vr.symbol IN ('WNDSPD', 'WNDDIR')
+      AND datetime AT TIME ZONE '{{timezone}}' >= '{{ start_date }}'
+      AND datetime AT TIME ZONE '{{timezone}}' < '{{ end_date }}'
+)
 ,daily_data AS (
     SELECT
         station_id
         ,day
-        ,EXTRACT(DAY FROM day) AS day_of_month
-        ,EXTRACT(MONTH FROM day) AS month
-        ,EXTRACT(YEAR FROM day) AS year
-        ,MIN(CASE vr.symbol WHEN 'WNDDIR' THEN avg_value END) AS wnd_dir
-        ,MIN(CASE vr.symbol WHEN 'WNDSPD' THEN avg_value END) AS wnd_spd
-    FROM daily_summary ds
-    JOIN wx_variable vr ON vr.id = ds.variable_id
-    WHERE station_id = {{station_id}}
-      AND vr.symbol in ('WNDDIR', 'WNDSPD')
-      AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
-    GROUP BY station_id, day
+        ,day_of_month
+        ,month
+        ,year
+        ,wnd_dir
+        ,wnd_spd
+    FROM (
+        SELECT
+            station_id
+            ,day
+            ,EXTRACT(DAY FROM day) AS day_of_month
+            ,EXTRACT(MONTH FROM day) AS month
+            ,EXTRACT(YEAR FROM day) AS year
+            ,COUNT(DISTINCT hour) AS total_hours
+            -- Use ATAN2 to account for the circular nature of angles
+            ,DEGREES(ATAN2(AVG(SIN(RADIANS(wnd_dir))), AVG(COS(RADIANS(wnd_dir))))) AS wnd_dir
+            ,AVG(wnd_spd) AS wnd_spd
+        FROM (
+            SELECT
+                station_id
+                ,day
+                ,hour
+                ,MIN(CASE variable WHEN 'WNDSPD' THEN avg_value END) AS wnd_spd
+                ,MIN(CASE variable WHEN 'WNDDIR' THEN avg_value END) AS wnd_dir
+            FROM hourly_data
+            GROUP BY station_id, day, hour
+        ) hav -- Hourly Aggregated variables
+        WHERE wnd_spd IS NOT NULL
+          AND wnd_dir IS NOT NULL
+        GROUP BY station_id, day    
+    ) ddr -- Daily Data Raw
+    WHERE 100*(total_hours::numeric/24) > (100-{{max_hour_pct}})
 )
+-- Daily Data from Daily Summary
+-- ,daily_data AS (
+--     SELECT
+--         station_id
+--         ,day
+--         ,EXTRACT(DAY FROM day) AS day_of_month
+--         ,EXTRACT(MONTH FROM day) AS month
+--         ,EXTRACT(YEAR FROM day) AS year
+--         ,MIN(CASE vr.symbol WHEN 'WNDDIR' THEN avg_value END) AS wnd_dir
+--         ,MIN(CASE vr.symbol WHEN 'WNDSPD' THEN avg_value END) AS wnd_spd
+--     FROM daily_summary ds
+--     JOIN wx_variable vr ON vr.id = ds.variable_id
+--     WHERE station_id = {{station_id}}
+--       AND vr.symbol in ('WNDDIR', 'WNDSPD')
+--       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
+--     GROUP BY station_id, day
+-- )
 ,discretized_data AS (
     SELECT
         station_id
@@ -76,8 +130,6 @@ WITH month_days AS (
             WHEN wnd_spd > 25 THEN '25+ kt'
         END AS wnd_spd    
     FROM daily_data
-    WHERE wnd_spd IS NOT NULL
-      AND wnd_dir IS NOT NULL    
 )
 ,extended_data AS(
     SELECT

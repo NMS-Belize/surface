@@ -15,29 +15,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Linear Calculation Based on GDD and Precipitation
-CREATE OR REPLACE FUNCTION leaf_area_index(
-    tmax float,             -- °C
-    tmin float,             -- °C
-    tbase float,             -- °C
-    precip float             -- mm
-) RETURNS float AS $$    -- °C
-DECLARE
-    gdd float;           -- °C
-    lai float;           -- 
-BEGIN
-    gdd := growing_degree_days(tmax,tmin,tbase);
-
-    IF gdd IS NULL THEN
-        RETURN NULL;
-    END IF;
-
-    lai := 0.5 +  0.02 * gdd +  0.05  * precip;
-    RETURN lai;
-END;
-$$ LANGUAGE plpgsql;
-
-
 -- Total number of days for each season and year
 WITH month_days AS (
     SELECT
@@ -84,7 +61,7 @@ WITH month_days AS (
     FROM extended_month_days
     GROUP BY year
 )
--- Daily Data from Daily Summary
+-- Data queries
 ,daily_data AS (
     SELECT
         station_id
@@ -94,26 +71,22 @@ WITH month_days AS (
         ,EXTRACT(YEAR FROM day) AS year
         ,MAX(CASE WHEN vr.symbol = 'TEMPMAX' THEN max_value ELSE NULL END) AS tmax
         ,MIN(CASE WHEN vr.symbol = 'TEMPMIN' THEN min_value ELSE NULL END) AS tmin
-        ,SUM(CASE WHEN vr.symbol = 'PRECIP' THEN min_value ELSE NULL END) AS precip
     FROM daily_summary ds
     JOIN wx_variable vr ON vr.id = ds.variable_id
     WHERE station_id = {{station_id}}
-      AND vr.symbol IN ('TEMPMIN', 'TEMPMAX','PRECIP')
+      AND vr.symbol IN ('TEMPMIN', 'TEMPMAX')
       AND '{{ start_date }}' <= day AND day < '{{ end_date }}'
     GROUP BY station_id, day
 )
-,lai_calc AS (
+,gdd_calc AS (
     SELECT
         station_id
         ,day
         ,day_of_month
         ,month
         ,year
-        ,leaf_area_index(tmax, tmin, {{base_temp}}, precip) AS lai
+        ,growing_degree_days(tmax, tmin, {{base_temp}}) AS gdd_value
     FROM daily_data
-    WHERE tmin IS NOT NULL
-      AND tmax IS NOT NULL
-      AND precip IS NOT NULL
 )
 ,extended_data AS(
     SELECT
@@ -128,11 +101,11 @@ WITH month_days AS (
             WHEN month=12 THEN year+1
             WHEN month=1 THEN year-1
         END as year
-        ,lai
-    FROM lai_calc
+        ,gdd_value
+    FROM gdd_calc
     WHERE month in (1,12)
     UNION ALL
-    SELECT * FROM lai_calc
+    SELECT * FROM gdd_calc
 )
 ,daily_lagged_data AS (
     SELECT
@@ -151,7 +124,7 @@ WITH month_days AS (
         ,CASE WHEN month IN (0, 1, 2, 3, 4, 5) THEN TRUE ELSE FALSE END AS is_dry
         ,CASE WHEN month IN (6, 7, 8, 9, 10, 11) THEN TRUE ELSE FALSE END AS is_wet
         ,CASE WHEN month IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) THEN TRUE ELSE FALSE END AS is_annual
-        ,CASE WHEN month IN (0, 1, 2, 3) THEN TRUE ELSE FALSE END AS is_djfm        
+        ,CASE WHEN month IN (0, 1, 2, 3) THEN TRUE ELSE FALSE END AS is_djfm
         ,day - 1 - LAG(day) OVER (PARTITION BY station_id, year ORDER BY day) AS day_gap
     FROM extended_data
     WHERE year BETWEEN {{start_year}} AND {{end_year}}  
@@ -160,49 +133,49 @@ WITH month_days AS (
     SELECT
         st.name AS station
         ,year
-        ,SUM(lai) FILTER(WHERE is_jfm) AS "JFM_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_jfm) AS "JFM_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_jfm) AND (day IS NOT NULL)) AS "JFM_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_jfm) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) AS "JFM_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_fma) AS "FMA_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_fma) AS "FMA_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_fma) AND (day IS NOT NULL)) AS "FMA_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_fma) AND NOT (month = 2 AND day_of_month <= {{max_day_gap}})) AS "FMA_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_mam) AS "MAM_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_mam) AS "MAM_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_mam) AND (day IS NOT NULL)) AS "MAM_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_mam) AND NOT (month = 3 AND day_of_month <= {{max_day_gap}})) AS "MAM_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_amj) AS "AMJ_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_amj) AS "AMJ_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_amj) AND (day IS NOT NULL)) AS "AMJ_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_amj) AND NOT (month = 4 AND day_of_month <= {{max_day_gap}})) AS "AMJ_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_mjj) AS "MJJ_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_mjj) AS "MJJ_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_mjj) AND (day IS NOT NULL)) AS "MJJ_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_mjj) AND NOT (month = 5 AND day_of_month <= {{max_day_gap}})) AS "MJJ_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_jja) AS "JJA_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_jja) AS "JJA_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_jja) AND (day IS NOT NULL)) AS "JJA_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_jja) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) AS "JJA_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_jas) AS "JAS_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_jas) AS "JAS_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_jas) AND (day IS NOT NULL)) AS "JAS_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_jas) AND NOT (month = 7 AND day_of_month <= {{max_day_gap}})) AS "JAS_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_aso) AS "ASO_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_aso) AS "ASO_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_aso) AND (day IS NOT NULL)) AS "ASO_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_aso) AND NOT (month = 8 AND day_of_month <= {{max_day_gap}})) AS "ASO_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_son) AS "SON_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_son) AS "SON_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_son) AND (day IS NOT NULL)) AS "SON_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_son) AND NOT (month = 9 AND day_of_month <= {{max_day_gap}})) AS "SON_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_ond) AS "OND_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_ond) AS "OND_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_ond) AND (day IS NOT NULL)) AS "OND_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_ond) AND NOT (month = 10 AND day_of_month <= {{max_day_gap}})) AS "OND_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_ndj) AS "NDJ_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_ndj) AS "NDJ_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_ndj) AND (day IS NOT NULL)) AS "NDJ_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_ndj) AND NOT (month = 11 AND day_of_month <= {{max_day_gap}})) AS "NDJ_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_dry) AS "DRY_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_dry) AS "DRY_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_dry) AND (day IS NOT NULL)) AS "DRY_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_dry) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) AS "DRY_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_wet) AS "WET_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_wet) AS "WET_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_wet) AND (day IS NOT NULL)) AS "WET_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_wet) AND NOT (month = 6 AND day_of_month <= {{max_day_gap}})) AS "WET_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_annual) AS "ANNUAL_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_annual) AS "ANNUAL_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_annual) AND (day IS NOT NULL)) AS "ANNUAL_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_annual) AND NOT (month = 1 AND day_of_month <= {{max_day_gap}})) AS "ANNUAL_max_day_gap"
-        ,SUM(lai) FILTER(WHERE is_djfm) AS "DJFM_lai"
+        ,SUM(gdd_value) FILTER(WHERE is_djfm) AS "DJFM_gdd"
         ,COUNT(DISTINCT day) FILTER(WHERE (is_djfm) AND (day IS NOT NULL)) AS "DJFM_count"
         ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (is_djfm) AND NOT (month = 0 AND day_of_month <= {{max_day_gap}})) AS "DJFM_max_day_gap"
     FROM daily_lagged_data dld
@@ -211,96 +184,96 @@ WITH month_days AS (
 )
 SELECT
     station
-    ,'Leaf Area Index' AS product
+    ,'GDD' AS product
     ,ad.year
     ,CASE 
         WHEN "JFM_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("JFM_count"::numeric/"JFM_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("JFM_lai"::numeric,2)::text
+        ELSE ROUND("JFM_gdd"::numeric,2)::text
     END AS "JFM"
     ,ROUND(100*("JFM_count"::numeric/"JFM_total"::numeric),2) AS "JFM (% of days)"
     ,CASE 
         WHEN "FMA_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("FMA_count"::numeric/"FMA_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("FMA_lai"::numeric,2)::text
+        ELSE ROUND("FMA_gdd"::numeric,2)::text
     END AS "FMA"
     ,ROUND(100*("FMA_count"::numeric/"FMA_total"::numeric),2) AS "FMA (% of days)"        
     ,CASE 
         WHEN "MAM_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("MAM_count"::numeric/"MAM_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("MAM_lai"::numeric,2)::text
+        ELSE ROUND("MAM_gdd"::numeric,2)::text
     END AS "MAM"
     ,ROUND(100*("MAM_count"::numeric/"MAM_total"::numeric),2) AS "MAM (% of days)"        
     ,CASE 
         WHEN "AMJ_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("AMJ_count"::numeric/"AMJ_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("AMJ_lai"::numeric,2)::text
+        ELSE ROUND("AMJ_gdd"::numeric,2)::text
     END AS "AMJ"
     ,ROUND(100*("AMJ_count"::numeric/"AMJ_total"::numeric),2) AS "AMJ (% of days)"        
     ,CASE 
         WHEN "MJJ_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("MJJ_count"::numeric/"MJJ_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("MJJ_lai"::numeric,2)::text
+        ELSE ROUND("MJJ_gdd"::numeric,2)::text
     END AS "MJJ"
     ,ROUND(100*("MJJ_count"::numeric/"MJJ_total"::numeric),2) AS "MJJ (% of days)"        
     ,CASE 
         WHEN "JJA_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("JJA_count"::numeric/"JJA_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("JJA_lai"::numeric,2)::text
+        ELSE ROUND("JJA_gdd"::numeric,2)::text
     END AS "JJA"
     ,ROUND(100*("JJA_count"::numeric/"JJA_total"::numeric),2) AS "JJA (% of days)"        
     ,CASE 
         WHEN "JAS_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("JAS_count"::numeric/"JAS_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("JAS_lai"::numeric,2)::text
+        ELSE ROUND("JAS_gdd"::numeric,2)::text
     END AS "JAS"
     ,ROUND(100*("JAS_count"::numeric/"JAS_total"::numeric),2) AS "JAS (% of days)"        
     ,CASE 
         WHEN "ASO_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("ASO_count"::numeric/"ASO_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("ASO_lai"::numeric,2)::text
+        ELSE ROUND("ASO_gdd"::numeric,2)::text
     END AS "ASO"
     ,ROUND(100*("ASO_count"::numeric/"ASO_total"::numeric),2) AS "ASO (% of days)"        
     ,CASE 
         WHEN "SON_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("SON_count"::numeric/"SON_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("SON_lai"::numeric,2)::text
+        ELSE ROUND("SON_gdd"::numeric,2)::text
     END AS "SON"
     ,ROUND(100*("SON_count"::numeric/"SON_total"::numeric),2) AS "SON (% of days)"        
     ,CASE 
         WHEN "OND_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("OND_count"::numeric/"OND_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("OND_lai"::numeric,2)::text
+        ELSE ROUND("OND_gdd"::numeric,2)::text
     END AS "OND"
     ,ROUND(100*("OND_count"::numeric/"OND_total"::numeric),2) AS "OND (% of days)"        
     ,CASE 
         WHEN "NDJ_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("NDJ_count"::numeric/"NDJ_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("NDJ_lai"::numeric,2)::text
+        ELSE ROUND("NDJ_gdd"::numeric,2)::text
     END AS "NDJ"
     ,ROUND(100*("NDJ_count"::numeric/"NDJ_total"::numeric),2) AS "NDJ (% of days)"        
     ,CASE 
         WHEN "DRY_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("DRY_count"::numeric/"DRY_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("DRY_lai"::numeric,2)::text
+        ELSE ROUND("DRY_gdd"::numeric,2)::text
     END AS "DRY"
     ,ROUND(100*("DRY_count"::numeric/"DRY_total"::numeric),2) AS "DRY (% of days)"        
     ,CASE 
         WHEN "WET_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("WET_count"::numeric/"WET_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("WET_lai"::numeric,2)::text
+        ELSE ROUND("WET_gdd"::numeric,2)::text
     END AS "WET"
     ,ROUND(100*("WET_count"::numeric/"WET_total"::numeric),2) AS "WET (% of days)"        
     ,CASE 
         WHEN "ANNUAL_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("ANNUAL_count"::numeric/"ANNUAL_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("ANNUAL_lai"::numeric,2)::text
+        ELSE ROUND("ANNUAL_gdd"::numeric,2)::text
     END AS "ANNUAL"
     ,ROUND(100*("ANNUAL_count"::numeric/"ANNUAL_total"::numeric),2) AS "ANNUAL (% of days)"        
     ,CASE 
         WHEN "DJFM_max_day_gap" > {{max_day_gap}} THEN 'Gap Exceeded'
         WHEN ROUND(100*("DJFM_count"::numeric/"DJFM_total"::numeric),2) < (100-{{max_day_pct}}) THEN 'Pct Exceeded'
-        ELSE ROUND("DJFM_lai"::numeric,2)::text
+        ELSE ROUND("DJFM_gdd"::numeric,2)::text
     END AS "DJFM"
     ,ROUND(100*("DJFM_count"::numeric/"DJFM_total"::numeric),2) AS "DJFM (% of days)"        
 FROM aggreated_data ad

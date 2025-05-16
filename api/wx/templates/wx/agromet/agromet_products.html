@@ -59,6 +59,23 @@
 							persistent-hint
 						/>
 					</v-col>
+					<v-col cols="1">
+						<v-btn v-if="requestData.product" icon @click="showing_product_info=!showing_product_info"><v-icon>mdi-information</v-icon> </v-btn>
+					</v-col>
+				</v-row>
+				<v-row>
+					<v-col cols="12">
+						<v-alert
+							v-if="showing_product_info"
+							type="info"
+							text
+							:dismissible="true"
+							outlined
+							@input="showing_product_info = false"
+						>
+							[[ elements[requestData.element][requestData.product].info ]]
+						</v-alert>
+					</v-col>
 				</v-row>
 				<v-row>
 					<v-col cols="2" v-if="parameterLabels.numericParam1">
@@ -231,26 +248,10 @@
 								&nbsp;(threshold temperature [[ requestedData.responseContext.threshold ]])
 							</span>
 
-							<v-btn icon @click="showing_product_info=!showing_product_info"><v-icon>mdi-information</v-icon> </v-btn>
 						</v-card-title>
 
-						{% comment %} <v-card-text v-if="showing_product_info" class="mb-0 py-0">
-
-						</v-card-text>
-						 {% endcomment %}
 						<v-card-text>
-							<v-alert
-								v-if="showing_product_info"
-								type="info"
-								text
-								:dismissible="true"
-								outlined
-								@input="showing_product_info = false"
-							>
-								[[ elements[requestedData.element][requestedData.product].info ]]
-							</v-alert>
-
-							<highcharts v-if="requestedData.product==='Wind Rose'" :options="chartOptions"></highcharts>
+							<highcharts v-if="requestedData.product==='Wind rose'" :options="chartOptions"></highcharts>
 
 							<v-tabs v-if="productVariables"  v-model="tab" bg-color="primary" class="justify-center my-5">
 								<v-tab v-for="item in productVariables" :key="item"> [[ item ]] </v-tab>
@@ -311,7 +312,7 @@
 			isFormValid: false,
 			requestData: {
 				stationId: 59, //4, // 59, // 6, 
-                element: 'Sunshine/Radiation', // 'Free Water Evaporation / Evapotranspiration', //'Wind', //'Relative Humidity',
+                element: 'Radiation and Sunshine', // 'Free Water Evaporation / Evapotranspiration', //'Wind', //'Relative Humidity',
 				product: null,
 				numericParam1: null,
 				numericParam2: null,
@@ -352,7 +353,7 @@
 			},
 			elements: {
 				'Air Temperature': {
-					'Degree days': {
+					'Growing Degree Days': {
 						'info': "The Growing Degree Days (GDD) is calculated based on TEMPMIN and TEMPMAX variables, first its calculated the daily values using the formula ('Temp Min'+ 'Temp Max')/2- 'Base Temp', then the daily values are summed up for each aggregation.",
 						'numeric_param_1': {
 							value: 30,
@@ -362,7 +363,7 @@
 					'Maximum and minimum statistics': {
 						'info': 'Minimum and maximum temperatures for each aggregation period.'
 					},
-					'Days above or below selected temperature': {
+					'Number of days above and below specified temperature': {
 						'info': 'Number of days, withing the aggregation period, when TEMPMAX exceeded (above) and TEMPMIN fell below (below) a specified threshold temperature.',
 						'numeric_param_1': {
 							value: 30,
@@ -389,7 +390,7 @@
 					},
 				},
 				'Rainfall': {
-					'Number of days with specified amount of rainfall': {
+					'Number of days with specified rainfall': {
 						'info': 'Number of days when daily precipitation (PRECIP) is equal or above a specified ammount in (mm).',
 						'numeric_param_1': {
 							value: 5,
@@ -405,20 +406,20 @@
 					},
 				},
 				'Wind': {
-					'Wind Rose': {
+					'Wind rose': {
 						'info': 'Graphical representation of wind speed and direction frequency distribution.',
 						'aggregation': {
 							value: null,
 							label: 'Aggregation',
 						},
 					},
-					'Maximum and Average Wind speed': {
+					'Maximum and average wind speed': {
 						'info': 'Maximum and average wind speed for each aggregation period.'
 					},
-					'Diurnal Wind Speed Variation': {
+					'Diurnal variation of wind speed': {
 						'info': 'Diurnal variation of wind speed for each aggregation period.'
 					},
-					'Days of wind less than a selected speed': {
+					'Number of hours with wind speed below specified value': {
 						'info': 'Number of days when maximum daily wind speed (WNDSPD) is equal or below a specified ammount.',
 						'numeric_param_1': {
 							value: 10,
@@ -426,21 +427,21 @@
 						},
 					},
 				},
-				'Sunshine/Radiation':{
+				'Radiation and Sunshine':{
 					'Sunshine hours': {
 						'info': 'Cumulative duration of sunshine hours (SUNSHNHR).'
 					},
-					'Solar Radiation': {
+					'Solar radiation': {
 						'info': 'Solar Radiation calculation following FAO-56 standards, uses TEMPMAX and TEMPMIN variables, day of year, and station latitude.\
 						The Empirical coefficient k_rs is set to 0.16 for inland and 0.19 for coastal stations.'
 					},
-					'Global and Net Radiation': {
+					'Net radiation': {
 						'info': 'Net Radiation calculation following FAO-56 standards, uses TEMPMAX and TEMPMIN variables, day of year, station latitude and elevation.\
 						The Empirical coefficient k_rs is set to 0.16 for inland and 0.19 for coastal stations.'
 					},
 				},
 				'Relative Humidity': {
-					'Duration of a specified threshold of humidity': {
+					'Sequence of days above specified humidity': {
 						'info': 'Longest sequence of days that relative humidity (estimated from TEMPMAX and TEMPMIN variables) exceeded a specified threshold.',
 						'numeric_param_1': {
 							value: 80,
@@ -448,11 +449,11 @@
 						},
 					},
 				},
-				'Free Water Evaporation / Evapotranspiration': {
-					'Total amount': {
+				'Evaporation and Evapotranspiration': {
+					'Accumulative Evaporation': {
 						'info': 'Cumulative pan evaporation (EVAPPAN).'
 					},
-					'Diurnal Evaporation Variation':{
+					'Diurnal variation of evaporation':{
 						'info': 'Diurnal variation of evaporation for each aggregation period.'
 					},
 					'Evapotranspiration': {
@@ -465,10 +466,10 @@
 					},
 				},
 				'Soil Temperature':{
-					'Mean and standard deviation at standard depth': {
+					'Mean and standard deviation soil temperature': {
 						'info': 'Mean and standard deviation soil temperature at 1 and 4 feets, uses variables TSOIL1 and TSOIL4.'
 					},
-					'Dates when threshold values of temperature (germination, vegetation) are reached': {
+					'First and Last dates above specified specified temperature': {
 						'info': 'Output first and last date when soil temperature reaches specified threshold,\
 						the calculation is made for both 1 and 4 feet depths, uses variables TSOIL1 and TSOIL4.',
 						'numeric_param_1': {
@@ -497,17 +498,17 @@
 				'Growing season statistics',
 				'Heat wave',
 				// Relative Humidity
-				'Duration of a specified threshold of humidity',
+				'Sequence of days above specified humidity',
 				// Sunshine Radiation
 				'Solar Radiation',
 				'Global and Net Radiation',
 				// Wind
-				'Diurnal Wind Speed Variation',
+				'Diurnal variation of wind speed',
 				// Evaporation
 				'Diurnal Evaporation Variation'
 			],
 			hourlyOnlyProducts: [
-				'Diurnal Wind Speed Variation',
+				'Diurnal variation of wind speed',
 				'Diurnal Evaporation Variation'
 			],			
 			parameterLabels: {
@@ -583,7 +584,7 @@
 		},	
 		computed: {
 			windRoseData() {
-				if (this.requestedData.product != 'Wind Rose') return null;
+				if (this.requestedData.product != 'Wind rose') return null;
 				if (!this.dataTable.data || !this.dataTable.data.length) return null;
 			
 				const speedBins = [
@@ -621,7 +622,7 @@
                         type: 'column'
                     },
                     title: {
-                        text: 'Wind Rose'
+                        text: 'Wind rose'
                     },
                     pane: {
                         size: '85%'
@@ -694,9 +695,9 @@
 					'Maximum and minimum statistics',
 					'Days above or below selected temperature',
 					'Heat wave',
-					'Number of days with specified amount of rainfall',
-					'Duration of a specified threshold of humidity',
-					'Wind Rose',
+					'Number of days with specified rainfall',
+					'Sequence of days above specified humidity',
+					'Wind rose',
 					'Flood and excess rainfall',
 				]
 
@@ -713,7 +714,7 @@
 				let baseHeaders = []
 
 				if (this.requestedData.summaryType==='Seasonal'){
-					if(['Wind Rose'].includes(product)) {
+					if(['Wind rose'].includes(product)) {
 						baseKeys = ['station']
 						baseHeaders = [];
 					}
@@ -726,7 +727,7 @@
 					
 				}
 				else if (this.requestedData.summaryType==='Monthly'){
-					if(product === 'Wind Rose') {
+					if(product === 'Wind rose') {
 						baseKeys = ['station']
 						baseHeaders = [];
 					}

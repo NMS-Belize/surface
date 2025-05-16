@@ -6776,15 +6776,21 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
 
     index = ['station', 'product', 'month', 'year']
     agg_cols = [col for col in df.columns if (col not in index) and not col.endswith("(% of days)")]
-    agg_cols = df[agg_cols].select_dtypes(include=['number']).columns.tolist()
+    # df[agg_cols] = df[agg_cols].apply(pd.to_numeric, errors='coerce')
+    # print(agg_cols)
+    # agg_cols = df[agg_cols].select_dtypes(include=['number']).columns.tolist()
+    # print(agg_cols)
 
     grouped = df.groupby(['station', 'product'])
     
     def calculate_stats(group):
-        min_values = group[agg_cols].min()
-        max_values = group[agg_cols].max()
-        avg_values = group[agg_cols].mean().round(2)
-        std_values = group[agg_cols].std().round(2)
+        # Convert columns to numeric once and calculate the statistics
+        numeric_group = group[agg_cols].apply(pd.to_numeric, errors='coerce')
+
+        min_values = numeric_group.min()
+        max_values = numeric_group.max()
+        avg_values = numeric_group.mean().round(2)
+        std_values = numeric_group.std().round(2)
 
         stats_dict = {}
         for col in agg_cols:
@@ -6795,7 +6801,9 @@ def calculate_agromet_products_df_statistics(df: pd.DataFrame) -> list:
         stats_dict['product'] = group.name[1]  # Variable symbol from the group key
         stats_dict['year'] = ['MIN', 'MAX', 'AVG', 'STD']  # Labels for the new rows
         
+        
         new_rows = pd.DataFrame(stats_dict)
+        print(new_rows)
         
         # Append the new rows to the original group
         return pd.concat([group, new_rows], ignore_index=True)
@@ -6935,7 +6943,7 @@ def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> d
                 cursor.execute(prev_query)
                 result = cursor.fetchone()
                 context['threshold'] = result[0] if (result and result[0] is not None) else 0
-    elif product == 'Wind Rose':
+    elif product == 'Wind rose':
         aggregation = requestedData['aggregation']
         context['aggregation_months'] = aggregation_months_dict[aggregation]
     elif product == 'Evapotranspiration':
@@ -6948,22 +6956,22 @@ def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> d
 
     context_mapping = {
         'Air Temperature': {
-            'Degree days': {'base_temp': 'numeric_param_1'},
-            'Days above or below selected temperature': {'threshold': 'numeric_param_1'},
+            'Growing Degree Days': {'base_temp': 'numeric_param_1'},
+            'Number of days above and below specified temperature': {'threshold': 'numeric_param_1'},
             'Heat wave': {'heat_wave_window': 'numeric_param_2'},
             'Growing season statistics': {'base_temp': 'numeric_param_1'}
         },
         'Rainfall': {
-            'Number of days with specified amount of rainfall': {'threshold': 'numeric_param_1'}
+            'Number of days with specified rainfall': {'threshold': 'numeric_param_1'}
         },
         'Wind': {   
-            'Days of wind less than a selected speed': {'threshold': 'numeric_param_1'}
+            'Number of hours with wind speed below specified value': {'threshold': 'numeric_param_1'}
         },
         'Relative Humidity': {
-            'Duration of a specified threshold of humidity': {'threshold': 'numeric_param_1'}
+            'Sequence of days above specified humidity': {'threshold': 'numeric_param_1'}
         },
         'Soil Temperature': {
-            'Dates when threshold values of temperature (germination, vegetation) are reached': {'threshold': 'numeric_param_1'}
+            'First and Last dates above specified specified temperature': {'threshold': 'numeric_param_1'}
         },  
         'Soil Moisture': {
             'Leaf area index': {'base_temp': 'numeric_param_1'}
@@ -6978,45 +6986,46 @@ def get_agromet_products_sql_context(requestedData: dict, env: Environment) -> d
 
     return context
 
+
 def get_agromet_products_sql_env(requestedData: dict):
     products_dir = {
         'Air Temperature': {
-            'Degree days': 'airtemp/degreedays',
-            'Maximum and minimum statistics': 'airtemp/minmax_statistics',
-            'Days above or below selected temperature': 'airtemp/threshold_days',
-            'Heat wave': 'airtemp/heat_wave',
-            'Growing season statistics': 'airtemp/growing_season',
+            'Growing Degree Days': 'air_temp/growing_degree_days',
+            'Maximum and minimum statistics': 'air_temp/max_min_stats',
+            'Number of days above and below specified temperature': 'air_temp/threshold_days_temp',
+            'Growing season statistics': 'air_temp/growing_season_stats',
+            'Heat wave': 'air_temp/heat_wave',
         },
         'Rainfall': {
+            'Number of days with specified rainfall': 'rainfall/threshold_days_rain',
             'Drought indices': 'rainfall/drought_indices',
-            'Flood and excess rainfall': 'rainfall/flood_excess',
-            'Number of days with specified amount of rainfall': 'rainfall/threshold_days',
+            'Flood and excess rainfall': 'rainfall/flood_and_excess_rain',
         },
         'Wind': {
-            'Wind Rose': 'wind/wind_rose',
-            'Maximum and Average Wind speed': 'wind/maxavg_wind_speed',
-            'Diurnal Wind Speed Variation': 'wind/diurnal_variation',
-            'Days of wind less than a selected speed': 'wind/wind_speed_threshold',
+            'Wind rose': 'wind/wind_rose',
+            'Maximum and average wind speed': 'wind/max_avg_wind_speed',
+            'Diurnal variation of wind speed': 'wind/diurnal_var_wind_speed',
+            'Number of hours with wind speed below specified value': 'wind/threshold_hours_wind_speed',
+        },
+        'Radiation and Sunshine': {
+            'Net radiation': 'radiation/net_radiation',
+            'Solar radiation': 'radiation/solar_radiation',
+            'Sunshine hours': 'radiation/sunshine_hours',
         },
         'Relative Humidity': {
-            'Duration of a specified threshold of humidity': 'relative_humidity/duration_threshold',
+            'Sequence of days above specified humidity': 'relative_humidity/seq_threshold_days_rain',
         },
-        'Free Water Evaporation / Evapotranspiration': {
-            'Total amount': 'evaporation/total_amount',
+        'Evaporation and Evapotranspiration': {
+            'Accumulative Evaporation': 'evaporation/sum_evapo',
+            'Diurnal variation of evaporation': 'evaporation/diurnal_var_evapo',
             'Evapotranspiration': 'evaporation/evapotranspiration',
-            'Diurnal Evaporation Variation': 'evaporation/diurnal_variation',
-        },
-        'Sunshine/Radiation': {
-            'Sunshine hours': 'sunshine/sunshine_hours',
-            'Solar Radiation': 'sunshine/solar_radiation',
-            'Global and Net Radiation': 'sunshine/global_net_radiation',
         },
         'Soil Temperature': {
-            'Mean and standard deviation at standard depth': 'soiltemp/meanstd_statistics',
-            'Dates when threshold values of temperature (germination, vegetation) are reached': 'soiltemp/threshold_dates',
+            'Mean and standard deviation soil temperature': 'soil_temp/mean_stdv_soil_temp',
+            'First and Last dates above specified specified temperature': 'soil_temp/threshold_dates_soil_temp',
         },
         'Soil Moisture': {
-            'Soil Moisture at regular depths': 'soil_moisture/regular_depths',
+            'Soil Moisture at regular depths': 'soil_moisture/soil_moisture',
             'Leaf area index': 'soil_moisture/leaf_area_index',
         },
     }
@@ -7053,14 +7062,10 @@ def get_agromet_products_data(request):
         logger.error(repr(e))
         return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    if requestedData['summary_type']=='Seasonal':
-        # To calculate the seasonal summary, values from January of the next year and December of the previous year are required.
-        requestedData['start_date'] = f"{int(requestedData['start_year'])-1}-12-01"
-        requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-02-01"
-    elif requestedData['summary_type']=='Monthly':
-        requestedData['start_date'] = f"{int(requestedData['start_year'])}-01-01"
-        requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-01-01"
-   
+    # To calculate the seasonal summary, values from January of the next year and December of the previous year are required.
+    requestedData['start_date'] = f"{int(requestedData['start_year'])-1}-12-01"
+    requestedData['end_date'] = f"{int(requestedData['end_year'])+1}-02-01"
+ 
     config = settings.SURFACE_CONNECTION_STRING
 
     if not requestedData['validate_data']:
@@ -7071,40 +7076,18 @@ def get_agromet_products_data(request):
     env = get_agromet_products_sql_env(requestedData)
     context = get_agromet_products_sql_context(requestedData, env)
 
-
     pgia_code = '8858307' # Phillip Goldson Int'l Synop
     station = Station.objects.get(pk=requestedData['station_id'])
-    hourly_products = [
-        # Air Temp
-        'Degree days',
-        'Days above or below selected temperature',
-        'Growing season statistics',
-        'Heat wave',
-        # Relative Humidity
-        'Duration of a specified threshold of humidity',
-        # Sunshine Radiation
-        'Solar Radiation',
-        'Global and Net Radiation',
-        # Wind
-        'Diurnal Wind Speed Variation',
-        # Evaporation
-        'Diurnal Evaporation Variation',
-        'Evapotranspiration',
-    ]
 
     is_hourly_station = station.is_automatic or station.code==pgia_code
-    is_hourly_product = requestedData['product'] in hourly_products
-    is_hourly_data = (is_hourly_station and is_hourly_product)
 
-    if is_hourly_data:
+    if is_hourly_station:
         template_name = 'seasonal_hourly_valid.sql'
     else:
         template_name = 'seasonal_daily_valid.sql'
 
     template = env.get_template(template_name)
     query = template.render(context)
-
-    print(query)
 
     config = settings.SURFACE_CONNECTION_STRING
     with psycopg2.connect(config) as conn:
@@ -7114,59 +7097,23 @@ def get_agromet_products_data(request):
         response = []
         return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
 
-
-    products_with_statistics = [
-        'Degree days',
-        'Heat wave',
-        'Number of days with specified amount of rainfall',
-        # 'Duration of a specified threshold of humidity',
-        'Days of wind less than a selected speed',
-    ]
-
-    aggregations = [
-        "JFM", "FMA", "MAM", "AMJ",
-        "MJJ", "JJA", "JAS", "ASO",
-        "SON", "OND", "NDJ", "DRY",
-        "WET", "ANNUAL", "DJFM"
-    ]
-
-    index_cols = ['station', 'product', 'year']
-    calc_cols = [col for agg in aggregations for col in [agg, agg + ' (% of days)']]
-    final_cols = index_cols + calc_cols
-
-    # df = df.fillna('')
-
     products_without_statistics = [
-        'Wind Rose',
+        'Wind rose',
         'Evapotranspiration',
         'Drought indices',
-        'Flood and excess rainfall',
-        # 'Diurnal Wind Speed Variation',
+        'Growing season statistics',
+        'First and Last dates above specified specified temperature'
     ]
     
-    if requestedData['product'] not in products_without_statistics:
-        df = calculate_agromet_products_df_statistics(df)
-
-        for aggregation in aggregations:
-            pattern = rf"^{aggregation}_\d+$"
-            aggregation_cols = [col for col in df.columns if re.fullmatch(pattern, col)]
-            df[aggregation] = df[aggregation_cols].astype(str).agg('/'.join, axis=1)
-        df = df[final_cols]
-
-    print(df)
-
-    tableData = df.fillna('').to_dict('records')
-    minMaxData = {station.name: {}}
-
-    # if requestedData['product'] in products_with_statistics:
-    #     tableData =  calculate_agromet_products_df_statistics(df)
-    #     minMaxData =  get_agromet_products_df_min_max(df)
-    # else:
-    #     tableData = df.fillna('').to_dict('records')
-    #     minMaxData = {station.name: {}}
+    if requestedData['product'] in products_without_statistics:
+        tableData = df.fillna('').to_dict('records')
+        minMaxData = {station.name: {}}
+    else:
+        tableData =  calculate_agromet_products_df_statistics(df)
+        # minMaxData =  get_agromet_products_df_min_max(df)
+        minMaxData = {station.name: {}}
 
     filtered_context = {key: value for key, value in context.items() if key not in ['timezone']}
-
 
     response = {
         'tableData': tableData,
