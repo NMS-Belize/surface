@@ -121,7 +121,7 @@
 							v-model="requestData.endYear"
 							hint="*Required"
 							persistent-hint
-							:disabled="!requestData.startYear"
+							:disabled="!requestData.startYear || ['Wind rose', 'Evapotranspiration'].includes(requestData.product)"
 							:rules="[rules.required]"
 
 						/>
@@ -311,20 +311,20 @@
 			showing_product_info: false,
 			isFormValid: false,
 			requestData: {
-				stationId: 59, //4, // 59, // 6, 
-                element: 'Radiation and Sunshine', // 'Free Water Evaporation / Evapotranspiration', //'Wind', //'Relative Humidity',
+				stationId: null, //59, //4, // 59, // 6, 
+                element: 'Air Temperature', // 'Free Water Evaporation / Evapotranspiration', //'Wind', //'Relative Humidity',
 				product: null,
 				numericParam1: null,
 				numericParam2: null,
 				aggregation: null,
-				startYear: 2000,
-				endYear: 2025,
+				startYear: new Date().getFullYear(),// 2000,
+				endYear: new Date().getFullYear(), // 2025,
 				summaryType: 'Seasonal',
 				months: [],
 				interavl: null,
-				validateData: true,
+				validateData: false,
 				maxHourPct: 20,
-				maxDayPct: 100,
+				maxDayPct: 20,
 				maxDayGap: 5,
 			},
 			requestedData: {
@@ -420,7 +420,7 @@
 						'info': 'Diurnal variation of wind speed for each aggregation period.'
 					},
 					'Number of hours with wind speed below specified value': {
-						'info': 'Number of days when maximum daily wind speed (WNDSPD) is equal or below a specified ammount.',
+						'info': 'Number of hours when maximum hourly wind speed (WNDSPD) is equal or below a specified value.',
 						'numeric_param_1': {
 							value: 10,
 							label: 'Threshold speed',
@@ -432,12 +432,17 @@
 						'info': 'Cumulative duration of sunshine hours (SUNSHNHR).'
 					},
 					'Solar radiation': {
-						'info': 'Solar Radiation calculation following FAO-56 standards, uses TEMPMAX and TEMPMIN variables, day of year, and station latitude.\
-						The Empirical coefficient k_rs is set to 0.16 for inland and 0.19 for coastal stations.'
+						'info': 'Solar Radiation calculation following FAO-56 standards.\
+						For manual stations it uses TEMPMAX and TEMPMIN variables, day of year, and station latitude,\
+						the empirical coefficient k_rs is set to 0.16 for inland and 0.19 for coastal stations.\
+						For automatic stations it converts solar radiation measurements (SOLARRAD) from  W/m² to MJ/m²,\
+						by multiplying measured values by 0.0036.'
 					},
 					'Net radiation': {
-						'info': 'Net Radiation calculation following FAO-56 standards, uses TEMPMAX and TEMPMIN variables, day of year, station latitude and elevation.\
-						The Empirical coefficient k_rs is set to 0.16 for inland and 0.19 for coastal stations.'
+						'info': 'Net Radiation calculation following FAO-56 standards.\
+						For manual stations it uses TEMP, RH and SOLARRAD variables, day of year, station latitude and elevation,\
+						the empirical coefficient k_rs is set to 0.16 for inland and 0.19 for coastal stations.\
+						For automatic stations it uses TEMP, RH and SOLARRAD variables, day of year, station latitude and elevation.'
 					},
 				},
 				'Relative Humidity': {
@@ -451,14 +456,15 @@
 				},
 				'Evaporation and Evapotranspiration': {
 					'Accumulative Evaporation': {
-						'info': 'Cumulative pan evaporation (EVAPPAN).'
+						'info': 'Accumulative pan evaporation (EVAPPAN).'
 					},
 					'Diurnal variation of evaporation':{
 						'info': 'Diurnal variation of evaporation for each aggregation period.'
 					},
 					'Evapotranspiration': {
-						'info': 'Evapotranspiration estimate based on Hargreaves-Samani equation, uses TEMPMAX and TEMPMIN variables, day of year,\
-						station latitude, and parameters alpha and beta, with FAO-56 recommended default values 0.0023 and 0.5 respectively.',
+						'info': 'Evapotranspiration estimates are calculated using the Hargreaves-Samani equation for manual stations, which requires TEMPMAX, TEMPMIN, day of year, station latitude, and FAO-56 default parameters (alpha=0.0023, beta=0.5).\
+						For automatic stations, the Hargreaves-Samani equation uses TEMP variable instead of TEMPMAX and TEMPMIN,\
+						for those stations the Penman-Monteith equation is also used, which requires TEMP, WNDPSD, SOLARRAD, RH, PRESSTN, along with day of year, station latitude, and elevation.',
 						'aggregation': {
 							value: null,
 							label: 'Aggregation',
@@ -491,25 +497,10 @@
 					},
 				}
 			},
-			hourlyProducts: [
-				// Air Temp
-				'Degree days',
-				'Days above or below selected temperature',
-				'Growing season statistics',
-				'Heat wave',
-				// Relative Humidity
-				'Sequence of days above specified humidity',
-				// Sunshine Radiation
-				'Solar Radiation',
-				'Global and Net Radiation',
-				// Wind
-				'Diurnal variation of wind speed',
-				// Evaporation
-				'Diurnal Evaporation Variation'
-			],
 			hourlyOnlyProducts: [
 				'Diurnal variation of wind speed',
-				'Diurnal Evaporation Variation'
+				'Diurnal variation of evaporation',
+				'Number of hours with wind speed below specified value',
 			],			
 			parameterLabels: {
 				numericParam1: null,
@@ -549,8 +540,18 @@
 		},
 		watch: {
 			'requestData.startYear' (newStartYear, oldStartYear) {
-				this.requestData.endYear = null
+				if (['Wind rose', 'Evapotranspiration'].includes(this.requestData.product)){
+					this.requestData.endYear = this.requestData.startYear
+				}
+				else{
+					this.requestData.endYear = null
+				}
 			},
+			'requestData.stationId' (newStationId, oldStationId) {
+				if (this.isHourlyStation){
+					this.requestData.product = null
+				}
+			},				
 			'filters.is_automatic' (newValue, oldValue) {
 				this.requestData.stationId = null
 			},
@@ -570,6 +571,11 @@
 					this.parameterLabels.numericParam1 = this.elements[element][product].numeric_param_1?.label || null
 					this.parameterLabels.numericParam2 = this.elements[element][product].numeric_param_2?.label || null
 					this.parameterLabels.aggregation = this.elements[element][product].aggregation?.label || null
+
+					if (['Wind rose', 'Evapotranspiration'].includes(this.requestData.product)){
+						this.requestData.endYear = this.requestData.startYear
+					}
+
 				}
 				else {
 					this.requestData.numericParam1 = null
@@ -666,7 +672,7 @@
                     },
                     series: this.windRoseData
                 });
-			  },
+			},
 			availableStartYears () {
 				const min_year = 1900
 				const max_year = moment().year()
@@ -787,7 +793,7 @@
 					)
 				  ])
 				);
-			  },
+			},
 			isHourlyStation (){
 				const station = this.stationList.find(station => station.id === this.requestData.stationId)
 				const pgiaCode = '8858307'
@@ -795,10 +801,6 @@
 				if (!station) return false
 				return station.is_automatic || station.code === pgiaCode
 			},
-			isHourlyData (){
-				const isHourlyProduct = this.hourlyProducts.includes(this.requestData.product)
-				return isHourlyProduct && this.isHourlyStation
-			}
 		},
 		methods: {
             getData(){

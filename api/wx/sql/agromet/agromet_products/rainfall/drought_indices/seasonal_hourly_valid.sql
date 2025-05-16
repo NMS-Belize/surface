@@ -70,7 +70,7 @@ WITH hourly_data AS (
         ,EXTRACT(YEAR FROM day::date) AS year  
         ,EXTRACT(MONTH FROM day::date) AS month        
         ,MAX(day_gap) AS day_gap
-        ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (day_of_month <= {{max_day_gap}})) AS fm_day_gap
+        ,MAX(COALESCE(day_gap, 0)) FILTER(WHERE (day_of_month <= {{max_day_gap}})) AS day_gap_fm
         ,COUNT(*) AS days_records_m
         ,MIN(min_value) AS min_value
         ,MAX(max_value) AS max_value

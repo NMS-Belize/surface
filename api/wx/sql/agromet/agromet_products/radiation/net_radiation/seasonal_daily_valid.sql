@@ -73,7 +73,7 @@ WITH month_days AS (
         ,month
         ,year
         ,ms_solar_radiation(tmin, tmax, latitude, day_of_year) AS solar_rad
-        ,ms_net_sw_radiation(tmin, tmax, latitude, day_of_year) AS net_shortwave_rad
+        ,ms_net_shortwave_radiation(tmin, tmax, latitude, day_of_year) AS net_shortwave_rad
         ,ms_net_longwave_radiation(tmin, tmax, latitude, elevation, day_of_year) AS net_longwave_rad
         ,ms_net_radiation(tmin, tmax, latitude, elevation, day_of_year) AS net_rad
     FROM daily_data

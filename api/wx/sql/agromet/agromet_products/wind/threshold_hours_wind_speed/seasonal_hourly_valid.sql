@@ -78,7 +78,7 @@ WITH month_days AS (
             ,EXTRACT(MONTH FROM day) AS month
             ,EXTRACT(YEAR FROM day) AS year        
             ,COUNT(DISTINCT hour) AS total_hours
-            ,COUNT(*) FILTER(WHERE(min_value < {{threshold}})) AS hours_wndspd_below
+            ,COUNT(*) FILTER(WHERE(max_value <= {{threshold}})) AS hours_wndspd_below
         FROM hourly_data
         GROUP BY station_id, day    
     ) ddr
