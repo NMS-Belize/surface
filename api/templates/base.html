@@ -7,6 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <title>{% block title %}Surface{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Encode+Sans:wght@100..900&display=swap" rel="stylesheet">
+
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
@@ -102,6 +107,7 @@
   /* main-overlay style end */
 
       html {
+        font-family: "Encode Sans", sans-serif;
         overflow: auto;
       }
       .hide-menu {
@@ -632,11 +638,15 @@
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
                       {% if 'monthly-form' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
-                        <a id="monthly-form" href="{% url 'monthly-form' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Monthly Capture Form<i class="material-icons secondary-content">keyboard</i></a>
+                        <a id="monthly-form" href="{% url 'monthly-form' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Monthly Capture Form<i class="material-icons secondary-content">filter_center_focus</i></a>
                       {% endif %}
                                   
+                      {% if 'synop-capture-form' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
+                        <a id="synop-capture-form" href="{% url 'synop-capture-form' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture **New<i class="material-icons secondary-content">keyboard</i></a>
+                      {% endif %}
+
                       {% if 'synop-capture' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
-                        <a id="synop-capture" href="{% url 'synop-capture' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture<i class="material-icons secondary-content">keyboard</i></a>
+                        <a id="synop-capture" href="{% url 'synop-capture' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture **Old<i class="material-icons secondary-content">keyboard</i></a>
                       {% endif %}
                       
                       {% if 'data-inventory' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
@@ -831,6 +841,15 @@
     <script src="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@handsontable/vue@14.5.0/dist/vue-handsontable.min.js"></script>
 
+    <!-- AG Grid Core -->
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
+
+    <!-- AG Grid Vue (UMD) -->
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-vue@31.3.4/dist/ag-grid-vue.umd.min.js"></script>
+
+
+
+
     <script type="text/javascript" src="https://cdn.datatables.net/v/bs4/dt-1.10.20/b-1.6.1/b-html5-1.6.1/fh-3.1.6/datatables.min.js"></script>
     {% block js %}
     <script>
@@ -861,7 +880,9 @@
           'stations-monitoring',
           'monthly-form',
           'synop-capture',
+          'synop-capture-form',
           'data-export',
+          'manual-data-import',
           'instrumentlogs-list',
           'station-report',
           'wave-data',

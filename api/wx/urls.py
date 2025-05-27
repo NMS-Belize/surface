@@ -163,6 +163,8 @@ urlpatterns = [
     path("api/regional_wis_credentials/", views.RegionalWisCredentialsUpdateView.as_view(), name='regional-wis-credentials'),
     path("api/config_wis_station/<int:pk>/", views.configWis2StationUpdateView.as_view(), name='config-wis-stations'),
     path("api/publishing_offsets/", views.publishingOffsetViewSet.as_view({'get': 'list'}), name='api-publishing-offsets'),
+    path('wx/reports/synop/capture', views.SynopCaptureView.as_view(), name='synop-capture-form'),
+    path('wx/reports/synop/capture/update/', views.synop_capture_update, name='update-synop-capture-report'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

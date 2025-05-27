@@ -24,9 +24,6 @@ class StationForm(forms.ModelForm):
     # configured dropdown for watershed option
     watershed = forms.ChoiceField(required=False)
 
-    # configured dropdown for region option
-    region = forms.ChoiceField()
-
     # configure wigos section options
     wigos_part_1 = forms.IntegerField(initial='0', disabled=True, required=False, label='WIGOS ID Series')
     # wigos_part_3 = forms.IntegerField(min_value=0, max_value=65534, required=False, label='Issue Number')
@@ -56,11 +53,12 @@ class StationForm(forms.ModelForm):
             'organization' : 'Responsible Organization (Local)',
         }
         help_texts = {
-            'international_exchange': 'Upon selection, the station will be available in the WIS2 configuration dashboard. Head there to modify the default settings and customize how the station is published to WIS2.'
+            'international_exchange': 'Upon selection, the station will be available in the WIS2 configuration dashboard. Head there to modify the default settings and customize how the station is published to WIS2.',
+            'region': 'If this option is not applicable, please select "Not Specified".'
         }
         # widgets = {
         #     'wigos_part_3': forms.NumberInput(attrs={
-        #         'title': 'Enter the issue number (0 to 65534) for this WIGOS identifier part.',
+        #         'title': 'Enter the issue number (0 to 65534) for this WIGOS identifier part.',``
         #         # 'class': 'form-control'
         #     }),
         # }
@@ -78,11 +76,6 @@ class StationForm(forms.ModelForm):
         # Dynamically fetch watershed choices from the database
         watershed_options = [('','---------')] + [(x, x) for x in Watershed.objects.values_list('watershed', flat=True)]
         self.fields['watershed'].choices = watershed_options
-
-        # Dynamically fetch region choices from the database
-        region_options = [('','---------')] + [(x, x) for x in AdministrativeRegion.objects.values_list('name', flat=True)]
-        self.fields['region'].choices = region_options
-        
 
     def clean(self):
         cleaned_data = super().clean()

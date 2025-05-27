@@ -276,6 +276,7 @@
           hotInstance = this.$refs.synopTable.hotInstance
           this.hotData = [];
           hotInstance.loadData(this.hotData);
+
           for(i=0; i< response.data.length; i++){
             row = parseInt( response.data[i][0].substr(11, 2));
             this.hotData[row][response.data[i][1]] =  response.data[i][2];
@@ -332,6 +333,7 @@
         
         let { stationId, interval, date } = this.requestedData;
         const url = `/wx/reports/synop/update/?station_id=${stationId}&date=${date}`
+
     
         axios.post(url, {
           date: this.requestData.date,

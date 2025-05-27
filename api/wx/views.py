@@ -7879,7 +7879,7 @@ def synop_pressure_calc(request):
             value = pressure_data[station_name]['data'][0]['value']  
 
             # return the absolute value as the pressure difference
-            pressure_difference = (value - pressure_value) if pressure_value != -99.9 and value != -99.9 else -99.9
+            pressure_difference = round((value - pressure_value), 1) if pressure_value != -99.9 and value != -99.9 else -99.9
         else:
             pressure_difference = 'no data'
 
@@ -9016,3 +9016,205 @@ def push_to_wis2box(request):
             return JsonResponse({e}, status=500)
 
     return JsonResponse({}, status=405)  # Method Not Allowed
+
+
+
+# updated synop capture form view
+class SynopCaptureView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/data/synop_capture_form.html" 
+
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+
+        # get synop station information
+        context['station_list'] = Station.objects.filter(is_synoptic=True).values('id', 'name', 'code')
+        # retrieves the ag_grid_config, the id's of columns which should be numbers and a dict of col id's mapped to wmocodevalues
+        context['ag_grid_config'], context['num_validate_ids'], context['variable_ids'] = get_synop_capture_config()
+
+        # Get parameters from request or set default values
+        station_id = request.GET.get('station_id', 'null')
+        context['station_id'] = station_id
+         # context['date'] = date
+
+        # changing the date so that if reflects that users timezone
+        offset = datetime.timedelta(minutes=(settings.TIMEZONE_OFFSET))
+        dt_object = datetime.datetime.now() + offset
+
+        context['date'] = dt_object.date()
+        context['timezone_offset'] = offset
+
+        return self.render_to_response(context)    
+    
+
+def get_synop_capture_config():
+    # List of variables, in order, for synoptic station input form
+    # if a var is added/removed, do the same in the col_widths list
+    variable_symbols = [
+        'RH', 'VISBY-km', 'WNDDIR', 'WNDSPD', 'TDEWPNT', 'TEMPWB', 
+        'TEMP', 'TEMPMAX', 'TEMPMIN', 'PRESSTN', 'PRESSEA', 'BAR24C', 
+        'PRECIND', 'PRECIP', 'PREC24H', 'PRECDUR', 'STSKY', 'PRSWX',
+        'W1', 'W2', 'Nh', 'CLDTOT', 'LOWCLHFt', 'CL', 'CM', 'CH', 'DL', 
+        'DM', 'DH', 'N1', 'C1', 'hhFt1', 'N2', 'C2', 'hhFt2', 'N3', 'C3', 
+        'hhFt3', 'N4', 'C4', 'hhFt4', 'SpPhenom'
+    ]
+
+    col_widths = [
+        200, 220, 200, 200, 200, 250, 250, 255, 250, 200, 
+        250, 250, 200, 200, 250, 250, 200, 200, 200, 200, 
+        250, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+        200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+        200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+        500, 200
+    ]
+
+    var_class_dict = {
+        "misc-cols-group": ['RH', 'VISBY-km', 'SpPhenom'],
+        "wind-cols-group": ['WNDDIR', 'WNDSPD'],
+        "temp-cols-group": ['TDEWPNT', 'TEMPWB', 'TEMP', 'TEMPMAX', 'TEMPMIN'],
+        "pressure-cols-group": ['PRESSTN', 'PRESSEA', 'BAR24C'],
+        "precip-cols-group": ['PRECIND', 'PRECIP', 'PREC24H', 'PRECDUR'],
+        "sky-cols-group": ['STSKY', 'PRSWX', 'W1', 'W2'],
+        "cloud-cols-group": ['Nh', 'CLDTOT', 'LOWCLHFt', 'CL', 'CM', 'CH', 'DL', 'DM', 'DH', 'N1', 'C1', 'hhFt1', 'N2', 'C2', 'hhFt2', 'N3', 'C3', 'hhFt3', 'N4', 'C4', 'hhFt4'],
+    }
+
+    # Get wmo code values to use in dropdown for code variables
+    wmocodevalue_list = WMOCodeValue.objects.values('value', 'code_table_id')
+    wmocodevalue_dict = {}
+    for item in wmocodevalue_list:
+        code_table_id = item['code_table_id']
+
+        if code_table_id not in wmocodevalue_dict:
+            wmocodevalue_dict[code_table_id] = []
+
+        wmocodevalue_dict[code_table_id].append(item['value'])
+
+    # Reverse mapping from symbol to class name
+    symbol_to_class = {}
+    for class_name, symbols in var_class_dict.items():
+        for symbol in symbols:
+            symbol_to_class[symbol] = class_name
+
+    # var id's which should have a calculate action (24 hr barometric change, 24 hr precipitation)
+    calc_action = [4055, 4057]
+
+    # Get a variable list using the order of variable_ids list and also check for symbols which are missing of don't exist
+    variable_dict = {variable.symbol: variable for variable in Variable.objects.filter(symbol__in=variable_symbols)}
+    if missing_symbols := [
+        symbol for symbol in variable_symbols if symbol not in variable_dict
+    ]:
+        raise ValueError(f"Unable to Load the synop capture form. The following variable symbols are missing in the database: {missing_symbols}")
+    
+    variable_list = [variable_dict[variable_symbol] for variable_symbol in variable_symbols]
+
+    # loadig the context with the required information to display the headers (id, name, synoptic_code, col_width)
+    context = [
+        {
+            "id": var.pk, 
+            "name": var.name, 
+            "synoptic_code": var.synoptic_code_form, 
+            "var_type": var.variable_type.lower(),
+            "col_width": col_widths[variable_list.index(var)],
+            "col_class": symbol_to_class.get(var.symbol),
+            "dropdown_codes": wmocodevalue_dict.get(var.code_table_id, []),
+            "calc_action": True if var.pk in calc_action else False,
+        } 
+        for var in variable_list
+        
+    ]
+    context.extend(
+        (
+            {
+                "id": "remarks",
+                "name": "Remarks",
+                "synoptic_code": None,
+                "col_width": col_widths[-2],
+                "col_class": "misc-cols-group",
+            },
+            {
+                "id": "observer",
+                "name": "Observer",
+                "synoptic_code": None,
+                "col_width": col_widths[-1],
+                "col_class": "misc-cols-group",
+            },
+        )
+    )
+
+    # get the id's of all variables which columns are numeric, the id's are stored as strings
+    num_validate_ids = [str(var.pk) for var in variable_list if var.variable_type.lower() == "numeric"]
+    # getting the id's of all variables
+    variable_ids = [str(var.pk) for var in variable_list]
+
+    return context, num_validate_ids, variable_ids
+
+
+# similar to synop_update except we don't auto populate -99.9 for data left blank on numerical columns
+@api_view(['POST'])
+def synop_capture_update(request):
+    try:
+        day = datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d')
+        station_id = request.GET['station_id']
+
+        hours_dict = request.data['table']
+        now_utc = datetime.datetime.now().astimezone(pytz.UTC)
+        now_utc+= datetime.timedelta(hours=settings.PGIA_REPORT_HOURS_AHEAD_TIME)
+
+        station = Station.objects.get(id=station_id)
+        datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
+
+        seconds = 3600
+
+        records_list = []
+        for hour, hour_data in hours_dict.items():
+            data_datetime = day.replace(hour=int(hour))
+            data_datetime = datetime_offset.localize(data_datetime)
+            if data_datetime <= now_utc:
+                if hour_data:
+                    if 'action' in hour_data.keys():
+                        hour_data.pop('action')
+
+                    if 'remarks' in hour_data.keys():
+                        remarks = hour_data.pop('remarks')
+                    else:
+                        remarks = None
+
+                    if 'observer' in hour_data.keys():
+                        observer = hour_data.pop('observer')
+                    else:
+                        observer = None
+
+                    for variable_id, measurement in hour_data.items():
+                        variable = Variable.objects.get(pk=variable_id)
+                        if measurement is None:
+                            measurement_value = None
+                            measurement_code = settings.MISSING_VALUE_CODE
+                        else:
+                            if (variable.variable_type=='Numeric'):
+                                try:
+                                    measurement_value = float(measurement)
+                                    measurement_code = measurement
+                                except Exception:
+                                    measurement_value = None
+                                    measurement_code = settings.MISSING_VALUE_CODE
+                            else:
+                                measurement_value = None
+                                measurement_code = measurement
+                            
+                        records_list.append((
+                            station_id, variable_id, seconds, data_datetime, measurement_value, 1, None,
+                            None, None, None, None, None, None, None, False, remarks, observer,
+                            measurement_code))
+
+        insert_raw_data_synop.insert(
+            raw_data_list=records_list,
+            date=day,
+            station_id=station_id,
+            override_data_on_conflict=True,
+            utc_offset_minutes=station.utc_offset_minutes
+        )
+
+    except Exception as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return HttpResponse(status=status.HTTP_200_OK)
