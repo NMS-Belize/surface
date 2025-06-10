@@ -1418,7 +1418,7 @@ class WxPermission(BaseModel):
     name = models.CharField(max_length=256, unique=True)
     url_name = models.CharField(max_length=256)
     permission = models.CharField(max_length=32, choices=(
-        ('read', 'Read'), ('write', 'Write'), ('update', 'Update'), ('delete', 'Delete')))
+        ('full_access', 'Full Access'), ('read', 'Read'), ('write', 'Write'), ('update', 'Update'), ('delete', 'Delete')))
 
     def __str__(self):
         return self.name

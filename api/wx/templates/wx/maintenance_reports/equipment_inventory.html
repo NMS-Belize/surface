@@ -336,10 +336,10 @@
             </v-text-field>
           </v-flex>
           <v-flex lg1 mt-5>
-            {% if perms.wx.add_equipment %}
-            <v-btn small label color="primary" @click="getEquipmentData(); is_new_equipment=true; dialog_new = true">
-              New Equipment
-            </v-btn>
+            {% if 'write' in USER_PERMISSIONS.equipment_inventory or 'full_access' in USER_PERMISSIONS.equipment_inventory or user.is_superuser %}
+              <v-btn small label color="primary" @click="getEquipmentData(); is_new_equipment=true; dialog_new = true">
+                New Equipment
+              </v-btn>
             {% endif %}            
           </v-flex>
         </v-layout>
@@ -353,7 +353,7 @@
               :search="search"
             >
               <template v-slot:item.actions="{ item }">
-                {% if perms.wx.change_equipment %}
+                {% if 'update' in USER_PERMISSIONS.equipment_inventory or 'full_access' in USER_PERMISSIONS.equipment_inventory or user.is_superuser %}
                 <v-tooltip bottom>
                   <template v-slot:activator="{ on }">
                     <v-btn icon> <v-icon v-on="on" small @click="dialog_new=true; is_new_equipment=false; equipment=item"> edit</v-icon></v-btn>
@@ -362,14 +362,14 @@
                 </v-tooltip>
                 {% endif %}
 
-                <!-- {% if perms.wx.delete_equipment %}
+                {% if 'delete' in USER_PERMISSIONS.equipment_inventory or 'full_access' in USER_PERMISSIONS.equipment_inventory or user.is_superuser %}
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on }">
                       <v-btn icon> <v-icon color="error" v-on="on" small @click="dialog_del=true; equipment=item">delete</v-icon></v-btn>
                     </template>
                     <span>Delete Equipment</span>
                   </v-tooltip>
-                {% endif %} -->
+                {% endif %}
               </template>              
             </v-data-table>
           </v-flex>            
@@ -398,6 +398,7 @@
       },      
       data:{
         search: '',
+        tester_tester: [],
         loading: false,
         request_error_message: null,
         request_error: false,
@@ -497,13 +498,15 @@
           })          
           .then(
             res => {
-              this.equipments = res.data['equipments'];
+              this.equipments = res.data['equipment'];
               this.equipment_types = res.data['equipment_types'];
               this.manufacturers = res.data['manufacturers'];
               this.funding_sources = res.data['funding_sources'];
               this.stations = res.data['stations'];
               this.equipment_classifications = res.data['equipment_classifications'];
-          });
+            },
+          ).catch(error => {console.log(error);});
+
         },
         createEquipment(){
           this.loading = true;

@@ -34,24 +34,64 @@ def get_surface_context(req):
     }
 
 
+# def get_user_wx_permissions(req):
+#     with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
+#         with conn.cursor() as cursor:
+#             cursor.execute(
+#                 """
+#                     SELECT DISTINCT url_name, permission
+#                     FROM wx_wxpermission as perm
+#                     JOIN wx_wxgrouppermission_permissions as gpp ON gpp.wxpermission_id = perm.id
+#                     JOIN wx_wxgrouppermission as gp ON gp.id = gpp.wxgrouppermission_id
+#                     JOIN auth_user_groups as aug ON aug.group_id = gp.group_id 
+#                     WHERE aug.user_id = %s
+#                 """, (req.user.id,))
+
+#             user_permissions = {}
+#             for row in cursor.fetchall():
+#                 if user_permissions.get(row[0]) is None:
+#                     user_permissions[row[0]] = []
+
+#                 user_permissions[row[0]].append(row[1])
+
+#     return {'USER_PERMISSIONS': user_permissions, 'USER_IS_ADMIN': 1 if req.user.is_superuser else 0}
+
+
 def get_user_wx_permissions(req):
+    # 1. Fetch from the database the url_name and the permission
     with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
                     SELECT DISTINCT url_name, permission
                     FROM wx_wxpermission as perm
-                    JOIN wx_wxgrouppermission_permissions as gpp ON gpp.wxpermission_id = perm.id
-                    JOIN wx_wxgrouppermission as gp ON gp.id = gpp.wxgrouppermission_id
-                    JOIN auth_user_groups as aug ON aug.group_id = gp.group_id 
+                    JOIN wx_wxgrouppermission_permissions as gpp 
+                      ON gpp.wxpermission_id = perm.id
+                    JOIN wx_wxgrouppermission as gp 
+                      ON gp.id = gpp.wxgrouppermission_id
+                    JOIN auth_user_groups as aug 
+                      ON aug.group_id = gp.group_id 
                     WHERE aug.user_id = %s
-                """, (req.user.id,))
+                """,
+                (req.user.id,)
+            )
 
-            user_permissions = {}
-            for row in cursor.fetchall():
-                if user_permissions.get(row[0]) is None:
-                    user_permissions[row[0]] = []
+            # Build a “raw” dictionary with the exact url_name key (may contain hyphens)
+            user_permissions_raw = {}
+            for url_name, perm_code in cursor.fetchall():
+                if url_name not in user_permissions_raw:
+                    user_permissions_raw[url_name] = []
+                user_permissions_raw[url_name].append(perm_code)
 
-                user_permissions[row[0]].append(row[1])
+    # 2. Create a “clean” dictionary that replaces hyphens with underscores
+    user_permissions_clean = {}
+    for raw_key, perm_list in user_permissions_raw.items():
+        # Replace every hyphen with underscore
+        clean_key = raw_key.replace('-', '_')
+        user_permissions_clean[clean_key] = perm_list
 
-    return {'USER_PERMISSIONS': user_permissions, 'USER_IS_ADMIN': 1 if req.user.is_superuser else 0}
+    # 3. Return the cleaned dictionary plus USER_IS_ADMIN
+    return {
+        'USER_PERMISSIONS': user_permissions_clean,
+        'USER_IS_ADMIN':     1 if req.user.is_superuser else 0
+    }

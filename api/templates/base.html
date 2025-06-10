@@ -586,26 +586,34 @@
           </div>
 
           <ul class="collapsible to-uppercase">
-            <li id="stations-group" class="hide-menu">
+            <!-- stations tab -->
+            <li id="stations-group" class="">
               <div class="collapsible-header"><i class="material-icons">my_location</i>STATIONS</div>
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                    <a id="stations-map" href="{% url 'stations-map' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">MAP<i class="material-icons secondary-content">map</i></a>
-                    {% if 'station-create' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="station-create" href="{% url 'station-create' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">CREATE A STATION<i class="material-icons secondary-content">create</i></a>
+                    {% if 'stations-map' in request.user_permissions or request.user.is_superuser%}
+                    <a id="stations-map" href="{% url 'stations-map' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">MAP<i class="material-icons secondary-content">map</i></a>
                     {% endif%}
-                    {% if 'stations-list' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="stations-list" href="{% url 'stations-list' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">list</i></a>
+
+                    {% if 'station-create' in request.user_permissions or request.user.is_superuser%}
+                      <a id="station-create" href="{% url 'station-create' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">CREATE A STATION<i class="material-icons secondary-content">create</i></a>
                     {% endif%}
-                    {% if 'station-metadata' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="station-metadata" href="{% url 'station-metadata' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">assessment</i></a>
+
+                    {% if 'stations-list' in request.user_permissions or request.user.is_superuser%}
+                      <a id="stations-list" href="{% url 'stations-list' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">LIST<i class="material-icons secondary-content">list</i></a>
                     {% endif%}
-                    {% if 'station-oscar-export' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Export to OSCAR<i class="material-icons secondary-content">send</i></a>
+
+                    {% if 'station-metadata' in request.user_permissions or request.user.is_superuser%}
+                      <a id="station-metadata" href="{% url 'station-metadata' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">METADATA<i class="material-icons secondary-content">assessment</i></a>
                     {% endif%}
-                    {% if 'stations-monitoring' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class="hide-menu collection-item left-space " onclick="mainOverlayLoader()">STATIONS MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
+                    
+                    {% if 'station-oscar-export' in request.user_permissions or request.user.is_superuser%}
+                      <a id="station-oscar-export" href="{% url 'station-oscar-export' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Export to OSCAR<i class="material-icons secondary-content">send</i></a>
+                    {% endif%}
+                    
+                    {% if 'stations-monitoring' in request.user_permissions or request.user.is_superuser%}
+                      <a id="stations-monitoring" href="{% url 'stations-monitoring' %}" class=" collection-item left-space " onclick="mainOverlayLoader()">STATIONS MONITORING<i class="material-icons secondary-content">monitor</i></a>                    
                     {% endif%}
                   </ul>
                 </div>
@@ -613,17 +621,18 @@
             </li>
             </li>
 
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <li id="maintenance-group" class="hide-menu">
+            <!-- maintenance tab -->
+            {% if 'equipment-inventory' in request.user_permissions or 'maintenance-reports' in request.user_permissions or 'new-maintenance-report' in request.user_permissions or request.user.is_superuser %}
+            <li id="maintenance-group" class="">
               <div class="collapsible-header"><i class="material-icons">build</i>MAINTENANCE</div>
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                    {% if 'equipement-inventory' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                     <a id="equipement-inventory" href="{% url 'equipment-inventory' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Equipment Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
+                    {% if 'equipment-inventory' in request.user_permissions or request.user.is_superuser%}
+                     <a id="equipement-inventory" href="{% url 'equipment-inventory' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Equipment Inventory<i class="material-icons-outlined secondary-content">inventory</i></a>
                     {% endif %}
-                    {% if 'maintenance-reports' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}                
-                     <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Maintenance Reports<i class="material-icons secondary-content">build</i></a>
+                    {% if 'maintenance-reports' in request.user_permissions or 'new-maintenance-report' in request.user_permissions or request.user.is_superuser%}                
+                     <a id="maintenance-reports" href="{% url 'maintenance-reports' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Maintenance Reports<i class="material-icons secondary-content">build</i></a>
                     {% endif %}
                   </ul>
                 </div>
@@ -631,65 +640,70 @@
             </li>
             {% endif %}
 
-
-            <li id="data-group" class="hide-menu">
+            <!-- data tab -->
+            {% if 'monthly-form' in request.user_permissions or 'data-export' in request.user_permissions or 'manual-data-import' in request.user_permissions or 'synop-capture-form' in request.user_permissions or 'synop-capture' in request.user_permissions or 'data-inventory' in request.user_permissions or request.user.is_superuser %}
+            <li id="data-group" class="">
               <div class="collapsible-header"><i class="material-icons">data_usage</i>DATA</div>
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                      {% if 'monthly-form' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
+                      {% if 'monthly-form' in request.user_permissions or request.user.is_superuser %}
                         <a id="monthly-form" href="{% url 'monthly-form' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Monthly Capture Form<i class="material-icons secondary-content">filter_center_focus</i></a>
                       {% endif %}
                                   
-                      {% if 'synop-capture-form' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
+                      {% if 'synop-capture-form' in request.user_permissions or request.user.is_superuser %}
                         <a id="synop-capture-form" href="{% url 'synop-capture-form' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture **New<i class="material-icons secondary-content">keyboard</i></a>
                       {% endif %}
 
-                      {% if 'synop-capture' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
+                      {% if 'synop-capture' in request.user_permissions or request.user.is_superuser %}
                         <a id="synop-capture" href="{% url 'synop-capture' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Synop Capture **Old<i class="material-icons secondary-content">keyboard</i></a>
                       {% endif %}
                       
-                      {% if 'data-inventory' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
+                      {% if 'data-inventory' in request.user_permissions or request.user.is_superuser %}
                         <a id="data-inventory" href="{% url 'data-inventory' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Data Inventory<i class="material-icons secondary-content">web</i></a>
                       {% endif %}
 
-                      {% if request.user.is_staff or request.user.is_superuser %}
+                      {% if 'manual-data-import' in request.user_permissions or request.user.is_superuser %}
                         <a id="manual-data-import" href="{% url 'manual-data-import' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Import<i class="material-icons-outlined secondary-content">cloud_upload</i></a>
                       {% endif %}
 
-                      {% if 'data-export' in request.user_permissions or request.user.is_staff or request.user.is_superuser %}
+                      {% if 'data-export' in request.user_permissions or request.user.is_superuser %}
                         <a id="data-export" href="{% url 'data-export' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Export<i class="material-icons secondary-content">cloud_download</i></a>
                       {% endif %}
                   </ul>
                 </div>
               </div>
             </li>
+            {% endif %}
 
 
-            {% if request.user.is_superuser %}
+            {% if 'wis2-dashboard' in request.user_permissions or request.user.is_superuser %}
             <li class="collapsible-item">
               <a href="{% url 'wis2-dashboard' %}" style="padding: 0px 16px;" onclick="mainOverlayLoader()"><i class="material-icons">space_dashboard</i>WIS2 DASHBOARD</a>
             </li>
             {% endif %}
 
 
-            {% if request.user.is_staff or request.user.is_superuser %}
-            <li id="quality-control-group" class="hide-menu">
+            {% if 'persist-threshold' in request.user_permissions or 'step-threshold' in request.user_permissions or 'range-threshold' in request.user_permissions or 'quality-control' in request.user_permissions or request.user.is_superuser %}
+            <li id="quality-control-group" class="">
               <div class="collapsible-header"><i class="material-icons">playlist_add_check</i>Quality<span>&nbsp;</span>Control</div>
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                    {% if 'quality-control' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="quality-control" href="{% url 'quality-control' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Data Validation<i class="material-icons secondary-content">done_all</i></a>
+                    {% if 'quality-control' in request.user_permissions or request.user.is_superuser%}
+                      <a id="quality-control" href="{% url 'quality-control' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Data Validation<i class="material-icons secondary-content">done_all</i></a>
                     {% endif %}
-                    {% if 'range-threshold' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="range-threshold" href="{% url 'range-threshold' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
+
+                    {% if 'range-threshold' in request.user_permissions or request.user.is_superuser%}
+                      <a id="range-threshold" href="{% url 'range-threshold' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Range Threshold<i class="material-icons secondary-content">clear_all</i></a>
                     {% endif %}
-                    {% if 'step-threshold' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="step-threshold" href="{% url 'step-threshold' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
+
+                    {% if 'step-threshold' in request.user_permissions or request.user.is_superuser%}
+                      <a id="step-threshold" href="{% url 'step-threshold' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Step Threshold<i class="material-icons secondary-content">low_priority</i></a>
                     {% endif %}
-                    {% if 'persist-threshold' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="persist-threshold" href="{% url 'persist-threshold' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
+
+                    {% if 'persist-threshold' in request.user_permissions or request.user.is_superuser%}
+                      <a id="persist-threshold" href="{% url 'persist-threshold' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Persist Threshold<i class="material-icons secondary-content">format_align_left</i></a>
                     {% endif %}
                   </ul>
                 </div>
@@ -697,36 +711,44 @@
             </li>
             {% endif %}
 
-            <li id="products-group" class="hide-menu">
+            {% if 'wave-data' in request.user_permissions or 'extremes-means' in request.user_permissions or 'spatial-analysis' in request.user_permissions or 'product-compare' in request.user_permissions or 'variable-report' in request.user_permissions or 'station-report' in request.user_permissions or request.user.is_superuser %}
+            <li id="products-group" class="">
               <div class="collapsible-header"><i class="material-icons">list_alt</i>PRODUCTS</div>
               <div class="collapsible-body">
                 <div class="collapsible-subitem mb-2">
                   <ul class="collection">
-                    {% if 'station-report' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="station-report" href="{% url 'station-report' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Station Report<i class="material-icons secondary-content">people</i></a>
+                    {% if 'station-report' in request.user_permissions or request.user.is_superuser%}
+                      <a id="station-report" href="{% url 'station-report' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Station Report<i class="material-icons secondary-content">people</i></a>
                     {% endif %}
-                    {% if 'variable-report' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="variable-report" href="{% url 'variable-report' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Variable Report<i class="material-icons secondary-content">view_list</i></a>
+
+                    {% if 'variable-report' in request.user_permissions or request.user.is_superuser%}
+                      <a id="variable-report" href="{% url 'variable-report' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Variable Report<i class="material-icons secondary-content">view_list</i></a>
                     {% endif %}
-                    {% if 'product-compare' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="product-compare" href="{% url 'product-compare' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
+
+                    {% if 'product-compare' in request.user_permissions or request.user.is_superuser%}
+                      <a id="product-compare" href="{% url 'product-compare' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Station Compare<i class="material-icons secondary-content">compare_arrows</i></a>
                     {% endif %}
-                    {% comment %} {% if 'd="yearly-average' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
+
+                    {% if 'yearly-average' in request.user_permissions or request.user.is_superuser%}
                       <a id="yearly-average" href="{% url 'yearly-average' %}" class="collection-item left-space">Yearly Average<i class="material-icons secondary-content" onclick="mainOverlayLoader()">timeline</i></a>
-                    {% endif %} {% endcomment %}
-                    {% if 'spatial-analysis' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
                     {% endif %}
-                    {% if 'extremes-means' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="extremes-means" href="{% url 'extremes-means' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Extremes and Means<i class="material-icons secondary-content">equalizer</i></a>
+
+                    {% if 'spatial-analysis' in request.user_permissions or request.user.is_superuser%}
+                      <a id="spatial-analysis" href="{% url 'spatial-analysis' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Spatial analysis<i class="material-icons secondary-content">dashboard</i></a>
                     {% endif %}
-                    {% if 'wave-data' in request.user_permissions or request.user.is_staff or request.user.is_superuser%}
-                      <a id="wave-data" href="{% url 'wave-data' %}" class="hide-menu collection-item left-space" onclick="mainOverlayLoader()">Wave data analysis<i class="material-icons secondary-content">water</i></a>
+
+                    {% if 'extremes-means' in request.user_permissions or request.user.is_superuser%}
+                      <a id="extremes-means" href="{% url 'extremes-means' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Extremes and Means<i class="material-icons secondary-content">equalizer</i></a>
+                    {% endif %}
+                    
+                    {% if 'wave-data' in request.user_permissions or request.user.is_superuser%}
+                      <a id="wave-data" href="{% url 'wave-data' %}" class=" collection-item left-space" onclick="mainOverlayLoader()">Wave data analysis<i class="material-icons secondary-content">water</i></a>
                     {% endif %}
                   </ul>
                 </div>
             </div>
             </li>
+            {% endif %}
 
             {% if request.user.is_staff or request.user.is_superuser %}
             <li class="collapsible-item">
@@ -861,70 +883,7 @@
         const collapseIcon = document.getElementById('collapse-icon');
         const blockContent = document.getElementById('block-content');
         const wrapSidenav = document.getElementById('wrap-sidenav');
-        const instance = M.Collapsible.getInstance(document.querySelector('.collapsible'));
-
-        const localGroups = [
-          'stations-group',
-          'maintenance-group',          
-          'data-group',
-          'products-group',
-          'quality-control-group'
-        ];
-
-        const localMenus = [
-          'stations-map',
-          'station-create',
-          'stations-list',
-          'station-metadata',
-          'station-oscar-export',
-          'stations-monitoring',
-          'monthly-form',
-          'synop-capture',
-          'synop-capture-form',
-          'data-export',
-          'manual-data-import',
-          'instrumentlogs-list',
-          'station-report',
-          'wave-data',
-          'product-compare',
-          'yearly-average',
-          'spatial-analysis',
-          'extremes-means',
-          'quality-control',
-          'variable-report',
-          'data-inventory',
-          'range-threshold',
-          'step-threshold',
-          'persist-threshold',
-          'equipement-inventory',
-          'maintenance-reports'
-        ]
-
-        const menuList = "{{USER_PERMISSIONS|safe}}";
-        const userIsAdmin = "{{USER_IS_ADMIN|safe}}";
-
-        localMenus.forEach(menu => {
-          if ($(`#${menu}`).length > 0) {
-            if ((menuList[menu] != null && menuList[menu].includes('read')) || userIsAdmin) {
-              document.getElementById(menu).classList.remove('hide-menu');
-            }
-          }
-        });
-
-        localGroups.forEach(group => {
-          // Test if the group have some child with class 'hide-menu'
-          // If it have none, hide the group too.
-          // If not, just leave it.
-          if ($(`#${group}`).length > 0) {
-            if($(`#${group} > div > div > ul > a.hide-menu`).length !== $(`#${group} > div > div > ul > a`).length){
-              document.getElementById(group).classList.remove('hide-menu');
-            } else {
-              // Have some menu inside. So, do nothing.
-            }
-          } else {
-            // Group do not exist
-          }
-        })
+        const instance = M.Collapsible.getInstance(document.querySelector('.collapsible')); 
 
         //MOBILE
         document.getElementById('menu-toggler')

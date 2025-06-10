@@ -4,11 +4,13 @@
   <span class="srf-display-1 text-uppercase">Variables</span>
   <div class="srf-flex">
     {% if not station.is_automatic %}
-    <a href="{% url 'stationvariable-create' station.id %}">
-      <button class="btn-outline-default btn-small" type="button">
-        Add variable item
-      </button>
-    </a>
+      {% if USER_PERMISSIONS.stationvariable_create or user.is_superuser %}
+        <a href="{% url 'stationvariable-create' station.id %}">
+          <button class="btn-outline-default btn-small" type="button">
+            Add variable item
+          </button>
+        </a>
+      {% endif %}
     {% endif %}
   </div>
 </div>
@@ -20,7 +22,9 @@
         <tr>
           <th>Variable</th>
           {% if not station.is_automatic %}
-          <th>Actions</th>
+            {% if USER_PERMISSIONS.stationvariable_delete or user.is_superuser %}
+              <th>Actions</th>
+            {% endif %}
           {% endif %}
         </tr>
       </thead>
@@ -29,19 +33,21 @@
         <tr>
           <td>{{ object.variable }}</td>
           {% if not station.is_automatic %}
-          <td class="justify-center layout">
-            <a href="{% url 'stationvariable-delete' station.id object.id %}">
-              <button
-                id="id_delete_station"
-                class="mdl-button mdl-js-button mdl-button--icon"
-              >
-                <i class="material-icons custon-icon-16 icon-danger">delete</i>
-              </button>
-              <div class="mdl-tooltip" data-mdl-for="id_delete_station">
-                Delete station
-              </div>
-            </a>
-          </td>
+            {% if USER_PERMISSIONS.stationvariable_delete or user.is_superuser %}
+              <td class="justify-center layout">
+                <a href="{% url 'stationvariable-delete' station.id object.id %}">
+                  <button
+                    id="id_delete_station"
+                    class="mdl-button mdl-js-button mdl-button--icon"
+                  >
+                    <i class="material-icons custon-icon-16 icon-danger">delete</i>
+                  </button>
+                  <div class="mdl-tooltip" data-mdl-for="id_delete_station">
+                    Delete station
+                  </div>
+                </a>
+              </td>
+            {% endif %}
           {% endif %}
         </tr>
         {% endfor %}
