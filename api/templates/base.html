@@ -550,10 +550,14 @@
             <li class="py-4">
               <div class="d-flex">
                 <div style="max-width: 55px;" class="w-100">
-                  <img style="padding: 0px 8px" class="img-logo" src="{% static 'images/circle_logo_small.png' %}" />
+                  <a href="{% url 'stations-map' %}">
+                    <img style="padding: 0px 8px" class="img-logo" src="{% static 'images/circle_logo_small.png' %}" />
+                  </a>
                 </div>
                 <div class="w-100" style="position: relative;">
-                  <img class="img-logo-surface" src="{% static 'images/surface_logo_smaller.png' %}" />
+                  <a href="{% url 'stations-map' %}">
+                    <img class="img-logo-surface" src="{% static 'images/surface_logo_smaller.png' %}" />
+                  </a>
                 </div>
               </div>
             </li>
