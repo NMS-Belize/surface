@@ -173,9 +173,9 @@
               <v-switch
                 v-for="region in regions"
                 :key="region.id"
-                v-model="defaultFilter.region"
+                v-model="defaultFilter.region_id"
                 :label="region.name"
-                :value="region.name"
+                :value="region.id"
               >
               </v-switch>
             </div>
@@ -698,6 +698,7 @@
         is_manual: true,
         profile: [],
         region: [],
+        region_id: [],
         watershed: [],
         station_communications: [],
         inputSearch: "",
@@ -758,8 +759,7 @@
             (marker.is_automatic === !this.defaultFilter.is_manual) === true
           ) &&
           (this.defaultFilter.profile.includes(marker.profile) || this.STATION_MAP_FILTER_PROFILE == 0) &&
-          (this.defaultFilter.region.includes(marker.region) || this.STATION_MAP_FILTER_REGION == 0) &&
-          // (this.defaultFilter.watershed.includes(marker.watershed) || this.STATION_MAP_FILTER_WATERSHED == 0) &&
+          (this.defaultFilter.region_id.includes(marker.region) || this.STATION_MAP_FILTER_REGION == 0) &&
           (this.defaultFilter.station_communications.includes(marker.communication_type) || this.STATION_MAP_FILTER_COMMUNICATION == 0) &&
           (this.defaultFilter.inputSearch === "" || marker.name.toUpperCase().includes(this.defaultFilter.inputSearch.toUpperCase()))
         )
@@ -1088,6 +1088,7 @@
           this.regions = data;
           data.forEach(region => {
             this.defaultFilter.region.push(region.name);
+            this.defaultFilter.region_id.push(region.id);
           });
         });
       },

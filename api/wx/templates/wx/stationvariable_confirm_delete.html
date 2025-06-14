@@ -11,12 +11,12 @@
     <p>Are you sure you want to <strong class="bold">delete</strong> variable <strong class="bold">{{ object.variable }}</strong> from the station <strong class="bold">{{ object.station }}</strong>?</p>
     <form method="POST">
       {% csrf_token %}
-      <button class="btn-outline-default btn-small" type="submit">
+      <button class="btn-outline-default btn-small metadata-btn-danger" type="submit">
         Yes, delete
       </button>
       <a href="{% url 'stationvariable-list' station.id %}">
         <button
-          class="btn-outline-default btn-small"
+          class="btn-outline-default btn-small metadata-btn-success"
           type="button"
         >
           Cancel

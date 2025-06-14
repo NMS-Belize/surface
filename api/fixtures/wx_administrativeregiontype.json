@@ -34,5 +34,14 @@
       "updated_at": "2025-03-30T01:49:31.532Z",
       "name": "Province"
     }
+  },
+  {
+    "model": "wx.administrativeregiontype",
+    "pk": 5,
+    "fields": {
+      "created_at": "2025-03-30T01:49:31.532Z",
+      "updated_at": "2025-03-30T01:49:31.532Z",
+      "name": "N/A"
+    }
   }
 ]

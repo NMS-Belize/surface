@@ -294,6 +294,7 @@ class AdministrativeRegion(BaseModel):
     class Meta:
         verbose_name = "administrative region"
         verbose_name_plural = "administrative regions"
+        ordering = ['country']
 
     def __str__(self):
         return self.name
@@ -731,9 +732,11 @@ class Station(BaseModel):
         null=True
     )
     
-    region = models.CharField(
-        max_length=256,
-        null=True
+    region = models.ForeignKey(
+        AdministrativeRegion,
+        on_delete=models.DO_NOTHING,
+        null=True,
+        default=33 # the default is 33 with mean not specified
     )
     
     data_source = models.ForeignKey(
@@ -1415,7 +1418,7 @@ class WxPermission(BaseModel):
     name = models.CharField(max_length=256, unique=True)
     url_name = models.CharField(max_length=256)
     permission = models.CharField(max_length=32, choices=(
-        ('read', 'Read'), ('write', 'Write'), ('update', 'Update'), ('delete', 'Delete')))
+        ('full_access', 'Full Access'), ('read', 'Read'), ('write', 'Write'), ('update', 'Update'), ('delete', 'Delete')))
 
     def __str__(self):
         return self.name

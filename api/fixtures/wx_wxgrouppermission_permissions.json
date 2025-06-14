@@ -1,79 +1,58 @@
 [
-    {"model": "wx.wxgrouppermission_permissions", "pk": 1, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 1}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 2, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 2}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 3, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 3}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 3, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 4}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 4, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 5}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 6, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 6}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 7, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 7}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 8, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 8}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 9, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 11}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 10, "fields": {"wxgrouppermission_id": 6, "wxpermission_id": 13}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 11, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 1}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 12, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 2}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 13, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 3}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 14, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 4}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 15, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 5}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 16, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 6}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 17, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 7}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 18, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 8}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 19, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 9}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 20, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 10}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 21, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 11}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 22, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 12}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 23, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 13}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 24, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 14}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 25, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 15}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 26, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 16}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 27, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 17}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 28, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 18}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 29, "fields": {"wxgrouppermission_id": 7, "wxpermission_id": 19}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 30, "fields": {"wxgrouppermission_id": 5, "wxpermission_id": 1}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 31, "fields": {"wxgrouppermission_id": 5, "wxpermission_id": 2}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 32, "fields": {"wxgrouppermission_id": 5, "wxpermission_id": 6}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 33, "fields": {"wxgrouppermission_id": 5, "wxpermission_id": 7}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 34, "fields": {"wxgrouppermission_id": 5, "wxpermission_id": 8}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 35, "fields": {"wxgrouppermission_id": 5, "wxpermission_id": 9}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 36, "fields": {"wxgrouppermission_id": 5, "wxpermission_id": 10}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 37, "fields": {"wxgrouppermission_id": 5, "wxpermission_id": 14}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 38, "fields": {"wxgrouppermission_id": 4, "wxpermission_id": 1}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 43, "fields": {"wxgrouppermission_id": 3, "wxpermission_id": 1}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 44, "fields": {"wxgrouppermission_id": 3, "wxpermission_id": 3}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 45, "fields": {"wxgrouppermission_id": 3, "wxpermission_id": 4}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 46, "fields": {"wxgrouppermission_id": 3, "wxpermission_id": 6}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 47, "fields": {"wxgrouppermission_id": 3, "wxpermission_id": 7}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 48, "fields": {"wxgrouppermission_id": 3, "wxpermission_id": 8}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 49, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 1}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 50, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 2}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 51, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 3}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 52, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 4}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 53, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 5}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 54, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 6}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 55, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 7}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 56, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 8}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 57, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 11}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 58, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 12}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 59, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 13}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 60, "fields": {"wxgrouppermission_id": 2, "wxpermission_id": 14}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 61, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 1}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 62, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 2}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 63, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 3}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 64, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 4}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 65, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 5}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 66, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 6}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 67, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 7}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 68, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 8}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 69, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 10}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 70, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 11}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 71, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 12}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 72, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 13}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 73, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 14}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 74, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 15}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 75, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 16}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 76, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 17}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 77, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 18}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 78, "fields": {"wxgrouppermission_id": 1, "wxpermission_id": 19}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 82, "fields": {"wxgrouppermission_id": 4, "wxpermission_id": 6}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 87, "fields": {"wxgrouppermission_id": 4, "wxpermission_id": 16}}, 
-    {"model": "wx.wxgrouppermission_permissions", "pk": 88, "fields": {"wxgrouppermission_id": 4, "wxpermission_id": 12}}
+    {
+        "model": "wx.wxpermission",
+        "pk": 1,
+        "fields": {
+            "wxgrouppermission_id": 6,
+            "wxpermission_id": 31
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 2,
+        "fields": {
+            "wxgrouppermission_id": 4,
+            "wxpermission_id": 31
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 3,
+        "fields": {
+            "wxgrouppermission_id": 7,
+            "wxpermission_id": 31
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 4,
+        "fields": {
+            "wxgrouppermission_id": 5,
+            "wxpermission_id": 31
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 5,
+        "fields": {
+            "wxgrouppermission_id": 3,
+            "wxpermission_id": 31
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 6,
+        "fields": {
+            "wxgrouppermission_id": 2,
+            "wxpermission_id": 31
+        }
+    },
+    {
+        "model": "wx.wxpermission",
+        "pk": 7,
+        "fields": {
+            "wxgrouppermission_id": 1,
+            "wxpermission_id": 31
+        }
+    }
 ]

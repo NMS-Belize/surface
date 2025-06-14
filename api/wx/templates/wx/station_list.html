@@ -2,13 +2,17 @@
 <div class="srf-container">
   <div style="display: flex; justify-content: space-between; margin-bottom: 16px">
     <span class="srf-display-1 text-uppercase">Station list</span>
-    <div class="srf-flex">
-      <a href="{% url 'station-create' %}">
-        <button class="btn-outline-default btn-small" type="button">
-          Add station
-        </button>
-      </a>
-    </div>
+
+    <!-- only show the station create button if the user has Create station permissions -->
+    {% if USER_PERMISSIONS.station_create or user.is_superuser %}
+      <div class="srf-flex">
+        <a href="{% url 'station-create' %}">
+          <button class="btn-outline-default btn-small" type="button">
+            Add station
+          </button>
+        </a>
+      </div>
+    {% endif %}
   </div>
   <div class="srf-layout flex-row" style="width:100%;">
     <table id="id_station_list" class="mdl-data-table" style="width:100%">

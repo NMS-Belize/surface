@@ -169,14 +169,16 @@
                     <!-- handling the actions section of the table -->
                     <template v-slot:item.action="{ item }">        
                       <!-- show the delete option based on user privileges -->
-                      <v-tooltip bottom v-if="showDeleteAction">
-                        <template v-slot:activator="{ on }">
-                          <v-icon small @click="deleteItem(item)" v-on="on">
-                            delete
-                          </v-icon>
-                        </template>
-                        <span>Delete file</span>
-                      </v-tooltip>
+                      {% if user.is_superuser %}
+                        <v-tooltip bottom>
+                          <template v-slot:activator="{ on }">
+                            <v-icon small @click="deleteItem(item)" v-on="on">
+                              delete
+                            </v-icon>
+                          </template>
+                          <span>Delete file</span>
+                        </v-tooltip>
+                      {% endif %}
                     </template>
 
                     <!-- Display each row dropdown -->
@@ -259,7 +261,6 @@
               {% endfor %}
           ],
           uploadedFiles: [],
-          showDeleteAction: false,
           currentStatus: null,
           uploadFieldName: 'xlsx_file_upload',
           request_error: false,
@@ -511,11 +512,6 @@
         },
 
         mounted() {
-          const userPermissions = {{USER_PERMISSIONS|safe}};
-
-          const dataInventoryPermissions = userPermissions['data-export'];
-          if(dataInventoryPermissions && dataInventoryPermissions.includes("delete"))
-            this.showDeleteAction = true;
 
           this.reset(); // reset the upload list
           

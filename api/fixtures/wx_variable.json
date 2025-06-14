@@ -446,7 +446,7 @@
         "persistence_window": null,
         "persistence_window_hourly": null,
         "default_representation": "line",
-        "synoptic_code_form": "TXTXTX"
+        "synoptic_code_form": "TnTnTn"
     }
 },
 {
@@ -506,7 +506,7 @@
         "persistence_window": null,
         "persistence_window_hourly": null,
         "default_representation": "line",
-        "synoptic_code_form": "TnTnTn"
+        "synoptic_code_form": "TxTxTx"
     }
 },
 {

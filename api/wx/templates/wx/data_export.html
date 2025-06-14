@@ -356,14 +356,16 @@
                   </v-tooltip>
     
                   <!-- show the delete option based on user privileges -->
-                  <v-tooltip bottom v-if="showDeleteAction">
-                    <template v-slot:activator="{ on }">
-                      <v-icon small @click="deleteItem(item)" v-on="on">
-                        delete
-                      </v-icon>
-                    </template>
-                    <span>Delete file</span>
-                  </v-tooltip>
+                  {% if user.is_superuser %}
+                    <v-tooltip bottom>
+                      <template v-slot:activator="{ on }">
+                        <v-icon small @click="deleteItem(item)" v-on="on">
+                          delete
+                        </v-icon>
+                      </template>
+                      <span>Delete file</span>
+                    </v-tooltip>
+                  {% endif %}
     
                 </template>
                 <!-- Display each row dropdown -->
@@ -448,15 +450,17 @@
                   </v-tooltip>
     
                   <!-- show the delete option based on user privileges -->
-                  <v-tooltip bottom v-if="showDeleteAction">
-                  <!-- <v-tooltip bottom> -->
-                    <template v-slot:activator="{ on }">
-                      <v-icon small @click="deleteCombineItem(item)" v-on="on">
-                        delete
-                      </v-icon>
-                    </template>
-                    <span>Delete file</span>
-                  </v-tooltip>
+                  {% if user.is_superuser %}
+                    <v-tooltip bottom>
+                    <!-- <v-tooltip bottom> -->
+                      <template v-slot:activator="{ on }">
+                        <v-icon small @click="deleteCombineItem(item)" v-on="on">
+                          delete
+                        </v-icon>
+                      </template>
+                      <span>Delete file</span>
+                    </v-tooltip>
+                  {% endif %}
     
                 </template>
                 <!-- Display each row dropdown -->
@@ -537,8 +541,6 @@
         })(),
         loading: false,
         station: [],
-        searchStations: null,
-        showDeleteAction: false,
         displayUTC: false,
         stations: [
           {% for station in station_list %}
@@ -873,12 +875,6 @@
         },
       },
       mounted() {
-
-        const userPermissions = {{USER_PERMISSIONS|safe}};
-
-        const dataInventoryPermissions = userPermissions['data-export'];
-        if(dataInventoryPermissions && dataInventoryPermissions.includes("delete"))
-          this.showDeleteAction = true;
 
         this.updateTable();
 
