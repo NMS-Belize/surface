@@ -561,7 +561,7 @@
 
                         <v-icon left>settings</v-icon>
                         
-                        Publish Settings
+                        WIS2BOX Settings
 
                         <v-icon right>mdi-menu-down</v-icon>
                     </v-btn>
@@ -617,11 +617,10 @@
                     
                             <v-data-table
                                 :headers="publish_status_headers"
-                                :items="publish_status_records"
+                                :items="records"
                                 :loading="loadingPublishStatus"
                                 class="elevation-1"
                                 height="350"
-                                @click:row="(event, { item }) => nextSlide(item.id)"
                             >
                                 <template v-slot:item.station__name="{ item }">
                                     <!-- change the color of the station name based on the publishing setting -->
@@ -658,15 +657,36 @@
                                         [[ value ]]
                                     </span>
                                 </template>
-                            
+                                
+                                <template v-slot:item.status="{ item }">
+                                    <v-chip
+                                        v-for="(status, index) in item.status"
+                                        :key="index"
+
+                                        outlined
+                                        label
+                                        :style="{ color:getColor(status), marginLeft: index > 0 && index < item.status.length ? '5px' : '0', marginTop: '8px', marginBottom: '8px', cursor: 'pointer' }"
+                                        @click.stop="openStationDialog(item)"
+                                    >
+                                        [[ status ]]
+                                    </v-chip>
+                                </template>
+
                                 <template v-slot:item.publish_success="{ item }">
-                                    <v-chip :color="publishSuccessColour(item.publish_success)" dark>
+                                    <v-chip
+                                        :style="{ cursor: 'pointer' }"
+                                        :color="publishSuccessColour(item.publish_success)"
+                                        @click.stop="nextSlide(item.id)"
+                                         >
                                         [[ item.publish_success ]]
                                     </v-chip>
                                 </template>
                             
                                 <template v-slot:item.publish_fail="{ item }">
-                                    <v-chip :color="publishFailColour(item.publish_fail)" dark>
+                                    <v-chip 
+                                        :style="{ cursor: 'pointer' }"
+                                        @click.stop="nextSlide(item.id)"
+                                        :color="publishFailColour(item.publish_fail)">
                                         [[ item.publish_fail ]]
                                     </v-chip>
                                 </template>
@@ -850,9 +870,6 @@
                 </v-row>
             </v-carousel-item>
         </v-carousel>
-          
-        <!-- divider -->
-        <v-divider class="pa-3"></v-divider>
 
         <!-- stations table-->
         <v-app>
@@ -861,140 +878,6 @@
                 <v-progress-circular indeterminate size="70"></v-progress-circular>
             </v-overlay>
 
-            <!-- station table options -->
-            <h6 class="">Select options to filter station by</h6>
-            <!-- filter station buttons -->
-            <div class="d-flex align-center justify-space-between mb-10">
-                <!-- all stations switch -->
-                <v-switch 
-                    v-model="all_stations" 
-                    hide-details 
-                    class="bolder-v-switch-weight"
-                    inset
-                    label="All Stations" 
-                    color="blue"
-                    :disabled="disable_all_stations ? true : false"
-                ></v-switch>
-
-                <!-- hybrid Stations -->
-                <v-switch 
-                    v-model="hybrid" 
-                    hide-details 
-                    inset
-                    class="bolder-v-switch-weight"
-                    label="hybrid Stations" 
-                    color="purple"
-                    :disabled="disable_hybrid ? true : false"
-                ></v-switch>
-
-                <!-- publishing switch -->
-                <v-switch 
-                    v-model="publishing" 
-                    hide-details 
-                    inset
-                    class="bolder-v-switch-weight"
-                    label="Publishing" 
-                    color="green"
-                    :disabled="disable_publishing ? true : false"
-                ></v-switch>
-
-                <!-- not publishing switch -->
-                <v-switch 
-                    v-model="not_publishing" 
-                    hide-details 
-                    inset
-                    class="bolder-v-switch-weight"
-                    label="Not Publishing" 
-                    color="orange"
-                    :disabled="disable_not_publishing ? true : false"
-                ></v-switch>
-            </div>
-
-            <!-- The stations table -->
-            <v-container fluid>
-                <v-row dense justify="center">
-
-                    <v-card class="w-100" height="550">
-                        <v-card-title>
-                            <v-col cols="8">
-                                <h6>Stations</h6>
-                            </v-col>
-
-                            <v-col cols="4">
-                                <v-text-field
-                                    style="font-weight: normal;"
-                                    v-model="search"
-                                    append-icon="mdi-magnify"
-                                    label="Search"
-                                    single-line
-                                    hide-details
-                                ></v-text-field>
-                            </v-col>
-                        </v-card-title>
-
-                        <v-data-table
-                            :headers="headers"
-                            :items="records"
-                            :loading="loading"
-                            class="elevation-1"
-                            :search="search"
-                            multi-sort
-                            height="500"
-                            @click:row="(event, { item }) => openStationDialog(item)"
-                        >
-                            <template v-slot:item.station__name="{ item }">
-                                <!-- change the color of the station name based on the publishing setting -->
-                                <span
-                                    v-if="item.publishing"
-                                    style="color: green;"
-                                >
-                                    [[ item.station__name ]]
-                                </span>
-                                <span
-                                    v-if="!item.publishing"
-                                    style="color: orange;"
-                                >
-                                    [[ item.station__name ]]
-                                </span>
-
-                                <!-- and the link icon and the hybrid station name if hybrid station is true -->
-                                <v-icon
-                                    v-if="item.hybrid"
-                                    style="color: #0096FF;"
-                                >
-                                    mdi-link-variant
-                                </v-icon>
-                                <span 
-                                    v-if="item.hybrid"
-                                    style="color: purple;"
-                                >
-                                    [[ item.hybrid_station__name ]]
-                                </span>
-                            </template>
-
-                            <template v-slot:item.status="{ item }">
-                                <v-chip
-                                    v-for="(status, index) in item.status"
-                                    :key="index"
-                                    :color="getColor(status)"
-                                    outlined
-                                    label
-                                    :style="{ marginLeft: index > 0 && index < item.status.length ? '5px' : '0', marginTop: '8px', marginBottom: '8px' }"
-                                >
-                                    [[ status ]]
-                                </v-chip>
-                            </template>
-                        
-                            <template v-slot:item.station__wigos="{ item }">
-                                <span :style="{ color: /\d/.test(item.station__wigos) ? 'inherit' : 'red' }">
-                                    [[ item.station__wigos ]]
-                                </span>
-                            </template>
-                        </v-data-table>
-                    
-                    </v-card>
-                </v-row>
-            </v-container>
         </v-app>
         <!-- #################################### PAGE CONTENT END #################################### -->
     </div>
@@ -1044,6 +927,7 @@
                         { text: "WSI", value: "station__wigos", sortable: true },
                         { text: "Publish last 24 hrs", value: "publish_success", sortable: true, align: "center" },
                         { text: "Fail last 24 hrs", value: "publish_fail", sortable: true, align: "center" },
+                        { text: "Status", value: "status"}
                     ],
                     publish_logs_headers: [
                         { text: "Created At", value: "created_at" },
