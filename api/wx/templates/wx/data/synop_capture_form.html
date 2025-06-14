@@ -643,13 +643,16 @@
         
             // update the cell and refresh the cell
             updateRefresh(new_value) {
-                this.params.node.setDataValue(this.writeField, new_value); // Update the corresponding cell
+                this.params.node.setDataValue(this.writeField, new_value.toString()); // Update the corresponding cell
 
                 // Refresh only that one cell so the new value is displayed immediately
                 this.params.api.refreshCells({
                     rowNodes: [this.params.node],
                     columns: [this.writeField]
                 });
+
+                // Set draft = true in the parent Vue instance
+                this.params.context.markAsDraft();
             }
         },
 
@@ -740,6 +743,7 @@
                         context: {
                             selectedStationData: null,
                             snackbar: this.setSnackbar.bind(this),
+                            markAsDraft: this.markAsDraft.bind(this),
                         },
                         // wire up the editing hook:
                         onCellEditingStopped: this.onCellEditingStopped,
@@ -869,6 +873,24 @@
                     }
                     else {
                         this.snackbar = { show: true, message: new_snack, color: 'blue' };
+                    }
+                },
+
+                // allow other components to access markAsDraft
+                markAsDraft() {
+                    this.draft = true;
+
+                    // look for any rows that still have errors
+                    const hasErrors = this.rowData.some(row =>
+                        row.__errors && Object.keys(row.__errors).length > 0
+                    );
+
+                    // if hasErrors the users shouldn't be allowed to access the save option
+                    if(hasErrors){
+                        this.valid = false;
+                    }
+                    else {
+                        this.valid = true;
                     }
                 },
 
@@ -1157,7 +1179,7 @@
                     const hasErrors = this.rowData.some(row =>
                         row.__errors && Object.keys(row.__errors).length > 0
                     );
-                    // only stay in draft mode after edit or edit attept
+                    // only stay in draft mode after edit or edit attempt
                     this.draft = true;
 
                     // if hasErrors the users shouldn't be allowed to access the save option
@@ -1245,7 +1267,7 @@
                     } finally {
                         // 10) always turn off spinner
                         this.loading = false;
-                        console.log(formattedData);
+                        // console.log(formattedData);
                     }
                 },
 
@@ -1362,6 +1384,8 @@
             },
         });
     })();
+
+
 
     $(document).ready(function(){
         function getCookie(c_name) {

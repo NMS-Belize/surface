@@ -9522,22 +9522,43 @@ class SynopCaptureView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateVi
 def get_synop_capture_config():
     # List of variables, in order, for synoptic station input form
     # if a var is added/removed, do the same in the col_widths list
+
+    # # variable symbols group in order of their relationship to each other
+    # variable_symbols = [
+    #     'RH', 'VISBY-km', 'WNDDIR', 'WNDSPD', 'TDEWPNT', 'TEMPWB', 
+    #     'TEMP', 'TEMPMAX', 'TEMPMIN', 'PRESSTN', 'PRESSEA', 'BAR24C', 
+    #     'PRECIND', 'PRECIP', 'PREC24H', 'PRECDUR', 'STSKY', 'PRSWX',
+    #     'W1', 'W2', 'Nh', 'CLDTOT', 'LOWCLHFt', 'CL', 'CM', 'CH', 'DL', 
+    #     'DM', 'DH', 'N1', 'C1', 'hhFt1', 'N2', 'C2', 'hhFt2', 'N3', 'C3', 
+    #     'hhFt3', 'N4', 'C4', 'hhFt4', 'SpPhenom'
+    # ]
+
+    # # column widths in order of the variable_symbols list
+    # col_widths = [
+    #     200, 220, 200, 200, 200, 250, 250, 255, 250, 200, 
+    #     250, 250, 200, 200, 250, 250, 200, 200, 200, 200, 
+    #     250, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+    #     200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+    #     200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+    #     500, 200
+    # ]
+
+    # variable symbols group in order of the physical synop entry form
     variable_symbols = [
-        'RH', 'VISBY-km', 'WNDDIR', 'WNDSPD', 'TDEWPNT', 'TEMPWB', 
-        'TEMP', 'TEMPMAX', 'TEMPMIN', 'PRESSTN', 'PRESSEA', 'BAR24C', 
-        'PRECIND', 'PRECIP', 'PREC24H', 'PRECDUR', 'STSKY', 'PRSWX',
-        'W1', 'W2', 'Nh', 'CLDTOT', 'LOWCLHFt', 'CL', 'CM', 'CH', 'DL', 
-        'DM', 'DH', 'N1', 'C1', 'hhFt1', 'N2', 'C2', 'hhFt2', 'N3', 'C3', 
-        'hhFt3', 'N4', 'C4', 'hhFt4', 'SpPhenom'
+        'PRECIND', 'LOWCLHFt', 'VISBY-km',
+        'CLDTOT', 'WNDDIR', 'WNDSPD', 'TEMP', 'TDEWPNT', 'TEMPWB',
+        'RH', 'PRESSTN', 'PRESSEA', 'BAR24C', 'PRECIP', 'PREC24H', 'PRECDUR', 'PRSWX',
+        'W1', 'W2', 'Nh', 'CL', 'CM', 'CH', 'STSKY',
+        'DL', 'DM', 'DH', 'TEMPMAX', 'TEMPMIN', 'N1', 'C1', 'hhFt1',
+        'N2', 'C2', 'hhFt2', 'N3', 'C3', 'hhFt3', 'N4', 'C4', 'hhFt4', 'SpPhenom'
     ]
 
     col_widths = [
-        200, 220, 200, 200, 200, 250, 250, 255, 250, 200, 
-        250, 250, 200, 200, 250, 250, 200, 200, 200, 200, 
-        250, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
+        200, 200, 220, 200, 200, 200, 250, 200, 250, 200, 
+        200, 250, 250, 200, 250, 250, 200, 200, 200, 250, 
+        200, 200, 200, 200, 200, 200, 200, 255, 250, 200, 
         200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
-        200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 
-        500, 200
+        200, 200
     ]
 
     var_class_dict = {
@@ -9600,14 +9621,14 @@ def get_synop_capture_config():
                 "id": "remarks",
                 "name": "Remarks",
                 "synoptic_code": None,
-                "col_width": col_widths[-2],
+                "col_width": 500,
                 "col_class": "misc-cols-group",
             },
             {
                 "id": "observer",
                 "name": "Observer",
                 "synoptic_code": None,
-                "col_width": col_widths[-1],
+                "col_width": 200,
                 "col_class": "misc-cols-group",
             },
         )
