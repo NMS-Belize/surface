@@ -204,8 +204,8 @@
                     <v-card-title class="headline"> Confirm Deletion </v-card-title>
                     
                     <v-card-text>
-                        Are you sure you want to delete data for hours:
-                        <strong>[[ pendingDeleteHours.join(', ') ]]</strong>?
+                        Are you sure you want to delete data?
+                        <!-- <strong>[[ pendingDeleteHours.join(', ') ]]</strong>? -->
                     </v-card-text>
 
                     <v-card-actions>
@@ -353,6 +353,61 @@
     // highchart for use with graph
     Vue.use(HighchartsVue.default);
 
+    const timezoneOffsetStr = "{{ timezone_offset }}";
+
+    var timezoneChange = false
+
+    // formatting time to 12 hr format
+    function formatHour(hour) {
+        if (['SUM', 'AVG', 'MAX', 'MIN', 'STDDEV', 'COUNT'].includes(hour)) {
+            return hour;
+        }
+        
+        if(timezoneChange == false)
+        {
+            const hr = parseInt(hour);
+            const suffix = hr >= 12 ? 'PM' : 'AM';
+            const displayHour = hr % 12 === 0 ? 12 : hr % 12;
+
+            return `${displayHour}:00 ${suffix}`;
+        }
+
+        // Convert hour string to integer
+        const localHour = parseInt(hour);
+        
+        // Parse the timezoneOffsetStr: e.g. "-1 day, 18:00:00"
+        const offsetMatch = timezoneOffsetStr.match(/(-?\d+)\sday[s]?,\s(\d+):(\d+):(\d+)/);
+
+        if (!offsetMatch) {
+            console.error("Invalid timezone offset format:", timezoneOffsetStr);
+            return hour; // fallback
+        }
+
+        // Extract the components
+        const dayOffset = parseInt(offsetMatch[1]);
+        const hourOffset = parseInt(offsetMatch[2]);
+        const minuteOffset = parseInt(offsetMatch[3]);
+        const secondOffset = parseInt(offsetMatch[4]);
+
+        // Convert everything to milliseconds
+        const totalOffsetMs =
+            ((dayOffset * 24 + hourOffset) * 60 * 60 +
+            minuteOffset * 60 +
+            secondOffset) * 1000;
+
+        // Create a date for today with the given hour (no minutes or seconds)
+        const localDate = new Date();
+        localDate.setUTCHours(localHour, 0, 0, 0);
+
+        // Subtract the offset to get UTC time
+        const utcDate = new Date(localDate.getTime() - totalOffsetMs);
+
+        // Format to 24hr string, padded if needed
+        const utcHour = utcDate.getUTCHours().toString().padStart(2, '0');
+        return `${utcHour}:00 UTC`;
+    };
+
+
     // AG Grid Contants
     // holds column definition
     const columnDefinitions = [
@@ -377,6 +432,8 @@
             headerName: "Time",
             headerClass: "misc-cols-group",
             field: "time", 
+            // show the dates in 12 hour format
+            valueFormatter: params => formatHour(params.value),
             colId: "tz", // explicitly setting the column id
             pinned: "left",
             editable: false,
@@ -463,48 +520,48 @@
     // custom 'smart' tooltip
     // 1) Register a single Vue component that AG-Grid will mount for every cell tooltip
     Vue.component('custom-tooltip', {
-    // declare a reactive place to store AG-Grid’s params
-    data() {
-        return {
-        params: null
-        };
-    },
-    // AG-Grid will call init() with the tooltip params object
-    init(params) {
-        this.params = params;
-    },
-    computed: {
-        // Decide if this is an error or just “info”
-        isError() {
-            const errs = this.params.data.__errors || {};
-            return !!errs[this.params.colDef.colId];
+        // declare a reactive place to store AG-Grid’s params
+        data() {
+            return {
+            params: null
+            };
         },
-
-        // Pick icon
-        iconClass() {
-            return this.isError
-                ? 'fas fa-exclamation-triangle'
-                : 'fas fa-info-circle';
+        // AG-Grid will call init() with the tooltip params object
+        init(params) {
+            this.params = params;
         },
+        computed: {
+            // Decide if this is an error or just “info”
+            isError() {
+                const errs = this.params.data.__errors || {};
+                return !!errs[this.params.colDef.colId];
+            },
 
-        // Build the actual text to display
-        message() {
-            const errs = this.params.data.__errors || {};
-            if (this.isError) {
-                return errs[this.params.colDef.colId];
+            // Pick icon
+            iconClass() {
+                return this.isError
+                    ? 'fas fa-exclamation-triangle'
+                    : 'fas fa-info-circle';
+            },
+
+            // Build the actual text to display
+            message() {
+                const errs = this.params.data.__errors || {};
+                if (this.isError) {
+                    return errs[this.params.colDef.colId];
+                }
+                // fallback to any “info” stored on rowData.info[colId]
+                return (this.params.data.info || {})[this.params.colDef.colId] || '';
             }
-            // fallback to any “info” stored on rowData.info[colId]
-            return (this.params.data.info || {})[this.params.colDef.colId] || '';
-        }
-    },
-    template: 
-    `
-        <div :class="[ isError ? 'error-tooltip' : 'info-tooltip' ]"
-            style="display:flex; align-items:center;">
-        <i :class="iconClass" style="margin-right:6px;"></i>
-        <span v-text="message"></span>
-        </div>
-    `
+        },
+        template: 
+        `
+            <div :class="[ isError ? 'error-tooltip' : 'info-tooltip' ]"
+                style="display:flex; align-items:center;">
+            <i :class="iconClass" style="margin-right:6px;"></i>
+            <span v-text="message"></span>
+            </div>
+        `
     });
 
 
@@ -877,6 +934,7 @@
                         this.snackbar = { show: true, message: new_snack, color: 'blue' };
                     }
                 },
+
 
                 // allow other components to access markAsDraft
                 markAsDraft() {
@@ -1329,11 +1387,12 @@
 
                     const { stationId, date } = this.requestedData;
                     const calls = this.pendingDeleteHours.map(hour => {
-                    const url = `/wx/reports/synop/delete/`
-                                + `?station_id=${stationId}`
-                                + `&date=${date}`
-                                + `&hour=${hour}`;
-                    return axios.post(url, { variable_ids: this.variableIds });
+                        const url = `/wx/reports/synop/delete/`
+                                    + `?station_id=${stationId}`
+                                    + `&date=${date}`
+                                    + `&hour=${hour}`;
+
+                        return axios.post(url, { variable_ids: this.variableIds });
                     });
 
                     Promise.all(calls)
@@ -1370,11 +1429,14 @@
                 
                 // utc / local time toggle
                 toggleTimeMode() {
-                    // get rid of below
-                    this.inProduction = true;
-                    // get rid of above
-
                     this.useUTC = !this.useUTC;
+                    timezoneChange = this.useUTC;
+
+                    // refresh the time column
+                    this.gridApi.refreshCells({
+                        columns: ['tz'],  // refresh the time column
+                        force: true  // re-render
+                    });
                 },
                 // more methods
             },
