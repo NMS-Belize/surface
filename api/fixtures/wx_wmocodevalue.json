@@ -606,6 +606,17 @@
 },
 {
     "model": "wx.wmocodevalue",
+    "pk": 3003,
+    "fields": {
+        "created_at": "2024-07-12T22:28:37.584Z",
+        "updated_at": "2024-07-12T22:28:37.584Z",
+        "code_table": 4561,
+        "value": "/",
+        "description": "Past Weather Type 1 / Type 2 not known"
+    }
+},
+{
+    "model": "wx.wmocodevalue",
     "pk": 56,
     "fields": {
         "created_at": "2024-07-10T17:49:26.690Z",
@@ -712,6 +723,17 @@
         "code_table": 4561,
         "value": "9",
         "description": "Thunderstorm(s) with or without precipitation."
+    }
+},
+{
+    "model": "wx.wmocodevalue",
+    "pk": 3002,
+    "fields": {
+        "created_at": "2024-07-12T22:28:37.584Z",
+        "updated_at": "2024-07-12T22:28:37.584Z",
+        "code_table": 4677,
+        "value": "/",
+        "description": "State of Sky not known."
     }
 },
 {
@@ -5013,6 +5035,17 @@
         "code_table": 1600,
         "value": "/",
         "description": "Height of base of cloud not known or base of clouds at a level lower and tops at a level higher than that of the station."
+    }
+},
+{
+    "model": "wx.wmocodevalue",
+    "pk": 3000,
+    "fields": {
+        "created_at": "2024-07-12T22:28:37.584Z",
+        "updated_at": "2024-07-12T22:28:37.584Z",
+        "code_table": 1819,
+        "value": "/",
+        "description": "Precipitation Indicator not known."
     }
 },
 {
@@ -16299,6 +16332,17 @@
         "code_table": 3590,
         "value": "///",
         "description": "Precipitation not measured."
+    }
+},
+{
+    "model": "wx.wmocodevalue",
+    "pk": 3001,
+    "fields": {
+        "created_at": "2024-07-12T22:28:37.584Z",
+        "updated_at": "2024-07-12T22:28:37.584Z",
+        "code_table": 4019,
+        "value": "/",
+        "description": "Total precipitation not known."
     }
 },
 {
