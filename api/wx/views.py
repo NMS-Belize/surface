@@ -9642,73 +9642,94 @@ def get_synop_capture_config():
     return context, num_validate_ids, variable_ids
 
 
-# similar to synop_update except we don't auto populate -99.9 for data left blank on numerical columns
+# recieve the coloumns which are empty and removes their entry from the database
+# similar to synop delete, except this handles multiple hours
 @api_view(['POST'])
-def synop_capture_update(request):
-    try:
-        day = datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d')
-        station_id = request.GET['station_id']
+def synop_capture_update_empty_col(request):
+    # Extract data from the request
+    request_date_str = request.GET.get('date', None)
+    station_id = request.GET.get('station_id', None)
+    
+    empty_cols_data = request.data.get('empty_cols_data')
 
-        hours_dict = request.data['table']
-        now_utc = datetime.datetime.now().astimezone(pytz.UTC)
-        now_utc+= datetime.timedelta(hours=settings.PGIA_REPORT_HOURS_AHEAD_TIME)
+    for col_data_key in empty_cols_data:
 
+        hour = int(col_data_key)
+        variable_id_list = empty_cols_data[col_data_key]
+
+        # Validate inputs
+        if (None in [request_date_str, hour, station_id, variable_id_list]):
+            message = "Invalid request. 'date', 'hour', 'station_id', and 'variable_ids' must be provided."
+            return JsonResponse({"message": message}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate date format
+        try:
+            request_date = datetime.datetime.strptime(request_date_str, '%Y-%m-%d')
+        except ValueError:
+            message = "Invalid date format. The expected date format is 'YYYY-MM-DD'"
+            return JsonResponse({"message": message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        variable_id_list = tuple(variable_id_list)
         station = Station.objects.get(id=station_id)
         datetime_offset = pytz.FixedOffset(station.utc_offset_minutes)
+        request_datetime = datetime_offset.localize(request_date.replace(hour=hour))
 
-        seconds = 3600
+        queries = {
+            "delete_raw_data": f"""
+                DELETE FROM raw_data
+                WHERE station_id = {station_id}
+                  AND variable_id IN {variable_id_list}
+                  AND datetime = '{request_datetime}'
+            """,
+            "create_daily_summary": f"""
+                INSERT INTO wx_dailysummarytask (station_id, date, created_at, updated_at)
+                VALUES ({station_id}, '{request_datetime}', now(), now())
+                ON CONFLICT DO NOTHING
+            """,
+            "create_hourly_summary": f"""
+                INSERT INTO wx_hourlysummarytask (station_id, datetime, created_at, updated_at)
+                VALUES ({station_id}, '{request_datetime}', now(), now())
+                ON CONFLICT DO NOTHING
+            """,
+            "get_last_updated": f"""
+                SELECT max(last_data_datetime)
+                FROM wx_stationvariable
+                WHERE station_id = {station_id}
+                  AND variable_id IN {variable_id_list}
+                ORDER BY 1 DESC
+            """,
+            "update_last_updated": f"""
+                WITH rd AS (
+                    SELECT station_id, variable_id, measured, code, datetime,
+                           RANK() OVER (PARTITION BY station_id, variable_id ORDER BY datetime DESC) AS datetime_rank
+                    FROM raw_data
+                    WHERE station_id = {station_id}
+                      AND variable_id IN {variable_id_list}
+                )
+                UPDATE wx_stationvariable sv
+                SET last_data_datetime = rd.datetime,
+                    last_data_value = rd.measured,
+                    last_data_code = rd.code
+                FROM rd
+                WHERE sv.station_id = rd.station_id
+                  AND sv.variable_id = rd.variable_id
+                  AND rd.datetime_rank = 1
+            """
+        }
 
-        records_list = []
-        for hour, hour_data in hours_dict.items():
-            data_datetime = day.replace(hour=int(hour))
-            data_datetime = datetime_offset.localize(data_datetime)
-            if data_datetime <= now_utc:
-                if hour_data:
-                    if 'action' in hour_data.keys():
-                        hour_data.pop('action')
+        with psycopg2.connect(settings.SURFACE_CONNECTION_STRING) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(queries["delete_raw_data"])
+                # After deleting from raw_data, is necessary to update the daily and hourly summary tables.
+                cursor.execute(queries["create_daily_summary"])
+                cursor.execute(queries["create_hourly_summary"])
+                
+                # If suceed in inserting new data, it's necessary to update the 'last data' columns in wx_stationvariable tabl.
+                cursor.execute(queries["get_last_updated"])
+                
+                last_data_datetime_row = cursor.fetchone()
+                if last_data_datetime_row and last_data_datetime_row[0] == request_datetime:
+                    cursor.execute(queries['update_last_updated'])
+            conn.commit()
 
-                    if 'remarks' in hour_data.keys():
-                        remarks = hour_data.pop('remarks')
-                    else:
-                        remarks = None
-
-                    if 'observer' in hour_data.keys():
-                        observer = hour_data.pop('observer')
-                    else:
-                        observer = None
-
-                    for variable_id, measurement in hour_data.items():
-                        variable = Variable.objects.get(pk=variable_id)
-                        if measurement is None:
-                            measurement_value = None
-                            measurement_code = settings.MISSING_VALUE_CODE
-                        else:
-                            if (variable.variable_type=='Numeric'):
-                                try:
-                                    measurement_value = float(measurement)
-                                    measurement_code = measurement
-                                except Exception:
-                                    measurement_value = None
-                                    measurement_code = settings.MISSING_VALUE_CODE
-                            else:
-                                measurement_value = None
-                                measurement_code = measurement
-                            
-                        records_list.append((
-                            station_id, variable_id, seconds, data_datetime, measurement_value, 1, None,
-                            None, None, None, None, None, None, None, False, remarks, observer,
-                            measurement_code))
-
-        insert_raw_data_synop.insert(
-            raw_data_list=records_list,
-            date=day,
-            station_id=station_id,
-            override_data_on_conflict=True,
-            utc_offset_minutes=station.utc_offset_minutes
-        )
-
-    except Exception as e:
-        logger.error(repr(e))
-        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    return HttpResponse(status=status.HTTP_200_OK)
+    return Response([], status=status.HTTP_200_OK)

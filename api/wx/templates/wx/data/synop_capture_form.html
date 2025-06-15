@@ -132,6 +132,7 @@
                 </v-btn>
 
                 <!-- show graph button -->
+                <!--
                 <v-btn 
                     v-show="!hideTable && !isBack"
                     class="ml-2" 
@@ -150,6 +151,7 @@
                         timeline
                     </v-icon>
                 </v-btn>
+                -->
 
                 <!-- export csv button -->
                 <v-btn 
@@ -1200,59 +1202,84 @@
                     // 2) Show the loading spinner
                     this.loading = true;
 
-                    // 3) Build up only the rows the user edited
+                    // 3) Build up only the rows the user edited and keep track of the empty cols
                     const formattedData = {};
+                    const formattedEmptyCols = {};
 
                     this.updatedHours.forEach(rowIndex => {
-                    const original = this.rowData[rowIndex];
-                    const cleanRow = {};
+                        const original = this.rowData[rowIndex];
+                        const cleanRow = {};
+                        const emptyCols = [];
 
-                    // 4) Only include non-empty numerics (cast to Number), 
-                    //    and fill-empty codes with "/"
-                    this.variableIds.forEach(colId => {
-                        const isNumeric = this.colIdsNumType.includes(colId);
-                        const rawVal   = original[colId];
+                        // 4) Only include non-empty numerics (cast to Number), 
+                        //    and fill-empty codes with "/"
+                        this.variableIds.forEach(colId => {
+                            const isNumeric = this.colIdsNumType.includes(colId);
+                            const rawVal   = original[colId];
 
-                        if (rawVal == null || rawVal === "") {
-                        // empty cell
-                        if (!isNumeric) {
-                            // code/dropdown → fill slash
-                            cleanRow[colId] = "/";
-                        }
-                        // else numeric → skip entirely
-                        } else {
-                        // user actually entered something
+                            if (rawVal == null || rawVal === "") {
+                                // empty cell
+                                if (!isNumeric) {
+                                    // code/dropdown then fill slash
+                                    cleanRow[colId] = "/";
+                                }
+                                else {
+                                    // storing the col ids for row entries with empty values
+                                    emptyCols.push(colId)
+                                }
+                            } 
+                            // else numeric just skip entirely
+                            else {
+                                // user actually entered something
 
-                        let val = rawVal;
-                        if (isNumeric && typeof val === "string") {
-                            const n = Number(val);
-                            // if parsing fails, fall back to your MISSING_VALUE
-                            val = Number.isFinite(n) ? n : this.MISSING_VALUE;
-                        }
-                        cleanRow[colId] = val;
-                        }
-                    });
+                                let val = rawVal;
 
-                    // 5) extra “real” fields you still want to send
-                    cleanRow.observer = original.observer;
-                    cleanRow.remarks  = original.remarks;
+                                if (isNumeric && typeof val === "string") {
+                                    const n = Number(val);
+                                    // if parsing fails, fall back MISSING_VALUE
+                                    val = Number.isFinite(n) ? n : this.MISSING_VALUE;
+                                }
 
-                    // 6) drop time entirely
-                    //    (we never put it into cleanRow, so nothing to delete)
+                                cleanRow[colId] = val;
+                            }
+                        });
 
-                    // 7) stash under the row index
-                    formattedData[rowIndex] = cleanRow;
+                        // 5) extra fields to send
+                        cleanRow.observer = original.observer;
+                        cleanRow.remarks  = original.remarks;
+
+                        // 6) drop time entirely
+                        //    (we never put it into cleanRow, so nothing to delete)
+
+                        // 7) stash under the row index
+                        formattedData[rowIndex] = cleanRow;
+
+                        // stash the empty col id's under a row index as well
+                        formattedEmptyCols[rowIndex] = emptyCols;
+
                     });
 
                     // 8) POST up to Django
                     const { stationId, date } = this.requestedData;
+
                     const url = `/wx/reports/synop/update/?station_id=${stationId}&date=${date}`;
 
+                    const url_empty_col = `/wx/reports/synop/capture/update/empty_cols`
+                                        + `?station_id=${stationId}`
+                                        + `&date=${date}`;
+
                     try {
+                        // send data to the back for saving
                         await axios.post(url, {
                             date:  this.requestData.date,
                             table: formattedData
                         });
+
+                        // send the ids of empty cols for the row data back to be cleared.
+                        await axios.post(url_empty_col, {
+                            empty_cols_data: formattedEmptyCols
+                        });
+
 
                         // 9) on success: clear flags & reload
                         this.draft = false;
@@ -1260,11 +1287,13 @@
                         this.updatedHours.clear();
 
                         await this.fetchData();
-                            this.snackbar = { show: true, message: 'Save operation successful', color: 'green' };
-                    } catch (err) {
+                        this.snackbar = { show: true, message: 'Save operation successful', color: 'green' };
+                    } 
+                    catch (err) {
                         console.error("Save operation failed:", err);
                         this.snackbar = { show: true, message: 'Save operation failed', color: 'red' };
-                    } finally {
+                    } 
+                    finally {
                         // 10) always turn off spinner
                         this.loading = false;
                         // console.log(formattedData);
@@ -1309,11 +1338,11 @@
 
                     Promise.all(calls)
                     .then(results => {
-                        this.snackbar(`Deleted ${results.length} row(s).`, false);
+                        this.snackbar = { show: true, message: `Deleted ${results.length} row(s).`, color: 'green' };
                     })
                     .catch(err => {
                         console.error("Bulk delete error:", err);
-                        this.snackbar("Error deleting rows. Check console.", true);
+                        this.snackbar = { show: true, message: "Error deleting rows. Check console", color: 'red' };
                     })
                     .finally(() => {
                         this.loading = false;
