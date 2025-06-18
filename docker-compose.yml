@@ -1,9 +1,7 @@
-version: "3.5"
-
 services:
   nginx:
+    image: nmsbdocker/surface-nginx:v1.0.0
     container_name: surface-nginx
-    build: ./nginx
     volumes:
       - ./api/static:/home/app/web/staticfiles
       - ./data:/home/app/web/data
@@ -44,9 +42,7 @@ services:
         max-file: "10"
 
   api:
-    build:
-      dockerfile: Dockerfile
-      context: api
+    image: nmsbdocker/surface-base:v1.0.0-beta
     container_name: surface-api
     command: ./startup.sh
     env_file:
@@ -70,9 +66,7 @@ services:
         max-file: "10"
 
   celery_worker:
-    build:
-      dockerfile: Dockerfile
-      context: api
+    image: nmsbdocker/surface-base:v1.0.0-beta
     container_name: surface-celery-worker
     command: /home/surface/.local/bin/celery -A tempestas_api worker -l info
     env_file:
@@ -94,9 +88,7 @@ services:
         max-file: "10"
 
   celery_beat:
-    build:
-      dockerfile: Dockerfile
-      context: api
+    image: nmsbdocker/surface-base:v1.0.0-beta
     container_name: surface-celery-beat
     restart: unless-stopped
     command: /home/surface/.local/bin/celery -A tempestas_api beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
