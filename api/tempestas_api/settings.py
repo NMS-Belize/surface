@@ -114,6 +114,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'wx.context_processors.get_surface_context',
                 'wx.context_processors.get_user_wx_permissions',
+                'wx.context_processors.get_surface_version',
             ],
         },
     },
@@ -322,3 +323,7 @@ WIS2BOX_PASSWORD_LOCAL = str(os.getenv('WIS2BOX_PASSWORD_LOCAL'))
 WIS2BOX_ENDPOINT_LOCAL = str(os.getenv('WIS2BOX_ENDPOINT_LOCAL'))
 
 WIS2BOX_TOPIC_HIERARCHY = str(os.getenv('WIS2BOX_TOPIC_HIERARCHY'))
+
+APP_VERSION = "1.0.0"
+APP_VERSION_STAGE = "BETA"
+APP_VERSION_LABEL = f"{APP_VERSION} {APP_VERSION_STAGE} RELEASE"

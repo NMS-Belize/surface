@@ -95,3 +95,11 @@ def get_user_wx_permissions(req):
         'USER_PERMISSIONS': user_permissions_clean,
         'USER_IS_ADMIN':     1 if req.user.is_superuser else 0
     }
+
+
+def get_surface_version(req):
+    return {
+        'APP_VERSION': settings.APP_VERSION,
+        'APP_VERSION_STAGE': settings.APP_VERSION_STAGE,
+        'APP_VERSION_LABEL': settings.APP_VERSION_LABEL
+    }
