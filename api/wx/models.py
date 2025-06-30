@@ -1425,7 +1425,7 @@ class WxPermission(BaseModel):
 
 
 class WxGroupPermission(BaseModel):
-    group = models.OneToOneField(Group, on_delete=models.DO_NOTHING)
+    group = models.OneToOneField(Group, on_delete=models.CASCADE)
     permissions = models.ManyToManyField(WxPermission)
 
     def __str__(self):

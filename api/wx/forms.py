@@ -3,6 +3,7 @@ from wx.models import CountryISOCode, UTCOffsetMinutes
 from django.conf import settings
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.utils.safestring import mark_safe
+from django.contrib.auth.models import User, Group
 
 from wx.models import Station, Watershed, AdministrativeRegion, FTPServer, WxGroupPermission, WxPermission
 
@@ -116,3 +117,84 @@ class WxGroupPermissionForm(forms.ModelForm):
     class Meta:
         model = WxGroupPermission
         fields = '__all__'
+        
+class UserEditForm(forms.ModelForm):
+    group_set = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Groups"
+    )
+
+    new_password = forms.CharField(
+        label="Password",
+        required=False,
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Leave blank to keep current password'
+        })
+    )
+    
+    class Meta:
+        model = User
+        fields = [
+            'username', 'first_name', 'last_name', 'email', 'is_staff', 'is_superuser', "is_active"
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.instance.pk:
+            self.fields['group_set'].initial = self.instance.groups.all()
+            
+    def save(self, commit=True):
+        user = super().save(commit=False)
+
+        # Save new password if provided
+        new_password = self.cleaned_data.get("new_password")
+        if new_password:
+            user.set_password(new_password)
+
+        if commit:
+            user.save()
+            self.save_m2m()
+        return user
+    
+class UserCreateForm(UserEditForm):
+    def clean_new_password(self):
+        pwd = self.cleaned_data.get('new_password')
+        if not pwd:
+            raise forms.ValidationError("Password is required when creating a new user.")
+        return pwd
+
+class GroupEditForm(forms.ModelForm):
+    permissions = forms.ModelMultipleChoiceField(
+        queryset=WxPermission.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Permissions"
+    )
+
+    class Meta:
+        model = Group
+        fields = ['name']
+
+    def __init__(self, *args, **kwargs):
+        self.group = kwargs.get('instance', None)
+        super().__init__(*args, **kwargs)
+
+        if self.group:
+            try:
+                wxgroup = WxGroupPermission.objects.get(group=self.group)
+                self.fields['permissions'].initial = wxgroup.permissions.all()
+            except WxGroupPermission.DoesNotExist:
+                pass
+
+    def save(self, commit=True):
+        group = super().save(commit=commit)
+
+        # Create or update WxGroupPermission
+        wxgroup, _ = WxGroupPermission.objects.get_or_create(group=group)
+        wxgroup.permissions.set(self.cleaned_data['permissions'])
+        wxgroup.save()
+
+        return group

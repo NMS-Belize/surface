@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+#group-app {
+  padding-left: 50px;
+}
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+th.sortable:hover {
+  text-decoration: underline;
+  color: #007BFF;
+}
+.arrow {
+  font-size: 0.7em;
+  margin-left: 4px;
+}
+</style>
+
+<div id="group-app">
+  <h2>Group Management</h2>
+  <a href="{% url 'group-create' %}" class="btn-outline-default btn-small" style="margin-bottom: 20px;">Create New Group</a>
+  <div v-if="loading">Loading groups...</div>
+  <div v-else-if="groups.length === 0">No groups found.</div>
+
+  <table v-else border="1" cellpadding="8">
+    <thead>
+      <tr>
+        <th class="sortable" @click="sortBy('id')">
+          ID <span v-if="sortKey === 'id'" class="arrow" v-text="sortArrow('id')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('name')">
+          Name <span v-if="sortKey === 'name'" class="arrow" v-text="sortArrow('name')"></span>
+        </th>
+        <th>Permissions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="group in sortedGroups" :key="group.id">
+        <td><a :href="`/settings/group-management/${group.id}/`" v-text="group.id"></a></td>
+        <td><a :href="`/settings/group-management/${group.id}/`" v-text="group.name"></a></td>
+        <td>
+          <ul v-if="group.permissions.length" style="padding-left: 16px; margin: 0;">
+            <li v-for="perm in group.permissions" :key="perm.id" v-text="perm.name"></li>
+          </ul>
+          <span v-else>—</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+<script>
+new Vue({
+  el: '#group-app',
+  data: {
+    loading: true,
+    groups: [],
+    wxPermissions: [],
+    wxGroupPermissions: [],
+    sortKey: 'id',
+    sortAsc: true
+  },
+  computed: {
+    sortedGroups() {
+      const sorted = [...this.groups];
+      if (!this.sortKey) return sorted;
+      return sorted.sort((a, b) => {
+        let valA = a[this.sortKey];
+        let valB = b[this.sortKey];
+        if (Array.isArray(valA)) valA = valA.join(', ');
+        if (Array.isArray(valB)) valB = valB.join(', ');
+
+        if (valA < valB) return this.sortAsc ? -1 : 1;
+        if (valA > valB) return this.sortAsc ? 1 : -1;
+        return 0;
+      });
+    }
+  },
+  methods: {
+    sortBy(key) {
+      if (this.sortKey === key) {
+        this.sortAsc = !this.sortAsc;
+      } else {
+        this.sortKey = key;
+        this.sortAsc = true;
+      }
+    },
+    sortArrow(key) {
+      return this.sortKey === key ? (this.sortAsc ? '▲' : '▼') : '';
+    },
+    loadData() {
+      Promise.all([
+    fetch('/api/groups/').then(r => r.json()),
+    fetch('/api/wxpermissions/').then(r => r.json()),
+    fetch('/api/wxgrouppermissions/').then(r => r.json())
+  ]).then(([groupData, permData, wxGroupPermData]) => {
+    const groups = groupData.results || [];
+    const wxPermissions = permData.results || [];
+    const wxGroupPermissions = wxGroupPermData.results || [];
+
+    const wxPermMap = Object.fromEntries(
+      wxPermissions.map(p => [p.id, p])
+    );
+
+    const wxGroupPermMap = Object.fromEntries(
+      wxGroupPermissions.map(gp => [gp.group, gp.permissions.map(pid => wxPermMap[pid]).filter(p => p)])
+    );
+
+    this.groups = groups.map(g => ({
+      id: g.id,
+      name: g.name,
+      permissions: wxGroupPermMap[g.id] || []
+    }));
+
+    this.loading = false;
+  }).catch(err => {
+    console.error("Failed to load data:", err);
+    this.loading = false;
+      });
+    }
+  },
+  created() {
+    this.loadData();
+  }
+});
+</script>
+
+{% endblock %}

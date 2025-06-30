@@ -753,6 +753,20 @@
             </div>
             </li>
             {% endif %}
+            
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <li id="settings-group" class="">
+              <div class="collapsible-header"><i class="material-icons">settings</i>SETTINGS</div>
+              <div class="collapsible-body">
+                <div class="collapsible-subitem mb-2">
+                  <ul class="collection">
+                    <a id="user-management" href="{% url 'user-management' %}" class="collection-item left-space" onclick="mainOverlayLoader()">User Management<i class="material-icons secondary-content">person</i></a>
+                    <a id="group-management" href="{% url 'group-management' %}" class="collection-item left-space" onclick="mainOverlayLoader()">Group Management<i class="material-icons secondary-content">groups</i></a>
+                  </ul>
+                </div>
+              </div>
+            </li>
+            {% endif %}
 
             {% if request.user.is_staff or request.user.is_superuser %}
             <li class="collapsible-item">

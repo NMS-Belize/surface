@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+th.sortable:hover {
+  text-decoration: underline;
+  color: #007BFF;
+}
+.arrow {
+  font-size: 0.7em;
+  margin-left: 4px;
+}
+</style>
+
+<div id="user-app" style="padding-left: 50px;">
+  <h2>User List</h2>
+  <a href="{% url 'user-create' %}" class="btn-outline-default btn-small" style="margin-bottom: 20px;">Create New User</a>
+  <div v-if="loading">Loading users...</div>
+  <div v-else-if="users.length === 0">No users found.</div>
+  
+  <table v-else border="1" cellpadding="8">
+    <thead>
+      <tr>
+        <th class="sortable" @click="sortBy('id')">
+          ID
+          <span v-if="sortKey === 'id'" class="arrow" v-text="sortArrow('id')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('username')">
+          Username
+          <span v-if="sortKey === 'username'" class="arrow" v-text="sortArrow('username')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('first_name')">
+          First Name
+          <span v-if="sortKey === 'first_name'" class="arrow" v-text="sortArrow('first_name')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('last_name')">
+          Last Name
+          <span v-if="sortKey === 'last_name'" class="arrow" v-text="sortArrow('last_name')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('email')">
+          Email
+          <span v-if="sortKey === 'email'" class="arrow" v-text="sortArrow('email')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('groups')">
+          Groups
+          <span v-if="sortKey === 'groups'" class="arrow" v-text="sortArrow('groups')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('is_staff')">
+          Staff
+          <span v-if="sortKey === 'is_staff'" class="arrow" v-text="sortArrow('is_staff')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('is_superuser')">
+          Superuser
+          <span v-if="sortKey === 'is_superuser'" class="arrow" v-text="sortArrow('is_superuser')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('last_login')">
+          Last Login
+          <span v-if="sortKey === 'last_login'" class="arrow" v-text="sortArrow('last_login')"></span>
+        </th>
+        <th class="sortable" @click="sortBy('date_joined')">
+          Date Joined
+          <span v-if="sortKey === 'date_joined'" class="arrow" v-text="sortArrow('date_joined')"></span>
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="user in sortedUsers" :key="user.id">
+        <td><a :href="`/settings/user-management/${user.id}/`" v-text="user.id"></a></td>
+        <td><a :href="`/settings/user-management/${user.id}/`" v-text="user.username"></a></td>
+        <td v-text="user.first_name"></td>
+        <td v-text="user.last_name"></td>
+        <td v-text="user.email"></td>
+        <td v-text="user.groups.length ? user.groups.join(', ') : '—'"></td>
+        <td v-text="user.is_staff ? 'Yes' : 'No'"></td>
+        <td v-text="user.is_superuser ? 'Yes' : 'No'"></td>
+        <td v-text="user.last_login"></td>
+        <td v-text="user.date_joined"></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+<script>
+new Vue({
+  el: '#user-app',
+  data: {
+    users: [],
+    loading: true,
+    sortKey: '',
+    sortAsc: true
+  },
+  computed: {
+    sortedUsers() {
+      const sorted = [...this.users];
+      if (!this.sortKey) return sorted;
+
+      return sorted.sort((a, b) => {
+        let valA = a[this.sortKey];
+        let valB = b[this.sortKey];
+
+        if (Array.isArray(valA)) valA = valA.join(', ');
+        if (Array.isArray(valB)) valB = valB.join(', ');
+
+        if (valA < valB) return this.sortAsc ? -1 : 1;
+        if (valA > valB) return this.sortAsc ? 1 : -1;
+        return 0;
+      });
+    }
+  },
+  methods: {
+    sortBy(key) {
+      if (this.sortKey === key) {
+        this.sortAsc = !this.sortAsc;
+      } else {
+        this.sortKey = key;
+        this.sortAsc = true;
+      }
+    },
+    sortArrow(key) {
+      if (this.sortKey !== key) return '';
+      return this.sortAsc ? '▲' : '▼';
+    }
+  },
+  created() {
+    fetch('/api/users/')
+      .then(res => res.json())
+      .then(data => {
+        this.users = data.results;
+        this.loading = false;
+      })
+      .catch(err => {
+        console.error("Error loading users:", err);
+        this.loading = false;
+      });
+  }
+});
+</script>
+
+{% endblock %}

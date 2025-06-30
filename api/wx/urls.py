@@ -12,6 +12,10 @@ router.register(r'station_images', views.StationImageViewSet)
 router.register(r'station_files', views.StationFileViewSet)
 router.register(r'quality_flags', views.QualityFlagList)
 router.register(r'stations_metadata', views.StationMetadataViewSet)
+router.register(r'users', views.UserView)
+router.register(r'groups', views.GroupView)
+router.register(r'wxpermissions', views.WxPermissionView)
+router.register(r'wxgrouppermissions', views.WxGroupPermissionView)
 
 urlpatterns = [
     path('api/stations/metadata', include(router.urls)),
@@ -166,6 +170,14 @@ urlpatterns = [
     path("api/publishing_offsets/", views.publishingOffsetViewSet.as_view({'get': 'list'}), name='api-publishing-offsets'),
     path('wx/reports/synop/capture', views.SynopCaptureView.as_view(), name='synop-capture-form'),
     path('wx/reports/synop/capture/update/', views.synop_capture_update, name='update-synop-capture-report'),
+    path('settings/user-management/', views.WxUserManagementView.as_view(), name='user-management'),
+    path('settings/user-management/<int:pk>/', views.WxUserEditFormView.as_view(), name='user-edit'),
+    path('settings/user-management/new/', views.WxUserCreateFormView.as_view(), name='user-create'),
+    path('settings/user-management/<int:pk>/delete/', views.UserDeleteView.as_view(), name='user-delete'),
+    path('settings/group-management/', views.WxGroupManagementView.as_view(), name='group-management'),
+    path('settings/group-management/<int:pk>/', views.WxGroupEditView.as_view(), name='group-edit'),
+    path('settings/group-management/<int:pk>/delete/', views.WxGroupDeleteView.as_view(), name='group-delete'),
+    path("settings/group-management/new/", views.WxGroupCreateView.as_view(), name="group-create"),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

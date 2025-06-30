@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block extrastyle %}
+    <style>
+    input[type="checkbox"] + label,
+    input[type="checkbox"] {
+    vertical-align: middle;
+    position: static !important;
+    opacity: 1 !important;
+    transform: none !important;
+    margin: 0 6px 0 0;
+    }
+
+    #classic-form input[type="checkbox"] {
+    margin-right: 8px;
+    }
+
+    #classic-form label {
+    display: inline-block;
+    margin-top: 12px;
+    }
+    </style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid" style="padding-left: 50px;">
+    <h4>Now editing user: {{ user.username }}</h4>
+    <form method="post">
+    {% csrf_token %}
+
+    {{ form.non_field_errors }}
+	<div class="row">
+		<div class="col-md-6">
+            <h5>User Details</h5>
+            <p>{{ form.username.label_tag }} {{ form.username }}</p>
+            <p>{{ form.new_password.label_tag }} {{ form.new_password }}</p>
+            <p>{{ form.first_name.label_tag }} {{ form.first_name }}</p>
+            <p>{{ form.last_name.label_tag }} {{ form.last_name }}</p>
+            <p>{{ form.email.label_tag }} {{ form.email }}</p>
+		</div>
+		<div class="col-md-6" style="padding-left: 50px;">
+            <div class="col-md-6">
+                <h5>Group Details</h5>
+                {{ form.group_set }}
+            </div>
+            <div class="col-md-6">
+            <p>{{ form.is_active }} Is Active </p>
+            <p>{{ form.is_staff }} Is Staff </p>
+            <p>{{ form.is_superuser }} Is Superuser </p>
+            </div>
+		</div>
+	</div>
+    <button type="submit" class="btn-outline-default btn-small metadata-btn-success">Submit</button>
+    <button type="submit" class="btn-outline-default btn-small metadata-btn-success"><a href="{% url 'user-management' %}">Cancel</a></button>
+    </form>
+    {% if user.email %}
+        <form method="post" action="{% url 'password_reset' %}" style="margin-top: 20px;">
+        {% csrf_token %}
+        <input type="hidden" name="email" value="{{ user.email }}">
+        <button type="submit"class="btn-outline-default btn-small metadata-btn-success">Send Password Reset Email</button>
+        </form>
+    {% else %}
+        <p>Add an email address to this user to enable password resets via email.</p>
+    {% endif %}
+    <br>
+    <form method="post" action="{% url 'user-delete' user.id %}" onsubmit="return confirm('Are you sure you want to delete this user?');">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Delete User</button>
+    </form>
+
+</div>
+
+{% endblock %}

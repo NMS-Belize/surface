@@ -60,7 +60,7 @@ from wx import serializers, tasks
 from wx.decoders import insert_raw_data_pgia, insert_raw_data_synop
 from wx.decoders.hobo import read_file as read_file_hobo
 from wx.decoders.toa5 import read_file
-from wx.forms import StationForm
+from wx.forms import StationForm, UserEditForm, UserCreateForm, GroupEditForm
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication, CombineDataFile, ManualStationDataFile
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, StationDataFileStatus,\
@@ -91,6 +91,15 @@ from django.utils.timezone import localtime
 
 
 from wx.models import WMOCodeValue
+
+from django.contrib.auth.models import Group, User
+from wx import models
+
+from django.contrib.admin.views.decorators import staff_member_required
+from django.utils.decorators import method_decorator
+from django.views.generic import TemplateView, View
+from django.shortcuts import render, get_object_or_404, redirect
+from django.views.decorators.http import require_POST
 
 logger = logging.getLogger('surface.urls')
 
@@ -9712,3 +9721,103 @@ def synop_capture_update(request):
         return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return HttpResponse(status=status.HTTP_200_OK)
+    
+class UserView(viewsets.ModelViewSet):
+    serializer_class = serializers.UserDataSerializer
+    queryset = User.objects.all().order_by('id')
+    
+class GroupView(viewsets.ModelViewSet):
+    serializer_class = serializers.GroupDataSerializer
+    queryset = Group.objects.all()
+
+class WxPermissionView(viewsets.ModelViewSet):
+    serializer_class = serializers.WxPermissionSerializer
+    queryset = models.WxPermission.objects.all()
+    
+class WxGroupPermissionView(viewsets.ModelViewSet):
+    serializer_class = serializers.WxGroupPermissionSerializer
+    queryset = models.WxGroupPermission.objects.all()
+    
+class WxUserManagementView(TemplateView):
+    template_name = "wx/settings/user-management.html"
+    
+class WxUserEditFormView(View):
+    template_name = "wx/settings/user-edit-form.html"
+
+    def get(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        form = UserEditForm(instance=user)
+        return render(request, self.template_name, {'form': form, 'user': user})
+
+    def post(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        form = UserEditForm(request.POST, instance=user)
+        if form.is_valid():
+            user = form.save()
+            user.groups.set(form.cleaned_data['group_set'])
+            return redirect('user-management')
+        return render(request, self.template_name, {'form': form, 'user': user})
+    
+class WxUserCreateFormView(View):
+    template_name = "wx/settings/user-create-form.html"
+
+    def get(self, request):
+        form = UserCreateForm()
+        return render(request, self.template_name, {'form': form})
+
+    def post(self, request):
+        form = UserCreateForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            user.groups.set(form.cleaned_data['group_set'])
+            return redirect('user-management')
+        return render(request, self.template_name, {'form': form})
+
+@method_decorator(require_POST, name='dispatch')
+class UserDeleteView(View):
+    def post(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        if request.user == user:
+            return HttpResponseForbidden("You cannot delete your own account.")
+        user.delete()
+        return redirect('user-management')
+    
+class WxGroupManagementView(TemplateView):
+    template_name = "wx/settings/group-management.html"
+
+class WxGroupEditView(View):
+    template_name = "wx/settings/group-edit-form.html"
+
+    def get(self, request, pk):
+        group = get_object_or_404(Group, pk=pk)
+        form = GroupEditForm(instance=group)
+        return render(request, self.template_name, {'form': form, 'group': group})
+
+    def post(self, request, pk):
+        group = get_object_or_404(Group, pk=pk)
+        form = GroupEditForm(request.POST, instance=group)
+        if form.is_valid():
+            form.save()
+            return redirect('group-management')
+        return render(request, self.template_name, {'form': form, 'group': group})
+
+class WxGroupCreateView(View):
+    template_name = "wx/settings/group-edit-form.html"
+
+    def get(self, request):
+        form = GroupEditForm()
+        return render(request, self.template_name, {'form': form, 'group': None})
+
+    def post(self, request):
+        form = GroupEditForm(request.POST)
+        if form.is_valid():
+            group = form.save()
+            return redirect('group-management')
+        return render(request, self.template_name, {'form': form, 'group': None})
+
+@method_decorator(require_POST, name='dispatch')
+class WxGroupDeleteView(View):
+    def post(self, request, pk):
+        group = get_object_or_404(Group, pk=pk)
+        group.delete()
+        return redirect('group-management')

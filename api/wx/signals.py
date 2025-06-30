@@ -1,7 +1,8 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.timezone import now, timedelta
-from wx.models import Station, Wis2BoxPublish, Wis2BoxPublishLogs
+from django.contrib.auth.models import Group
+from wx.models import Station, Wis2BoxPublish, Wis2BoxPublishLogs, WxGroupPermission
 
 @receiver(post_save, sender=Station)
 def update_wis2boxPublish_on_international_exchange_change(sender, instance, **kwargs):
@@ -52,3 +53,9 @@ def update_wis2boxPublish_on_logs_add(sender, instance, **kwargs):
     # Delete logs older than 24 hours
     time_threshold = now() - timedelta(hours=24)
     Wis2BoxPublishLogs.objects.filter(created_at__lt=time_threshold).delete()
+
+#For making the custom WxGroupPermission object automatically when a regular Django Group object is made.
+@receiver(post_save, sender=Group)
+def create_wxgrouppermission(sender, instance, created, **kwargs):
+    if created and not WxGroupPermission.objects.filter(group=instance).exists():
+        WxGroupPermission.objects.create(group=instance)

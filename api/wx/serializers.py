@@ -1,6 +1,10 @@
 from rest_framework import serializers
 
 from wx import models
+from django.contrib.auth.models import Group, User
+import json
+from django.views.generic import TemplateView
+from django.shortcuts import get_object_or_404
 
 
 class CountrySerializer(serializers.ModelSerializer):
@@ -361,3 +365,65 @@ class Wis2PublishOffsetSerializerRead(serializers.ModelSerializer):
     class Meta:
         model = models.Wis2PublishOffset
         fields = ('id', 'code', 'description')
+        
+class UserDataSerializer(serializers.ModelSerializer):
+    groups = serializers.SerializerMethodField()
+    group_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(), many=True, write_only=True, required=False
+    )
+
+    #Sort the group names alphabetically so they show up in order on the usermanagement page
+    def get_groups(self, obj):
+        return sorted([group.name for group in obj.groups.all()])
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'is_staff', 'is_superuser', 'groups', 'last_login', 'date_joined', 'group_ids']
+
+class GroupDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = '__all__'
+
+class WxPermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.WxPermission
+        fields = '__all__'
+        
+class WxGroupPermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.WxGroupPermission
+        fields = '__all__'
+        
+class WxUserEditSerializer(serializers.ModelSerializer):
+    group_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(),
+        many=True,
+        write_only=True
+    )
+    groups = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'is_staff',
+            'is_superuser',
+            "is_active",
+            'groups',
+            'group_ids',
+        ]
+
+    def get_groups(self, obj):
+        return sorted([group.name for group in obj.groups.all()])
+
+    def update(self, instance, validated_data):
+        group_ids = validated_data.pop('group_ids', None)
+        instance = super().update(instance, validated_data)
+        if group_ids is not None:
+            instance.groups.set(group_ids)
+        return instance
