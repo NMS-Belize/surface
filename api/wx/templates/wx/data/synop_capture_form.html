@@ -654,7 +654,9 @@
                             // send a request back to the server to retrieve the 24-hour difference
                             axios.post(calc_precip_url, {
                                 date: rowDatetime,
-                                precipitation_value: rowData['0']
+                                // in the past the current precip value was also sent back to the view to include in the total sum
+                                // this has now been stopped. the code below is the legacy implementation of that:
+                                // precipitation_value: rowData['0']
                             })
                             .then(response => {
                                 if (typeof(response.data.dataset) === 'number'){

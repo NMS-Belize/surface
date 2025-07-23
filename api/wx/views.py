@@ -8337,7 +8337,7 @@ def synop_precip_calc(request):
     if request.method == 'POST':
         station_id = int(request.GET['station_id'])
         data = json.loads(request.body)  # Parse JSON data
-        precip_value = float(data.get('precipitation_value')) 
+        # precip_value = float(data.get('precipitation_value')) 
         precip_24_hr = 0
         date_value = data.get('date')
 
@@ -8365,7 +8365,7 @@ def synop_precip_calc(request):
             FROM raw_data
             WHERE station_id = %s
             AND variable_id = %s
-            AND datetime BETWEEN %s AND %s;
+            AND datetime >= %s AND datetime < %s;
         """
 
         if sql_string:
@@ -8376,7 +8376,9 @@ def synop_precip_calc(request):
                 rows = cursor.fetchall()
             
                 # adding to get the total precipitation in 24 hours
-                precip_24_hr = sum(row[0] for row in rows if row[0] != -99.9) + precip_value
+                precip_24_hr = sum(row[0] for row in rows if row[0] != -99.9)
+                # the below is leagacy code of the above
+                # precip_24_hr = sum(row[0] for row in rows if row[0] != -99.9) + precip_value
         
     return JsonResponse({'dataset': precip_24_hr}, status=status.HTTP_200_OK)
 

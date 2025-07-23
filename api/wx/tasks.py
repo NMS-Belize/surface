@@ -102,7 +102,8 @@ def backup_set_running(backup_task, started_at, file_path):
     new_log.save()
     return new_log.id
 
-def backup_create(file_path):
+
+def backup_create(file_path, file_path_glob):
     db = settings.DATABASES['default']
 
     db_host = db['HOST']
@@ -113,10 +114,25 @@ def backup_create(file_path):
 
     dbname = 'postgresql://'+db_user+':'+db_pass+'@'+db_host+':'+db_port+'/'+db_name
 
+    # backup the globals only
+    command_glob = '/usr/bin/pg_dumpall --globals-only | gzip -9 > ' + file_path_glob
+
+    # backup a specified database
     command = '/usr/bin/pg_dump --dbname=' + dbname + ' | gzip -9 > ' + file_path
 
-    proc = subprocess.Popen(command, shell=True)
-    proc.wait()
+    # proc_glob = subprocess.Popen(command_glob, shell=True)
+    # proc = subprocess.Popen(command, shell=True)
+
+    # proc_glob.wait()
+    # proc.wait()
+
+    try:
+        subprocess.run(command_glob, shell=True, check=True)
+        subprocess.run(command, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Backup failed: {e}")
+        raise
+
 
 def backup_ftp(file_name, file_path, ftp_server, remote_folder):
     remote_file_path = os.path.join(remote_folder, file_name)
@@ -182,15 +198,26 @@ def backup_process(_entry):
     file_path = None    
 
     started_at = pytz.UTC.localize(datetime.now())
+    
     try:
         file_name = started_at.strftime(_entry.file_name)
+        file_name_glob = 'globals_' + file_name
+
+        file_path_glob = os.path.join(backup_dir, file_name_glob)
         file_path = os.path.join(backup_dir, file_name)
 
         log_id = backup_set_running(_entry, started_at, file_path)
-        backup_create(file_path)
+
+        backup_create(file_path, file_path_glob)
+
         if _entry.ftp_server is not None:
             try:
+                # send backup globals via FTP
+                backup_ftp(file_name_glob, file_path_glob, _entry.ftp_server, _entry.remote_folder)
+                
+                # send backup via FTP
                 backup_ftp(file_name, file_path, _entry.ftp_server, _entry.remote_folder)
+
                 status = 'SUCCESS'
                 message = 'Backup created and successfully send via FTP.'
             except Exception as e:
@@ -200,6 +227,7 @@ def backup_process(_entry):
         else:
             status = 'SUCCESS'
             message = 'Backup created.'
+
     except Exception as e:
         status = 'BACKUP ERROR'
         message = e
