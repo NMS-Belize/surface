@@ -347,7 +347,7 @@ def get_raw_data(search_type, search_value, search_value2, search_date_start, se
 
     if source == 'raw_data':
         value_variable = sql.Identifier('measured')
-        max_days = 7
+        max_days = 15
     elif source == 'hourly_summary':
         value_variable = sql.SQL(', ').join(map(sql.Identifier, ['min_value', 'max_value', 'avg_value', 'sum_value']))
         max_days = 30
