@@ -272,14 +272,14 @@ def calculate_hourly_summary(start_datetime=None, end_datetime=None, station_id_
     else:
         station_ids = station_id_list
 
-    station_ids = tuple(station_ids)
+    station_ids = list(station_ids)
 
     logger.info('Hourly summary started at {}'.format(datetime.today()))
     logger.info('Hourly summary parameters: {} {} {}'.format(start_datetime, end_datetime, station_id_list))
 
     delete_sql = f"""
         DELETE FROM hourly_summary 
-        WHERE station_id in %(station_ids)s 
+        WHERE station_id = ANY(%(station_ids)s) 
           AND datetime = %(start_datetime)s
     """
 
@@ -325,7 +325,7 @@ def calculate_hourly_summary(start_datetime=None, end_datetime=None, station_id_
               AND (rd.manual_flag in (1,4) OR (rd.manual_flag IS NULL AND rd.quality_flag in (1,4)))
               AND NOT rd.is_daily
               AND calc.value != %(MISSING_VALUE)s
-              AND station_id in %(station_ids)s
+              AND station_id = ANY(%(station_ids)s) 
             GROUP BY 1,2,3) values
         WHERE values.datetime = %(start_datetime)s
         UNION ALL
@@ -357,7 +357,7 @@ def calculate_hourly_summary(start_datetime=None, end_datetime=None, station_id_
               AND (rd.manual_flag in (1,4) OR (rd.manual_flag IS NULL AND rd.quality_flag in (1,4)))
               AND rd.is_daily
               AND calc.value != %(MISSING_VALUE)s
-              AND station_id in %(station_ids)s
+              AND station_id = ANY(%(station_ids)s) 
             GROUP BY 1,2,3) values
         WHERE values.datetime = %(start_datetime)s
     """
@@ -396,7 +396,7 @@ def calculate_daily_summary(start_date=None, end_date=None, station_id_list=None
 
         offsets = list(set([s.utc_offset_minutes for s in stations]))
         for offset in offsets:
-            station_ids = tuple(stations.filter(utc_offset_minutes=offset).values_list('id', flat=True))
+            station_ids = list(stations.filter(utc_offset_minutes=offset).values_list('id', flat=True))
             fixed_offset = pytz.FixedOffset(offset)
 
             datetime_start_utc = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=pytz.UTC)
@@ -413,7 +413,7 @@ def calculate_daily_summary(start_date=None, end_date=None, station_id_list=None
 
             delete_sql = """
                 DELETE FROM daily_summary 
-                WHERE station_id in %(station_ids)s 
+                WHERE station_id = ANY(%(station_ids)s) 
                 AND day >= %(datetime_start)s
                 AND day < %(datetime_end)s
             """
@@ -448,7 +448,7 @@ def calculate_daily_summary(start_date=None, end_date=None, station_id_list=None
                 WHERE rd.datetime > %(datetime_start)s
                   AND rd.datetime <= %(datetime_end)s
                   AND calc.value != %(MISSING_VALUE)s
-                  AND station_id in %(station_ids)s
+                  AND station_id = ANY(%(station_ids)s) 
                   AND (rd.manual_flag in (1,4) OR (rd.manual_flag IS NULL AND rd.quality_flag in (1,4)))
                   AND NOT rd.is_daily
                 GROUP BY 1,2,3
@@ -470,7 +470,7 @@ def calculate_daily_summary(start_date=None, end_date=None, station_id_list=None
                 WHERE rd.datetime > %(datetime_start)s
                   AND rd.datetime <= %(datetime_end)s
                   AND calc.value != %(MISSING_VALUE)s
-                  AND station_id in %(station_ids)s
+                  AND station_id = ANY(%(station_ids)s) 
                   AND (rd.manual_flag in (1,4) OR (rd.manual_flag IS NULL AND rd.quality_flag in (1,4)))
                   AND rd.is_daily
                 GROUP BY 1,2,3
@@ -516,7 +516,7 @@ def calculate_station_minimum_interval(start_date=None, end_date=None, station_i
 
         offsets = list(set([s.utc_offset_minutes for s in stations]))
         for offset in offsets:
-            station_ids = tuple(stations.filter(utc_offset_minutes=offset).values_list('id', flat=True))
+            station_ids = list(stations.filter(utc_offset_minutes=offset).values_list('id', flat=True))
             fixed_offset = pytz.FixedOffset(offset)
 
             datetime_start_utc = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=pytz.UTC)
@@ -544,7 +544,7 @@ def calculate_station_minimum_interval(start_date=None, end_date=None, station_i
                     ,updated_at
                 ) 
                 SELECT current_day
-                      ,[station_id]station_id
+                      ,stationvariable.station_id
                       ,stationvariable.variable_id
                       ,min(value.data_interval) as minimum_interval
                       ,COALESCE(count(value.formated_datetime), 0) as record_count 
@@ -564,7 +564,7 @@ def calculate_station_minimum_interval(start_date=None, end_date=None, station_i
                       AND rd.station_id  = stationvariable.station_id
                       AND rd.variable_id = stationvariable.variable_id
                 ) value ON TRUE
-                WHERE stationvariable.station_id IN %(station_ids)s
+                WHERE stationvariable.station_id = ANY(%(station_ids)s) 
                   AND stationvariable.station_id = station.id
                   AND (value.formated_datetime = current_day OR value.formated_datetime is null)
                 GROUP BY current_day, stationvariable.station_id, stationvariable.variable_id
@@ -2284,11 +2284,11 @@ def get_hourly_raw_data(start_datetime, end_datetime, station_ids):
     sql = '''SELECT *
              FROM raw_data
              WHERE datetime BETWEEN %(start_datetime)s AND %(end_datetime)s
-               AND station_id IN %(station_ids)s
+               AND station_id = ANY(%(station_ids)s) 
                -- AND qc_persist_quality_flag IS NULL
              ORDER BY datetime DESC
           '''
-    params = {"station_ids": tuple(station_ids), "start_datetime": start_datetime, "end_datetime": end_datetime}
+    params = {"station_ids": station_ids, "start_datetime": start_datetime, "end_datetime": end_datetime}
     
 
     sql_query = pd.read_sql_query(sql=sql, con=con, params=params)
@@ -2573,8 +2573,8 @@ def hourly_summary(hourly_summary_tasks_ids, station_ids, s_datetime, e_datetime
         HourlySummaryTask.objects.filter(id__in=hourly_summary_tasks_ids).update(started_at=datetime.now(tz=pytz.UTC))
         calculate_hourly_summary(s_datetime, e_datetime, station_id_list=station_ids)
     except Exception as err:
-        logger.error('Error calculation hourly summary for hour "{0}". '.format(hourly_summary_datetime) + repr(err))
-        db_logger.error('Error calculation hourly summary for hour "{0}". '.format(hourly_summary_datetime) + repr(err))
+        logger.error('Error calculation hourly summary for hour "{0}". '.format(s_datetime) + repr(err))
+        db_logger.error('Error calculation hourly summary for hour "{0}". '.format(s_datetime) + repr(err))
     else:
         HourlySummaryTask.objects.filter(id__in=hourly_summary_tasks_ids).update(finished_at=datetime.now(tz=pytz.UTC))
 
@@ -2603,8 +2603,8 @@ def daily_summary(daily_summary_tasks_ids, station_ids, s_datetime, e_datetime):
         for station_id in station_ids:
            calculate_station_minimum_interval(s_datetime, e_datetime, station_id_list=(station_id,))
     except Exception as err:
-        logger.error('Error calculation daily summary for day "{0}". '.format(daily_summary_date) + repr(err))
-        db_logger.error('Error calculation daily summary for day "{0}". '.format(daily_summary_date) + repr(err))
+        logger.error('Error calculation daily summary for day "{0}". '.format(s_datetime) + repr(err))
+        db_logger.error('Error calculation daily summary for day "{0}". '.format(s_datetime) + repr(err))
     else:
         DailySummaryTask.objects.filter(id__in=daily_summary_tasks_ids).update(finished_at=datetime.now(tz=pytz.UTC))
 
@@ -2632,14 +2632,15 @@ def predict_data(start_datetime, end_datetime, prediction_id, station_ids, targe
     date_dict = {}
 
     logger.info(
-        f"predict_data= start_datetime: {start_datetime}, end_datetime: {end_datetime}, station_ids: {station_ids}, variable_id: {variable_id}, data_period_in_minutes: {data_period_in_minutes}, interval_in_minutes: {interval_in_minutes}, data_frequency: {data_frequency}")
+        f"predict_data= start_datetime: {start_datetime}, end_datetime: {end_datetime}, station_ids: {station_ids}, variable_id: {variable_id}, data_period_in_minutes: {data_period_in_minutes}, interval_in_minutes: {interval_in_minutes}, data_frequency: {data_frequency}"
+        )
     query = """
         WITH acc_query AS (SELECT datetime
                                 ,station_id
                                 ,SUM(measured) OVER (PARTITION BY station_id ORDER BY datetime ROWS BETWEEN %(data_frequency)s PRECEDING AND CURRENT ROW) AS acc
                                 ,LAG(datetime, %(data_frequency)s) OVER (PARTITION BY station_id ORDER BY datetime) AS earliest_datetime
                            FROM raw_data
-                           WHERE station_id in %(station_ids)s
+                           WHERE station_id = ANY(%(station_ids)s) 
                              AND variable_id = %(variable_id)s
                              AND datetime   >= %(start_datetime)s
                              AND datetime   <= %(end_datetime)s
@@ -2762,7 +2763,7 @@ def predict_preciptation_data():
     for hydroml_param in hydroml_params:
         current_prediction = hydroml_param.prediction
         logger.info(f"Processing Prediction: {current_prediction.name}")
-        station_ids = tuple(hydroml_param.neighborhood.neighborhood_stations.all().values_list('station_id', flat=True))
+        station_ids = list(hydroml_param.neighborhood.neighborhood_stations.all().values_list('station_id', flat=True))
 
         result_mapping = {}
         mappings = HydroMLPredictionMapping.objects.filter(hydroml_prediction_id=hydroml_param.id)

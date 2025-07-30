@@ -80,7 +80,7 @@ def parse_second_line_header(station, line):
 
         # check if lookup_key is not duplicated
         if variable_format.lookup_key in lookup_table:
-            db_logger.error(f"key {variable_format.lookup_key} is already "
+            db_logger.warning(f"key {variable_format.lookup_key} is already "
                             f"present in lookup table: {variable_format}")
 
         lookup_table[variable_format.lookup_key] = {

@@ -25,6 +25,7 @@ services:
   postgres:
     container_name: surface-database
     image: timescale/timescaledb-postgis:2.3.0-pg13
+    shm_size: 4g
     restart: unless-stopped
     env_file:
       - api/production.env
@@ -35,6 +36,10 @@ services:
       - ./data/backup:/data/backup
     ports:
       - 5432:5432
+    command:
+      - "postgres"
+      - "-c"
+      - "max_locks_per_transaction=512"
     logging:
       driver: "json-file"
       options:

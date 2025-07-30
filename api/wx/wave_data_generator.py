@@ -132,19 +132,24 @@ def send_via_ftp(data, file_name):
     buf_b.write(data.encode())
     buf_b.seek(0)
 
-    ftp_server = FTPServer.objects.get(name='High Frequency Data Server')
-    with FTP() as ftp:
-        ftp.connect(host=ftp_server.host, port=ftp_server.port)
-        ftp.login(user=ftp_server.username, passwd=ftp_server.password)
-        ftp.set_pasv(val = not ftp_server.is_active_mode)
+    try:
+        ftp_server = FTPServer.objects.get(name='High Frequency Data Server')
 
-        if not remote_folder in ftp.nlst():
-            ftp.mkd(remote_folder)
+        with FTP() as ftp:
+            ftp.connect(host=ftp_server.host, port=ftp_server.port)
+            ftp.login(user=ftp_server.username, passwd=ftp_server.password)
+            ftp.set_pasv(val = not ftp_server.is_active_mode)
 
-        ftp.storbinary(f"STOR {remote_file_path}", buf_b)
-        ftp.quit()
+            if not remote_folder in ftp.nlst():
+                ftp.mkd(remote_folder)
 
-    buf_b.close()
+            ftp.storbinary(f"STOR {remote_file_path}", buf_b)
+            ftp.quit()
+
+        buf_b.close()
+    except FTPServer.DoesNotExist:
+        logger.warn('FTP Server named "High Frequency Data Server" not found skipping...')
+        ftp_server = None
 
 def format_and_send_data(df, file_name):
     data = get_df_data(df)
