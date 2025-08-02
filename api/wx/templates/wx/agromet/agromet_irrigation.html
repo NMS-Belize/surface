@@ -1,0 +1,305 @@
+{% extends "base.html" %} {% block content %} {% load static %} {% load material_form %}
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+<div class="srf-container">
+	<div class="srf-flex flex-row align-items-center justify-content-between srf-padding">
+		<span class="srf-display-1 text-uppercase">Agromet Irrigation</span><br /><br />
+	</div>
+	<div class="srf-flex justify-content-between srf-padding" id="app">
+		<v-app>
+			<v-row>
+				<v-col cols="12">
+					<v-card>
+						<v-card-title class="text-h5">
+							Crop List
+						</v-card-title>
+						<v-data-table
+							:headers="headers"
+							:items="cropList"
+							class="elevation-1"
+						></v-data-table>
+					</v-card>
+				</v-col>
+			</v-row>			
+			<v-form ref="form" v-model="isFormValid" enctype="multipart/form-data" method="POST" class="mb-10">
+				{% csrf_token %}
+				<v-row>
+					<v-col cols="2" class="d-flex justify-left">
+						<v-switch 
+							v-model="filters.is_automatic"
+							:label='filters.is_automatic?"Automatic Stations":"Manual Stations"'
+							inset
+						/>
+					</v-col>
+					<v-col cols="4">
+						<v-autocomplete
+							label="Select Station"
+							:items="filteredStationList"
+							item-value="id"
+							item-text="name"
+							v-model="requestData.stationId"
+							hint="*Required"
+							persistent-hint
+							:rules="[rules.required]"
+						/>
+					</v-col>
+					<v-col cols="4">
+						<v-autocomplete
+							label="Select Crop"
+							:items="cropList"
+							item-value="id"
+							item-text="name_cycle"
+							v-model="requestData.cropId"
+							hint="*Required"
+							persistent-hint
+							:rules="[rules.required]"
+						/>
+					</v-col>					
+					<v-col cols="2">
+						<v-menu
+							:close-on-content-click="false"
+							v-model="emergence_menu"
+							:nudge-right="40"
+							transition="scale-transition"
+							offset-y
+							class="max-50"
+						>
+							<template v-slot:activator="{ on }">
+								<v-text-field
+									v-model="requestData.emergence_date"
+									label="Emergence Date"
+									prepend-icon="event"
+									v-on="on"
+									required
+									hint="*Required"
+								></v-text-field>
+							</template>
+							<v-date-picker
+								name="Emergence Date"
+								v-model="requestData.emergence_date"
+								@input="emergence_menu = false"
+							></v-date-picker>
+						</v-menu>
+					</v-col>
+				</v-row>
+				<v-row>				
+					<v-col cols="2" class="d-flex justify-left">
+						<v-btn @click="getData" :disabled="!isFormValid">
+							Request Data
+							<v-icon right>send</v-icon>
+						</v-btn>
+						<v-btn @click="debugData()" :disabled="!isFormValid">
+							Debug Data
+							<v-icon right>send</v-icon>
+						</v-btn>						
+					</v-col
+				</v-row>				
+			</v-form>
+
+			<div>
+				<template>
+					<v-card v-if="!loading_data && requestedData.response">
+						<v-card-title class="text-h5">
+							Crop List
+						</v-card-title>
+
+						<v-data-table
+							:headers="dataTable.headers"
+							:items="dataTable.items"
+							class="elevation-1"
+						></v-data-table>
+					</v-card>
+				</template>
+			</div>			
+		</v-app>
+	</div>
+</div>
+
+{% endblock %} {% block localjavascript %}
+ 
+<script>
+	Vue.use(window.vuelidate.default);
+    Vue.use(HighchartsVue.default);
+	const { required, numeric } = window.validators;
+
+	new Vue({
+		el: "#app",
+		vuetify: new Vuetify(),
+		delimiters: ["[[", "]]"],
+		data: {
+			loading_data: false,
+			now: moment().format('YYYY-MM-DD'),
+			username: '{{username | safe}}',
+			isFormValid: false,
+			filters: {
+				is_automatic: false,
+			},
+			emergence_menu: false,
+			rules: {
+				required: value => !!value || 'Required.',
+				nonEmpty: value => !!value && value.length>0 || 'Select at least one item.',
+				numeric: value => (!isNaN(value) ) || 'Parameter must be a Numeric.',
+				integer: value => (Number.isInteger(value) ) || 'Number must be an integer.',
+				percentage: value => (0 <= value && value <= 100) || 'Value must be between 0 and 100.',
+				positive: value => (0 <= value) || 'Value must greater than 0.',
+			},			
+			requestData: {
+				stationId: 59, // null, // 59 is Melinda for testing
+				cropId: null,
+				emergence_date: '2010-01-01', // moment().format('YYYY-MM-DD'),
+			},
+			requestedData: {
+				stationId: null,
+				cropId: null,
+				emergence_date: null,
+				response: null,
+				requestedAt: null,
+			},
+			headers: [
+				{ text: 'ID', value: 'id' },
+				{ text: 'Crop Name', value: 'name' },
+				{ text: 'Cycle (days)', value: 'cycle' },
+				{ text: 'Lini (mm)', value: 'l_ini' },
+				{ text: 'Ldev (mm)', value: 'l_dev' },
+				{ text: 'Lmid (mm)', value: 'l_mid' },
+				{ text: 'Llate (mm)', value: 'l_late' },
+				{ text: 'Kcini', value: 'kc_ini' },
+				{ text: 'Kcmid', value: 'kc_mid' },
+				{ text: 'Kcend', value: 'kc_end' },
+				{ text: 'Max Height (m)', value: 'max_ht' },
+			],
+			cropList: [
+				{% for crop in crop_list %}
+					{
+						id: {{crop.id}},
+						name: "{{crop.name | safe }}",
+						cycle: {{crop.cycle}},
+						name_cycle: "{{crop.name | safe }} - {{crop.cycle}} days",
+						max_ht: {{crop.max_ht}},
+						l_ini: {{crop.l_ini}},
+						l_dev: {{crop.l_dev}},
+						l_mid: {{crop.l_mid}},
+						l_late: {{crop.l_late}},
+						kc_ini: {{crop.kc_ini}},
+						kc_mid: {{crop.kc_mid}},
+						kc_end: {{crop.kc_end}}
+					},
+				{% endfor %}
+			],
+			stationList: [
+				{% for station in station_list %}
+					{
+						id: {{station.id}},
+						base_name: "{{station.name | safe }}",
+						name: "{{station.name | safe }} - {{station.code}}",
+						code: "{{station.code}}",
+						is_automatic:  {{station.is_automatic|yesno:"true,false"}},
+						latitude: {{station.latitude}},
+						longitude: {{station.longitude}}
+					},
+				{% endfor %}
+			]
+		},
+		watch: {
+		},	
+		computed: {
+			filteredStationList() {
+				return this.stationList.filter(station=>station.is_automatic===this.filters.is_automatic)
+			},
+			dataTable () {
+				let headers = [			
+					{text: 'station_id', value: 'station_id'},
+					{text: 'day', value: 'day'},
+					{text: 'days_since_emergence', value: 'days_since_emergence'},
+					{text: 'crop_name', value: 'crop_name'},
+					{text: 'cycle', value: 'cycle'},
+					{text: 'max_ht', value: 'max_ht'},
+					{text: 'l_ini', value: 'l_ini'},
+					{text: 'l_dev', value: 'l_dev'},
+					{text: 'l_mid', value: 'l_mid'},
+					{text: 'l_late', value: 'l_late'},
+					{text: 'kc_ini', value: 'kc_ini'},
+					{text: 'kc_mid', value: 'kc_mid'},
+					{text: 'kc_end', value: 'kc_end'},
+					{text: 'temp', value: 'temp'},
+					{text: 'temp_max', value: 'temp_max'},
+					{text: 'temp_min', value: 'temp_min'},
+					{text: 'precip', value: 'precip'},
+					{text: 'pressure', value: 'pressure'},
+					{text: 'wind_speed', value: 'wind_speed'},
+					{text: 'solar_rad', value: 'solar_rad'},
+					{text: 'rh', value: 'rh'},
+				]
+				
+				if (!this.requestedData.response?.data) {
+					return {
+						headers: headers,
+						items: []
+					}
+				}
+				
+				return {
+					headers: headers,
+					items: this.requestedData.response.data
+				}
+			}
+		},
+		methods: {
+			debugData() {
+				console.log('Debug Data:', this.loading_data);
+				console.log('Debug Data:', this.cropList);
+				console.log('Debug Data:', this.requestedData.response);
+				console.log('Debug Data:', this.dataTable);
+				console.log('Show Table:', this.showTable);
+			},
+            getData(){
+				this.loading_data = true
+
+				this.requestedData = JSON.parse(JSON.stringify(this.requestData));
+				this.requestedData.response = null
+				this.requestedData.requestedAt = moment().format('YYYY-MM-DD HH:mm')
+
+				const url = `/wx/agromet/irrigation/get/`
+
+				const params = {
+					station_id: this.requestedData.stationId,
+					crop_id: this.requestedData.cropId,
+					emergence_date: this.requestedData.emergence_date,
+				};
+
+				axios.get(url, { params })
+				.then(response => {
+					this.requestedData.response = response.data;
+				})
+				.catch(error => {
+					console.error('Error fetching data:', error);
+				})
+				.finally(() => {
+					this.loading_data = false;
+				});
+			},
+		},
+		
+	})
+
+	$(document).ready(function(){
+		function getCookie(c_name) {
+			if(document.cookie.length > 0) {
+				c_start = document.cookie.indexOf(c_name + "=");
+				if(c_start != -1) {
+					c_start = c_start + c_name.length + 1;
+					c_end = document.cookie.indexOf(";", c_start);
+					if(c_end == -1) c_end = document.cookie.length;
+					return unescape(document.cookie.substring(c_start,c_end));
+				}
+			}
+			return "";
+		}
+	
+		$(function () {
+		  axios.defaults.headers.common["X-CSRFToken"] = getCookie("csrftoken");
+		  axios.defaults.headers.common["Content-Type"] = 'application/json';
+		});
+	});	
+</script>
+{% endblock %}		

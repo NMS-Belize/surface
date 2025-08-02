@@ -51,7 +51,7 @@ from wx.forms import StationForm
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, \
-    StationProfile, Document, Watershed, Interval
+    StationProfile, Document, Watershed, Interval, Crop
 from wx.utils import get_altitude, get_watershed, get_district, get_interpolation_image, parse_float_value, \
     parse_int_value
 from .utils import get_raw_data, get_station_raw_data
@@ -7175,3 +7175,64 @@ class AgroMetProductsView(LoginRequiredMixin, TemplateView):
         context['station_list'] = list(Station.objects.filter(id__in=station_ids, is_active=True).values('id', 'name', 'code', 'is_automatic', 'latitude', 'longitude'))
 
         return self.render_to_response(context)
+
+
+class AgroMetIrrigationView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/agromet/agromet_irrigation.html"
+
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+
+        context['station_list'] = list(Station.objects.filter(is_active=True).values('id', 'name', 'code', 'is_automatic', 'latitude', 'longitude'))
+        context['crop_list'] = list(Crop.objects.all().values('id', 'name', 'cycle', 'max_ht', 'l_ini', 'l_dev', 'l_mid', 'l_late', 'kc_ini', 'kc_mid', 'kc_end'))
+
+        return self.render_to_response(context)
+    
+
+@api_view(["GET"])
+def get_agromet_irrigation_data(request):
+    try:
+        requestedData = {
+            'station_id': request.GET.get('station_id', None),
+            'crop_id': request.GET.get('crop_id', None),
+            'emergence_date': request.GET.get('emergence_date', None),
+        }
+    except ValueError as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(repr(e))
+        return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    print(requestedData)
+
+    env_path= '/surface/wx/sql/agromet/agromet_irrigation'
+    env = Environment(loader=FileSystemLoader(env_path))
+
+    context = {
+        'station_id': requestedData['station_id'],
+        'crop_id': requestedData['crop_id'],
+        'emergence_date': requestedData['emergence_date'],
+    }
+
+    template_name = 'water_balance.sql'
+    template = env.get_template(template_name)
+    query = template.render(context)    
+
+    print(query)
+
+    config = settings.SURFACE_CONNECTION_STRING
+    with psycopg2.connect(config) as conn:
+        df = pd.read_sql(query, conn)
+
+    if df.empty:
+        response = []
+        return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
+
+    data = df.fillna('').to_dict(orient='records')
+    
+    response = {
+        'data': data
+    }
+
+    return JsonResponse(response, status=status.HTTP_200_OK, safe=False)   

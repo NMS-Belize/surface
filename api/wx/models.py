@@ -1421,3 +1421,38 @@ class MaintenanceReportEquipment(BaseModel):
 
     class Meta:
         unique_together = (('maintenance_report', 'new_equipment'), ('maintenance_report', 'equipment_type', 'equipment_order'))
+
+
+class GrowthStage(models.TextChoices):
+    INITIAL = 'initial', 'Initial'
+    DEVELOPMENT = 'development', 'Development'
+    MID = 'mid', 'Mid-season'
+    LATE = 'late', 'Late-season'
+
+# class Culture(BaseModel):
+#     name = models.CharField(max_length=64)
+#     cycle = models.IntegerField(default=90)
+#     class Meta:
+#         unique_together = (('name', 'cycle'))
+
+# class CultureCoeficients(BaseModel):
+#     culture = models.ForeignKey(Culture, on_delete=models.CASCADE, related_name="coefficients")
+#     stage = models.CharField(max_length=32, choices=GrowthStage.choices)
+#     kc = models.FloatField()
+#     class Meta:
+#         unique_together = (('culture', 'stage'))
+
+
+class Crop(BaseModel):
+    name = models.CharField(max_length=64)
+    cycle = models.IntegerField()
+    max_ht = models.FloatField()
+    l_ini = models.IntegerField()
+    l_dev = models.IntegerField()
+    l_mid = models.IntegerField()
+    l_late = models.IntegerField()
+    kc_ini = models.FloatField()
+    kc_mid = models.FloatField()
+    kc_end = models.FloatField()    
+    class Meta:
+        unique_together = (('name', 'cycle'))
