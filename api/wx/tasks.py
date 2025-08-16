@@ -114,11 +114,31 @@ def backup_create(file_path, file_path_glob):
 
     dbname = 'postgresql://'+db_user+':'+db_pass+'@'+db_host+':'+db_port+'/'+db_name
 
+    # # backup the globals only
+    # command_glob = '/usr/bin/pg_dumpall --globals-only | gzip -9 > ' + file_path_glob
+
+    # # backup a specified database
+    # command = '/usr/bin/pg_dump --dbname=' + dbname + ' | gzip -9 > ' + file_path
+
     # backup the globals only
-    command_glob = '/usr/bin/pg_dumpall --globals-only | gzip -9 > ' + file_path_glob
+    command_glob = (
+        'PGPASSWORD=' + db_pass +
+        ' /usr/bin/pg_dumpall --globals-only'
+        ' -h ' + db_host +
+        ' -p ' + db_port +
+        ' -U ' + db_user +
+        ' | gzip -9 > ' +
+        file_path_glob
+    )
 
     # backup a specified database
-    command = '/usr/bin/pg_dump --dbname=' + dbname + ' | gzip -9 > ' + file_path
+    command = (
+        'PGPASSWORD=' + db_pass +
+        ' /usr/bin/pg_dump --dbname=' + 
+        dbname +
+        ' | gzip -9 > ' +
+        file_path
+    )
 
     # proc_glob = subprocess.Popen(command_glob, shell=True)
     # proc = subprocess.Popen(command, shell=True)
@@ -130,12 +150,14 @@ def backup_create(file_path, file_path_glob):
         subprocess.run(command_glob, shell=True, check=True)
         subprocess.run(command, shell=True, check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Backup failed: {e}")
-        raise
+        logger.error(f"Backup failed: {e}")
+        raise e
 
 
 def backup_ftp(file_name, file_path, ftp_server, remote_folder):
-    remote_file_path = os.path.join(remote_folder, file_name)
+    # remote_file_path = os.path.join(remote_folder, file_name)
+
+    ftp_test_path = os.path.join(remote_folder, 'ftp_transfer_test')
 
     with FTP() as ftp:
         ftp.connect(host=ftp_server.host, port=ftp_server.port)
@@ -143,7 +165,8 @@ def backup_ftp(file_name, file_path, ftp_server, remote_folder):
         ftp.set_pasv(val = not ftp_server.is_active_mode)
 
         with open(file_path, "rb") as file:
-            ftp.storbinary(f"STOR {remote_file_path}", file)
+            # ftp.storbinary(f"STOR {remote_file_path}", file)
+            ftp.storbinary(f"STOR {ftp_test_path}", file)
 
         ftp.dir()
         ftp.quit()
@@ -200,8 +223,8 @@ def backup_process(_entry):
     started_at = pytz.UTC.localize(datetime.now())
     
     try:
-        file_name = started_at.strftime(_entry.file_name)
-        file_name_glob = 'globals_' + file_name
+        file_name = f"{started_at.strftime('%Y%m%d')}_{_entry.file_name}.sql.gz"
+        file_name_glob = f"{started_at.strftime('%Y%m%d')}_globals_{_entry.file_name}.sql.gz"
 
         file_path_glob = os.path.join(backup_dir, file_name_glob)
         file_path = os.path.join(backup_dir, file_name)
@@ -223,7 +246,7 @@ def backup_process(_entry):
             except Exception as e:
                 status = 'FTP ERROR'
                 message = e
-                print('Exception happened during backup ftp %s' %(e))                    
+                logger.error('Exception happened during backup ftp %s' %(e))                    
         else:
             status = 'SUCCESS'
             message = 'Backup created.'
@@ -231,7 +254,7 @@ def backup_process(_entry):
     except Exception as e:
         status = 'BACKUP ERROR'
         message = e
-        print('Exception happened during backup creation %s' %(e))
+        logger.error('Exception happened during backup creation %s' %(e))
     finally:
         finished_at = pytz.UTC.localize(datetime.now())
 
