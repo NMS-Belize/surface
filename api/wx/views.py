@@ -5555,7 +5555,7 @@ def get_maintenance_report_view(request, id, source): # Maintenance report view
         "latitude": station.latitude,
         "elevation": station.elevation,
         "longitude": station.longitude,
-        "district": station.region,
+        "district": station.region.name,
         "transmission_type": "---",
         "transmission_ID": "---",
         "transmission_interval": "---",
@@ -5938,7 +5938,7 @@ def get_maintenance_report(request, id):
         "latitude": station.latitude,
         "elevation": station.elevation,
         "longitude": station.longitude,
-        "district": station.region,
+        "district": station.region.name,
         "transmission_type": "---",
         "transmission_ID": "---",
         "transmission_interval": "---",
@@ -7404,7 +7404,7 @@ def daily_means_data_view(request):
     station = Station.objects.get(pk=station_id)
     res['station'] = {
         "name": station.name,
-        "district": station.region,
+        "district": station.region.name,
         "latitude": station.latitude,
         "longitude": station.longitude,
         "elevation": station.elevation,

@@ -992,6 +992,8 @@
           tempMinUrl = 'api/last24hrsummaries/?search_type=variable&search_value=' + this.STATION_MAP_TEMP_MIN_ID;
           atmPressureUrl = 'api/last24hrsummaries/?search_type=variable&search_value=' + this.STATION_MAP_ATM_PRESSURE_ID;
           precipitationUrl = 'api/last24hrsummaries/?search_type=variable&search_value=' + this.STATION_MAP_PRECIPITATION_ID;
+
+          // console.log(wsUrl, wdUrl, tempMaxUrl, tempMinUrl, atmPressureUrl, precipitationUrl);
         } else {
           // dailySummary
           const today = date;
@@ -1002,6 +1004,7 @@
           tempMinUrl = `api/dailysummaries/?search_type=variable&search_value=${this.STATION_MAP_TEMP_MIN_ID}&search_date_start=${today}&search_date_end=${tomorrow}`;
           atmPressureUrl = `api/dailysummaries/?search_type=variable&search_value=${this.STATION_MAP_ATM_PRESSURE_ID}&search_date_start=${today}&search_date_end=${tomorrow}`;
           precipitationUrl = `api/dailysummaries/?search_type=variable&search_value=${this.STATION_MAP_PRECIPITATION_ID}&search_date_start=${today}&search_date_end=${tomorrow}`;
+        
         }
 
         let [ws, wd, tempMax, tempMin, atmPressure, precipitation] = await Promise.all([this.getAll(wsUrl), this.getAll(wdUrl), this.getAll(tempMaxUrl), this.getAll(tempMinUrl), this.getAll(atmPressureUrl), this.getAll(precipitationUrl)]);

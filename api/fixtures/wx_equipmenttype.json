@@ -1,493 +1,343 @@
 [
-    {    
-        "model": "wx.equipmenttype",
-        "pk": 1,
-        "fields": {
-            "created_at":"2023-06-20T21:43:04.760637+00:00",
-            "updated_at":"2023-06-20T21:43:04.760673+00:00",
-            "name":"4G Moldem",
-            "description":"4G Moldem",
-            "report_template":""
-        }
-    },
-
-    {   
-        "model": "wx.equipmenttype",
-        "pk": 2,
-        "fields": {
-            "created_at":"2023-06-20T21:43:14.292949+00:00",
-            "updated_at":"2023-06-20T21:43:14.292983+00:00",
-            "name":"Antennae",
-            "description":"Antennae",
-            "report_template":""
-        }
-    },
-    
-    {
-        "model": "wx.equipmenttype",
-        "pk": 3,
-        "fields": {
-            "created_at":"2023-06-21T15:43:21.030345+00:00",
-            "updated_at":"2023-06-21T15:55:18.135423+00:00",
-            "name":"Charge controller",
-            "description":"Manages voltage and current from the solar panel to the battery",
-            "report_template":""
-        }
-    }, 
-    
-    {
-        "model": "wx.equipmenttype",
-        "pk": 5,
-        "fields": {
-            "created_at":"2023-06-21T16:52:40.537275+00:00",
-            "updated_at":"2023-06-21T16:55:52.340821+00:00",
-            "name":"12V CHRGER/REG",
-            "description":"-",
-            "report_template":""
-        }
-    }, 
-    
-    {
-        "model": "wx.equipmenttype",
-        "pk": 6,
-        "fields": {
-            "created_at":"2023-06-21T17:04:16.138719+00:00",
-            "updated_at":"2023-06-21T17:07:29.593458+00:00",
-            "name":"CS Cellular module",
-            "description":"use with data mobile to transmit data via btl",
-            "report_template":""
-        }
-    }, 
-    
-    {
-        "model": "wx.equipmenttype",
-        "pk": 7,
-        "fields": {
-            "created_at":"2023-06-21T17:20:19.669213+00:00",
-            "updated_at":"2023-06-21T17:20:19.669244+00:00",
-            "name":"CS SAT TRANS V2",
-            "description":"Satellite transmitter",
-            "report_template":""
-        }
-    }, 
-    
-    {
-        "model": "wx.equipmenttype",
-        "pk": 8,
-        "fields": {
-            "created_at":"2023-06-21T17:31:41.797028+00:00",
-            "updated_at":"2023-06-21T17:31:41.797056+00:00",
-            "name":"Ordinary mercury thermometer",
-            "description":"manual thermometer for temperature",
-            "report_template":""
-        }
-    }, 
-    
-    {
-        "model": "wx.equipmenttype",
-        "pk": 9,
-        "fields": {
-            "created_at":"2023-06-21T18:09:11.253612+00:00",
-            "updated_at":"2023-06-21T18:09:11.253643+00:00",
-            "name":"Minimum alcohol thermometer",
-            "description":"manual thermometer for temperature",
-            "report_template":""
-        }
-    }, 
-    
-    {
-        "model": "wx.equipmenttype",
-        "pk": 10,
-        "fields": {
-            "created_at":"2023-06-21T18:25:33.241728+00:00",
-            "updated_at":"2023-06-21T18:25:33.241759+00:00",
-            "name":"Maximum mercury thermometer",
-            "description":"manual thermometer for temperature",
-            "report_template":""
-        }
-    }, 
-    
-    {
-        "model": "wx.equipmenttype",
-        "pk": 11,
-        "fields": {
-            "created_at":"2023-06-21T18:31:43.673295+00:00",
-            "updated_at":"2023-06-21T18:31:43.673326+00:00",
-            "name":"CS DLS",
-            "description":"-",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 13,
-        "fields": {
-            "created_at":"2023-06-21T18:44:25.788428+00:00",
-            "updated_at":"2023-06-21T18:44:25.788461+00:00",
-            "name":"4FT Soil Thermometer",
-            "description":"manual thermometer for temperature in the soil",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 14,
-        "fields": {
-            "created_at":"2023-06-21T18:58:53.834404+00:00",
-            "updated_at":"2023-06-21T18:58:53.834435+00:00",
-            "name":"bird spikes",
-            "description":"to keep birds off the equipment",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 15,
-        "fields": {
-            "created_at":"2023-06-21T19:03:14.150739+00:00",
-            "updated_at":"2023-06-21T19:03:14.150765+00:00",
-            "name":"CS SOIL T°",
-            "description":"-",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 16,
-        "fields": {
-            "created_at":"2023-06-21T19:10:52.884459+00:00",
-            "updated_at":"2023-06-21T19:10:52.884491+00:00",
-            "name":"resistant tester",
-            "description":"to not overload wires with electricity",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 17,
-        "fields": {
-            "created_at":"2023-06-21T19:20:03.146631+00:00",
-            "updated_at":"2023-06-21T19:20:03.146662+00:00",
-            "name":"humidity sensor",
-            "description":"moniters humidity in an encloser",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 18,
-        "fields": {
-            "created_at":"2023-06-21T19:28:56.533607+00:00",
-            "updated_at":"2023-06-21T19:28:56.533636+00:00",
-            "name":"1 FT soil thermometer",
-            "description":"manual thermometer for temperature in the soil",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 19,
-        "fields": {
-            "created_at":"2023-06-21T19:33:26.22228+00:00",
-            "updated_at":"2023-06-21T19:33:26.222313+00:00",
-            "name":"wire box",
-            "description":"bow that holds the wires",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 22,
-        "fields": {
-            "created_at":"2023-06-21T19:48:23.731956+00:00",
-            "updated_at":"2023-06-21T19:48:23.731987+00:00",
-            "name":"CAL KIT",
-            "description":"a kit",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 23,
-        "fields": {
-            "created_at":"2023-06-21T19:59:21.940619+00:00",
-            "updated_at":"2023-06-21T19:59:21.940651+00:00",
-            "name":"thermistor",
-            "description":"thermometer",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 25,
-        "fields": {
-            "created_at":"2023-06-21T20:16:39.075537+00:00",
-            "updated_at":"2023-06-21T20:16:39.075567+00:00",
-            "name":"NESA VEGA PULSE WL 61 RADAR",
-            "description":"-",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 26,
-        "fields": {
-            "created_at":"2023-06-21T20:16:44.65666+00:00",
-            "updated_at":"2023-06-21T20:16:44.656692+00:00",
-            "name":"soil mercury",
-            "description":"to read the temperature below the soil",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 27,
-        "fields": {
-            "created_at":"2023-06-21T20:26:28.66309+00:00",
-            "updated_at":"2023-06-21T20:26:28.663123+00:00",
-            "name":"HYGROVUE 10 T°&RH%  & CABLE (17')",
-            "description":"-",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 28,
-        "fields": {
-            "created_at":"2023-06-21T20:55:08.290435+00:00",
-            "updated_at":"2023-06-21T20:55:08.290465+00:00",
-            "name":"Anemometer",
-            "description":"measures pressure",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 29,
-        "fields": {
-            "created_at":"2023-06-21T21:07:54.015511+00:00",
-            "updated_at":"2023-06-21T21:07:54.015542+00:00",
-            "name":"wind vane",
-            "description":"to tell wind direction",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 31,
-        "fields": {
-            "created_at":"2023-06-21T21:17:19.028187+00:00",
-            "updated_at":"2023-06-21T21:17:19.028217+00:00",
-            "name":"barometer",
-            "description":"measure atmospheric pressure.",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 30,
-        "fields": {
-            "created_at":"2023-06-21T21:16:35.434059+00:00",
-            "updated_at":"2024-12-16T15:33:05.59011+00:00",
-            "name":"Barometer",
-            "description":"use to measure pressure",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 33,
-        "fields": {
-            "created_at":"2024-12-16T15:33:37.699901+00:00",
-            "updated_at":"2024-12-16T15:33:37.699935+00:00",
-            "name":"Battery",
-            "description":"source of power",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 34,
-        "fields": {
-            "created_at":"2024-12-16T15:34:33.659301+00:00",
-            "updated_at":"2024-12-16T15:34:33.659336+00:00",
-            "name":"Communication Device",
-            "description":"device for communication",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 35,
-        "fields": {
-            "created_at":"2024-12-16T15:35:06.254198+00:00",
-            "updated_at":"2024-12-16T15:35:06.254231+00:00",
-            "name":"Data Logger",
-            "description":"measure and stores data",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 36,
-        "fields": {
-            "created_at":"2024-12-16T15:35:36.673587+00:00",
-            "updated_at":"2024-12-16T15:35:36.673623+00:00",
-            "name":"Data Modem",
-            "description":"comms device",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 21,
-        "fields": {
-            "created_at":"2023-06-21T19:45:54.507796+00:00",
-            "updated_at":"2024-12-16T15:36:40.477215+00:00",
-            "name":"GPS antenna",
-            "description":"gps antenna",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 38,
-        "fields": {
-            "created_at":"2024-12-16T15:37:05.623857+00:00",
-            "updated_at":"2024-12-16T15:37:05.623891+00:00",
-            "name":"Lightning Protection",
-            "description":"Lighting protection",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 24,
-        "fields": {
-            "created_at":"2023-06-21T20:06:01.178386+00:00",
-            "updated_at":"2024-12-16T15:37:25.903979+00:00",
-            "name":"Pyranometer",
-            "description":"-",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 39,
-        "fields": {
-            "created_at":"2024-12-16T15:38:38.646294+00:00",
-            "updated_at":"2024-12-16T15:38:38.646327+00:00",
-            "name":"Solar Panel",
-            "description":"solar power",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 12,
-        "fields": {
-            "created_at":"2023-06-21T18:39:45.254606+00:00",
-            "updated_at":"2024-12-16T15:39:36.402585+00:00",
-            "name":"Soil Moisture/Temperature Sensor",
-            "description":"manual thermometer for temperature in the soil",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 40,
-        "fields": {
-            "created_at":"2024-12-16T15:40:29.036969+00:00",
-            "updated_at":"2024-12-16T15:40:29.037003+00:00",
-            "name":"Temperature or RH Sensors",
-            "description":"TRH sensor",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 41,
-        "fields": {
-            "created_at":"2024-12-16T15:41:52.998546+00:00",
-            "updated_at":"2024-12-16T15:41:52.99858+00:00",
-            "name":"Temperature Sensor Only",
-            "description":"measure temp only",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 42,
-        "fields": {
-            "created_at":"2024-12-16T16:58:15.311813+00:00",
-            "updated_at":"2024-12-16T16:58:15.311844+00:00",
-            "name":"water level sensor",
-            "description":"water level",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 43,
-        "fields": {
-            "created_at":"2024-12-16T18:30:56.880895+00:00",
-            "updated_at":"2024-12-16T18:30:56.88093+00:00",
-            "name":"Wind Speed and Direction Sensor",
-            "description":"wind speed",
-            "report_template":""
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 37,
-        "fields": {
-            "created_at":"2024-12-16T15:36:12.017124+00:00",
-            "updated_at":"2024-12-16T18:52:24.346023+00:00",
-            "name":"External Structure",
-            "description":"external items",
-            "report_template":"<p>&nbsp;</p>\r\n\r\n<table border=\"1\">\r\n\t<tbody>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>TOWER MODEL #:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>3m&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>ENCLOSURE MODEL #:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>Stahlin 16*18&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>DATE INSTALLED:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>2024-AUG-26&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t</tbody>\r\n</table>\r\n\r\n<p>&nbsp;</p>\r\n\r\n<table border=\"1\">\r\n\t<tbody>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>LEGEND:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>CONFIRM: OK (Good), NR (Need Repair), NA (Not Applicable)&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t</tbody>\r\n</table>\r\n\r\n<p>&nbsp;</p>\r\n\r\n<table border=\"1\">\r\n\t<tbody>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>ACTION&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>CONFIRM&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>COMMENTS&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Inspect plant growth surrounding station and cut grass/bush as needed&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>ALL Good&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect the enclosure for signs of damage.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect the tower for signs of damage.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect the guy wires for signs of damage.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>NA&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect the turn buckles for signs of damage.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;NA&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect the guy wire base and hook for signs of damage&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;NA&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect the antennas (GOES Yagi, GPRS, and GPS) for signs of damage or tampering.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Inspect all conduit for signs of damage, excessive weathering or tampering.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Inspect all cables external to the enclosure for signs of damage, excessive weathering or tampering.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Inspect any fencing for signs of damage or tampering.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>NA&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Clean the outside of the enclosure, the tower and the mounting brackets with water and a mild detergent.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Apply grease to exposed nuts and bolts.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Apply Rust inhibitor (e.g. Ospho) and rust inhibiting paint(Rustoleum)&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t</tbody>\r\n</table>\r\n\r\n<p>&nbsp;</p>"
-        }
-    }, 
-        
-    {
-        "model": "wx.equipmenttype",
-        "pk": 4,
-        "fields": {
-            "created_at":"2023-06-21T16:13:27.04895+00:00",
-            "updated_at":"2024-12-16T19:00:28.441277+00:00",
-            "name":"Rain Gauge",
-            "description":"measures rainfall",
-            "report_template":"<p>&nbsp;</p>\r\n\r\n<table border=\"1\">\r\n\t<tbody>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>MODEL #:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>TB4 w/ Bird Spike&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>SERIAL #:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>22-0424&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>DATE INSTALLED:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>17092024&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>LAST CALIBRATED:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>NEXT CALIBRATION DUE:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>SCAN/SAMPLE INTERVAL:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>0.2mm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10SEC&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t</tbody>\r\n</table>\r\n\r\n<p>&nbsp;</p>\r\n\r\n<table border=\"1\">\r\n\t<tbody>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>LEGEND:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>CONFIRM: OK (Good), NR (Need Repair), NA (Not Applicable)&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t</tbody>\r\n</table>\r\n\r\n<p>&nbsp;</p>\r\n\r\n<table border=\"1\">\r\n\t<tbody>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>ACTION&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>CONFIRM&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>COMMENTS&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect the Tipping Bucket for signs of damage or tampering.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect mounting pole and brace for signs of damage or rusting&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect cable and conduit going to datalogger for signs of damage or tampering&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Clean any debris from the input orifice and output drain.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Open the tipping bucket and inspect for signs of insects.&nbsp; Clear out insects if necessary.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>If insects are a problem, spray the top section and standpipe with a general insecticide.&nbsp;&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Dismantle and clean siphon(if present)&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Manually tip the sensor and check to see if multiplier/readings are correct.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect bubble level to ensure gauge is level&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t</tbody>\r\n</table>"
-        }
+{
+    "model": "wx.equipmenttype",
+    "pk": 2,
+    "fields": {
+        "created_at": "2023-06-22T19:55:30.563Z",
+        "updated_at": "2023-06-22T19:55:30.563Z",
+        "name": "Charge controller",
+        "description": "Manages voltage and current from the solar panel to the battery.",
+        "report_template": ""
     }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 3,
+    "fields": {
+        "created_at": "2023-06-22T20:23:17.688Z",
+        "updated_at": "2023-06-22T22:40:41.461Z",
+        "name": "Solar panel",
+        "description": "Collects sunlight and turns it into usable electricity",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 4,
+    "fields": {
+        "created_at": "2023-06-22T21:13:45.771Z",
+        "updated_at": "2023-06-23T20:37:53.129Z",
+        "name": "258GB 5V Tablet",
+        "description": "-",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 5,
+    "fields": {
+        "created_at": "2023-06-22T21:26:23.821Z",
+        "updated_at": "2023-06-26T15:47:25.878Z",
+        "name": "Data Modem",
+        "description": "Provides communication of data from datalogger through data modem",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 6,
+    "fields": {
+        "created_at": "2023-06-22T21:45:42.322Z",
+        "updated_at": "2023-06-26T16:41:18.654Z",
+        "name": "Thermometer - Mercury in Glass(ORD)",
+        "description": "Mercury in glass thermometer used to measure temperature",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 7,
+    "fields": {
+        "created_at": "2023-06-22T21:50:33.253Z",
+        "updated_at": "2023-06-26T16:42:04.043Z",
+        "name": "Thermometer - Alcohol in Glass(MIN)",
+        "description": "TO MEASURE TEMPERATURE",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 8,
+    "fields": {
+        "created_at": "2023-06-22T21:55:15.437Z",
+        "updated_at": "2023-06-23T20:20:12.895Z",
+        "name": "Satellite Transmitter",
+        "description": "Transmitts data message via NOAA geostationary satellite",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 11,
+    "fields": {
+        "created_at": "2023-06-23T15:02:13.612Z",
+        "updated_at": "2023-06-23T15:02:13.612Z",
+        "name": "CAL KIT",
+        "description": "KIT",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 12,
+    "fields": {
+        "created_at": "2023-06-23T15:03:53.740Z",
+        "updated_at": "2023-06-26T15:32:56.123Z",
+        "name": "Water Level Sensor(Bubbler)",
+        "description": "has enclosure & acc (desiccator kit & orofice line end cap )",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 13,
+    "fields": {
+        "created_at": "2023-06-23T15:10:38.315Z",
+        "updated_at": "2023-06-23T20:38:10.192Z",
+        "name": "Resistant tester",
+        "description": "regulate the flow of energy and electricity",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 14,
+    "fields": {
+        "created_at": "2023-06-23T15:14:25.576Z",
+        "updated_at": "2023-06-26T15:22:12.808Z",
+        "name": "Data Logger",
+        "description": "Electonic Device used to measure and store output signals from a sensor",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 15,
+    "fields": {
+        "created_at": "2023-06-23T15:22:45.647Z",
+        "updated_at": "2023-06-26T15:18:50.413Z",
+        "name": "Temperature Sensor(Thermistor)",
+        "description": "Sensor used to measure Temperature(sensing element is a thermistor)",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 17,
+    "fields": {
+        "created_at": "2023-06-23T15:55:20.420Z",
+        "updated_at": "2023-06-26T15:32:33.956Z",
+        "name": "Water level Sensor(Pressure transducer)",
+        "description": "designed to measure pressure with a high degree of accuracy",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 18,
+    "fields": {
+        "created_at": "2023-06-23T16:23:31.833Z",
+        "updated_at": "2023-06-26T15:20:24.570Z",
+        "name": "Soil Moisture/Temperature Sensor",
+        "description": "Probe used to measure soil moisture and temperature",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 20,
+    "fields": {
+        "created_at": "2023-06-23T16:29:07.840Z",
+        "updated_at": "2023-06-27T15:10:58.843Z",
+        "name": "Tipping Bucket Raingauge",
+        "description": "measure rainfall",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 22,
+    "fields": {
+        "created_at": "2023-06-23T17:20:12.284Z",
+        "updated_at": "2023-06-23T17:20:12.284Z",
+        "name": "GPS Antenna",
+        "description": "receive radio signals from gps satellite an convert them to into eletronic signals",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 23,
+    "fields": {
+        "created_at": "2023-06-23T17:20:26.573Z",
+        "updated_at": "2023-06-26T15:26:02.083Z",
+        "name": "Barometer",
+        "description": "measures pressure",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 24,
+    "fields": {
+        "created_at": "2023-06-23T18:32:05.404Z",
+        "updated_at": "2023-06-23T20:09:20.145Z",
+        "name": "TRH Sensor",
+        "description": "Temperature and Relative Humidity Sensor",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 25,
+    "fields": {
+        "created_at": "2023-06-23T18:46:21.009Z",
+        "updated_at": "2023-06-23T20:19:28.652Z",
+        "name": "Anemometer",
+        "description": "measures horizontal wind speed and direction",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 26,
+    "fields": {
+        "created_at": "2023-06-23T19:41:52.124Z",
+        "updated_at": "2023-06-23T20:07:53.981Z",
+        "name": "Pyranometer",
+        "description": "Measure global broad-band radiation with high precision",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 27,
+    "fields": {
+        "created_at": "2023-06-26T15:33:49.969Z",
+        "updated_at": "2023-06-26T15:33:49.969Z",
+        "name": "Water Level Sensor(Radar)",
+        "description": "Measures water level using radar technology",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 30,
+    "fields": {
+        "created_at": "2023-06-26T16:17:03.919Z",
+        "updated_at": "2023-06-26T16:17:03.919Z",
+        "name": "Charging Regulator",
+        "description": "-",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 32,
+    "fields": {
+        "created_at": "2023-06-26T16:28:25.609Z",
+        "updated_at": "2023-06-26T16:40:56.467Z",
+        "name": "Thermometer - Mercury in Glass(MAX)",
+        "description": "Mercury in glass thermomoter which measures maximum temperatue",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 34,
+    "fields": {
+        "created_at": "2023-06-26T17:36:46.261Z",
+        "updated_at": "2023-06-26T17:36:46.261Z",
+        "name": "Thermistor",
+        "description": "-",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 35,
+    "fields": {
+        "created_at": "2023-06-26T17:44:27.783Z",
+        "updated_at": "2023-06-26T17:44:27.783Z",
+        "name": "Wind sensor",
+        "description": "-",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 37,
+    "fields": {
+        "created_at": "2023-06-26T18:05:14.202Z",
+        "updated_at": "2023-06-26T18:05:29.325Z",
+        "name": "Cables",
+        "description": "-",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 38,
+    "fields": {
+        "created_at": "2023-06-26T18:10:55.603Z",
+        "updated_at": "2023-06-26T18:11:09.341Z",
+        "name": "Dessicant Oven",
+        "description": "-",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 39,
+    "fields": {
+        "created_at": "2023-06-26T18:22:40.150Z",
+        "updated_at": "2023-06-26T20:11:44.963Z",
+        "name": "WIFI Modem",
+        "description": "interface allowing communication via wifi",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 40,
+    "fields": {
+        "created_at": "2023-06-26T19:23:10.636Z",
+        "updated_at": "2023-06-26T19:23:10.636Z",
+        "name": "Themometer - soil",
+        "description": "Thermometer used to measure temperature of soil",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 41,
+    "fields": {
+        "created_at": "2023-06-26T21:14:34.143Z",
+        "updated_at": "2023-06-26T21:14:34.143Z",
+        "name": "RF Radio",
+        "description": "SPREAD SPECTRUM RADIO",
+        "report_template": ""
+    }
+},
+{
+    "model": "wx.equipmenttype",
+    "pk": 42,
+    "fields": {
+        "created_at":"2023-06-21T16:13:27.04895+00:00",
+        "updated_at":"2024-12-16T19:00:28.441277+00:00",
+        "name":"Rain Gauge",
+        "description":"measures rainfall",
+        "report_template":"<p>&nbsp;</p>\r\n\r\n<table border=\"1\">\r\n\t<tbody>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>MODEL #:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>TB4 w/ Bird Spike&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>SERIAL #:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>22-0424&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>DATE INSTALLED:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>17092024&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>LAST CALIBRATED:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>NEXT CALIBRATION DUE:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>SCAN/SAMPLE INTERVAL:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>0.2mm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10SEC&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t</tbody>\r\n</table>\r\n\r\n<p>&nbsp;</p>\r\n\r\n<table border=\"1\">\r\n\t<tbody>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>LEGEND:&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>CONFIRM: OK (Good), NR (Need Repair), NA (Not Applicable)&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t</tbody>\r\n</table>\r\n\r\n<p>&nbsp;</p>\r\n\r\n<table border=\"1\">\r\n\t<tbody>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>ACTION&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>CONFIRM&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>COMMENTS&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect the Tipping Bucket for signs of damage or tampering.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect mounting pole and brace for signs of damage or rusting&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect cable and conduit going to datalogger for signs of damage or tampering&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Clean any debris from the input orifice and output drain.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Open the tipping bucket and inspect for signs of insects.&nbsp; Clear out insects if necessary.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>If insects are a problem, spray the top section and standpipe with a general insecticide.&nbsp;&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Dismantle and clean siphon(if present)&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Manually tip the sensor and check to see if multiplier/readings are correct.&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t\t<tr>\r\n\t\t\t<td>\r\n\t\t\t<p>Visually inspect bubble level to ensure gauge is level&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>OK&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t\t<td>\r\n\t\t\t<p>&nbsp;</p>\r\n\t\t\t</td>\r\n\t\t</tr>\r\n\t</tbody>\r\n</table>"
+    }
+}
 ]
