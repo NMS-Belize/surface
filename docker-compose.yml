@@ -34,6 +34,7 @@ services:
       - ./data/postgresql:/var/lib/postgresql/data
       - ./data/shared:/data/shared
       - ./data/backup:/data/backup
+      - ./backup_restore_dumps:/restore_dumps
     ports:
       - 5432:5432
     command:
