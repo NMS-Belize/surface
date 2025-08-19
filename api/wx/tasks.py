@@ -137,6 +137,7 @@ def backup_create(file_path, file_path_glob):
         ' /usr/bin/pg_dump --dbname=' + dbname +
         ' --format=custom' +
         ' --exclude-table=\'_timescaledb_internal.*\'' +
+        ' --exclude-table=\'_timescaledb_catalog.*\'' +
         ' | gzip -9 > ' + file_path
     )
 
