@@ -134,11 +134,12 @@ def backup_create(file_path, file_path_glob):
     # backup a specified database
     command = (
         'PGPASSWORD=' + db_pass +
-        ' /usr/bin/pg_dump --dbname=' + 
-        dbname +
-        ' | gzip -9 > ' +
-        file_path
+        ' /usr/bin/pg_dump --dbname=' + dbname +
+        ' --format=custom' +
+        ' --exclude-table=\'_timescaledb_internal.*\'' +
+        ' | gzip -9 > ' + file_path
     )
+
 
     # proc_glob = subprocess.Popen(command_glob, shell=True)
     # proc = subprocess.Popen(command, shell=True)
@@ -157,16 +158,19 @@ def backup_create(file_path, file_path_glob):
 def backup_ftp(file_name, file_path, ftp_server, remote_folder):
     # remote_file_path = os.path.join(remote_folder, file_name)
 
-    ftp_test_path = os.path.join(remote_folder, 'ftp_transfer_test')
-
     with FTP() as ftp:
         ftp.connect(host=ftp_server.host, port=ftp_server.port)
         ftp.login(user=ftp_server.username, passwd=ftp_server.password)
-        ftp.set_pasv(val = not ftp_server.is_active_mode)
+        # ftp.set_pasv(val = not ftp_server.is_active_mode)
+
+        # Make sure we are in the target folder
+        ftp.cwd(remote_folder)
 
         with open(file_path, "rb") as file:
-            # ftp.storbinary(f"STOR {remote_file_path}", file)
-            ftp.storbinary(f"STOR {ftp_test_path}", file)
+            ftp.storbinary(f"STOR {file_name}", file)
+
+        # with open(file_path, "rb") as file:
+        #     ftp.storbinary(f"STOR {remote_file_path}", file)
 
         ftp.dir()
         ftp.quit()
@@ -223,8 +227,8 @@ def backup_process(_entry):
     started_at = pytz.UTC.localize(datetime.now())
     
     try:
-        file_name = f"{started_at.strftime('%Y%m%d')}_{_entry.file_name}.sql.gz"
-        file_name_glob = f"{started_at.strftime('%Y%m%d')}_globals_{_entry.file_name}.sql.gz"
+        file_name = f"{started_at.strftime('%Y%m%d')}_{_entry.file_name}.dump.gz"
+        file_name_glob = f"{started_at.strftime('%Y%m%d')}_globals_{_entry.file_name}.dump.gz"
 
         file_path_glob = os.path.join(backup_dir, file_name_glob)
         file_path = os.path.join(backup_dir, file_name)
