@@ -51,7 +51,7 @@ from wx.forms import StationForm
 from wx.models import AdministrativeRegion, StationFile, Decoder, QualityFlag, DataFile, DataFileStation, \
     DataFileVariable, StationImage, WMOStationType, WMORegion, WMOProgram, StationCommunication
 from wx.models import Country, Unit, Station, Variable, DataSource, StationVariable, \
-    StationProfile, Document, Watershed, Interval, Crop
+    StationProfile, Document, Watershed, Interval, Crop, Soil
 from wx.utils import get_altitude, get_watershed, get_district, get_interpolation_image, parse_float_value, \
     parse_int_value
 from .utils import get_raw_data, get_station_raw_data
@@ -74,6 +74,14 @@ from simple_history.utils import update_change_reason
 from django.db.models.functions import Cast
 from django.db.models import IntegerField
 from jinja2 import Environment, FileSystemLoader
+
+from aquacrop import Crop as AquacropCrop
+from aquacrop import Soil as AquacropSoil
+
+import tempfile
+
+from aquacrop import AquaCropModel, InitialWaterContent, FieldMngt, GroundWater, IrrigationManagement
+from aquacrop.utils import prepare_weather, get_filepath
 
 logger = logging.getLogger('surface.urls')
 
@@ -7184,18 +7192,227 @@ class AgroMetIrrigationView(LoginRequiredMixin, TemplateView):
         context = self.get_context_data(**kwargs)
 
         context['station_list'] = list(Station.objects.filter(is_active=True).values('id', 'name', 'code', 'is_automatic', 'latitude', 'longitude'))
-        context['crop_list'] = list(Crop.objects.all().values('id', 'name', 'cycle', 'max_ht', 'l_ini', 'l_dev', 'l_mid', 'l_late', 'kc_ini', 'kc_mid', 'kc_end'))
+        
+        context['default_crop_list'] = [
+            {'name': 'Barley'}, {'name': 'BarleyGDD'}, {'name': 'Cotton'}, {'name': 'CottonGDD'},
+            {'name': 'Default'}, {'name': 'DryBean'}, {'name': 'DryBeanGDD'}, {'name': 'Maize'},
+            {'name': 'MaizeGDD'}, {'name': 'PaddyRice'}, {'name': 'PaddyRiceGDD'}, {'name': 'Potato'},
+            {'name': 'PotatoGDD'}, {'name': 'PotatoLocalGDD'}, {'name': 'Quinoa'}, {'name': 'Sorghum'},
+            {'name': 'SorghumGDD'}, {'name': 'Soybean'}, {'name': 'SoybeanGDD'}, {'name': 'SugarBeet'},
+            {'name': 'SugarBeetGDD'}, {'name': 'SugarBeetGDD_UK'}, {'name': 'SugarCane'},
+            {'name': 'Sunflower'}, {'name': 'SunflowerGDD'}, {'name': 'Tomato'}, {'name': 'TomatoGDD'},
+            {'name': 'Wheat'}, {'name': 'WheatGDD'}, {'name': 'WheatGDD_1dec'}, {'name': 'HydWheatGDD'},
+            {'name': 'WheatLongGDD'}, {'name': 'localpaddy'}, {'name': 'MaizeChampionGDD'},
+            {'name': 'Tef'}, {'name': 'AlfalfaGDD'}, {'name': 'Cassava'}
+        ]
+        context['custom_crop_list'] = list(Crop.objects.all().values('id', 'name',))
+        context['custom_soil_list'] = list(Soil.objects.all().values('id', 'soil_type',))
+        context['default_soil_list'] = [
+            {'soil_type': 'Clay'}, {'soil_type': 'ClayLoam'}, {'soil_type': 'Default'},
+            {'soil_type': 'Loam'}, {'soil_type': 'LoamySand'}, {'soil_type': 'Sand'},
+            {'soil_type': 'SandyClay'}, {'soil_type': 'SandyClayLoam'}, {'soil_type': 'SandyLoam'},
+            {'soil_type': 'Silt'}, {'soil_type': 'SiltClayLoam'}, {'soil_type': 'SiltLoam'},
+            {'soil_type': 'SiltClay'}, {'soil_type': 'Paddy'}, {'soil_type': 'ac_TunisLocal'}
+        ]
 
         return self.render_to_response(context)
     
+
+# Fix 
+def get_aquacrop_custom_crop(custom_crop_name: str, planting_date):
+    django_crop = Crop.objects.get(name=custom_crop_name)
+    print(django_crop.__dict__)
+    
+    aquacrop_crop = AquacropCrop(
+        'custom',
+        # CropType=django_crop.crop_type,
+        # PlantMethod=django_crop.plant_method,
+        # CalendarType=django_crop.calendar_type,
+        # SwitchGDD=1 if django_crop.switch_gdd else 0,
+        # Emergence=django_crop.emergence,
+        # MaxRooting=django_crop.max_rooting,
+        # Senescence=django_crop.senescence,
+        # Maturity=django_crop.maturity,
+        # HIstart=django_crop.hi_start,
+        # Flowering=django_crop.flowering,
+        # YldForm=django_crop.yld_form,
+        # GDDMethod=django_crop.gdd_method,
+        # Tbase=django_crop.t_base,
+        # Tupp=django_crop.t_upp,
+        # PolHeatStress=1 if django_crop.pol_heat_stress else 0,
+        # Tmax_up=django_crop.t_max_up,
+        # Tmax_lo=django_crop.t_max_lo,
+        # PolColdStress=1 if django_crop.pol_cold_stress else 0,
+        # Tmin_up=django_crop.t_min_up,
+        # Tmin_lo=django_crop.t_min_lo,
+        # TrColdStress=1 if django_crop.tr_cold_stress else 0,
+        # GDD_up=django_crop.gdd_up,
+        # GDD_lo=django_crop.gdd_lo,
+        # Zmin=django_crop.z_min,
+        # Zmax=django_crop.z_max,
+        # fshape_r=django_crop.fshape_r,
+        # SxTopQ=django_crop.sx_top_q,
+        # SxBotQ=django_crop.sx_bot_q,
+        # SeedSize=django_crop.seed_size,
+        # PlantPop=django_crop.plant_pop,
+        # CCx=django_crop.ccx,
+        # CDC=django_crop.cdc,
+        # CGC=django_crop.cgc,
+        # Kcb=django_crop.kcb,
+        # fage=django_crop.fage,
+        # WP=django_crop.wp,
+        # WPy=django_crop.wpy,
+        # fsink=django_crop.fsink,
+        # HI0=django_crop.hi0,
+        # dHI_pre=django_crop.dhi_pre,
+        # a_HI=django_crop.a_hi,
+        # b_HI=django_crop.b_hi,
+        # dHI0=django_crop.dhi0,
+        # Determinant=1 if django_crop.determinant else 0,
+        # exc=django_crop.exc,
+        # # p_up=[
+        # #     django_crop.p_up1,
+        # #     django_crop.p_up2,
+        # #     django_crop.p_up3,
+        # #     django_crop.p_up4
+        # # ],
+        # # p_lo=[
+        # #     django_crop.p_lo1,
+        # #     django_crop.p_lo2,
+        # #     django_crop.p_lo3,
+        # #     django_crop.p_lo4
+        # # ],
+        # # fshape_w=[
+        # #     django_crop.fshape_w1,
+        # #     django_crop.fshape_w2,
+        # #     django_crop.fshape_w3,
+        # #     django_crop.fshape_w4
+        # # ],
+        # fshape_b=django_crop.fshape_b,
+        # PctZmin=django_crop.pct_z_min,
+        # fshape_ex=django_crop.fshape_ex,
+        # ETadj=1 if django_crop.et_adj else 0,
+        # Aer=django_crop.aer,
+        # LagAer=django_crop.lag_aer,
+        # beta=django_crop.beta,
+        # a_Tr=django_crop.a_tr,
+        # GermThr=django_crop.germ_thr,
+        # CCmin=django_crop.cc_min,
+        # MaxFlowPct=django_crop.max_flow_pct,
+        # HIini=django_crop.hi_ini,
+        # bsted=django_crop.bsted,
+        # bface=django_crop.bface,
+        # Dates
+        planting_date=planting_date
+    )
+
+    return aquacrop_crop
+
+def get_aquacrop_custom_soil(custom_soil_type: str):
+    django_soil = Soil.objects.get(soil_type=custom_soil_type)
+
+    # Fix pandas.errors.IntCastingNaNError: Cannot convert non-finite values (NA or inf) to integer
+    aquacrop_soil = AquacropSoil(
+        'custom',
+        dz=[django_soil.dz1,
+            django_soil.dz2,
+            django_soil.dz3,
+            django_soil.dz4,
+            django_soil.dz5,
+            django_soil.dz6,
+            django_soil.dz7,
+            django_soil.dz8,
+            django_soil.dz9,
+            django_soil.dz10,
+            django_soil.dz11,
+            django_soil.dz12
+        ],
+        # calc_shp=1 if django_soil.calc_shp else 0, # Do not have in current soil __init__
+        adj_rew=1 if django_soil.adj_rew else 0,
+        rew=django_soil.rew,
+        calc_cn=1 if django_soil.calc_cn else 0,
+        cn=django_soil.cn,
+        z_res=django_soil.z_res,
+        evap_z_surf=django_soil.evap_z_surf,
+        evap_z_min=django_soil.evap_z_min,
+        evap_z_max=django_soil.evap_z_max,
+        kex=django_soil.kex,
+        f_evap=django_soil.fevap,
+        f_wrel_exp=django_soil.f_wrel_exp,
+        fwcc=django_soil.fwcc,
+        z_cn=django_soil.z_cn,
+        z_germ=django_soil.z_germ,
+        adj_cn=1 if django_soil.adj_cn else 0,
+        fshape_cr=django_soil.fshape_cr,
+        z_top=django_soil.z_top
+    )
+
+    print('aquacrop_soil:', aquacrop_soil)
+
+    return aquacrop_soil
+
+
+def create_aquacrop_model(requestedData, weather_data):
+    planting_date = requestedData['planting_date'].replace('-','/')[4:]
+
+    if requestedData['is_custom_soil']=='true':
+        soil = get_aquacrop_custom_soil(requestedData['soil_type'])
+    else:
+        soil = AquacropSoil(soil_type=requestedData['soil_type'])
+
+
+
+    if requestedData['is_custom_crop']=='true':
+        crop = get_aquacrop_custom_crop(
+            requestedData['crop_name'],
+            planting_date
+        )
+    else:
+        # Crop Type
+        crop = AquacropCrop(
+            requestedData['crop_name'],
+            planting_date=planting_date
+        )
+
+    # Irrigation
+    irr_mngt = IrrigationManagement(irrigation_method=2,irrinterval=7) # specify irrigation management
+
+    # Initialized at Field Capacity
+    InitWC = InitialWaterContent(value=['FC'])
+
+    sim_start_time = requestedData['sim_start_date'].replace('-','/')
+    sim_end_time = requestedData['sim_end_date'].replace('-','/')
+
+    # combine into aquacrop model and specify start and end simulation date
+    model = AquaCropModel(
+        sim_start_time=sim_start_time,
+        sim_end_time=sim_end_time,
+        weather_df=weather_data,
+        soil=soil,
+        crop=crop,
+        irrigation_management=irr_mngt,
+        initial_water_content=InitWC
+    )
+    
+        
+    return model
+
 
 @api_view(["GET"])
 def get_agromet_irrigation_data(request):
     try:
         requestedData = {
             'station_id': request.GET.get('station_id', None),
-            'crop_id': request.GET.get('crop_id', None),
-            'emergence_date': request.GET.get('emergence_date', None),
+            'is_custom_crop': request.GET.get('is_custom_crop', None),
+            'is_custom_soil': request.GET.get('is_custom_soil', None),
+            'crop_name': request.GET.get('crop_name', None),
+            'soil_type': request.GET.get('soil_type', None),
+            'initial_wc': request.GET.get('initial_wc', None),
+            'irrigation_method': request.GET.get('irrigation_method', None),
+            'planting_date': request.GET.get('planting_date', None),
+            'harvesting_date': request.GET.get('harvesting_date', None),
+            'sim_start_date': request.GET.get('sim_start_date', None),
+            'sim_end_date': request.GET.get('sim_end_date', None),
         }
     except ValueError as e:
         logger.error(repr(e))
@@ -7204,22 +7421,18 @@ def get_agromet_irrigation_data(request):
         logger.error(repr(e))
         return HttpResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    print(requestedData)
-
     env_path= '/surface/wx/sql/agromet/agromet_irrigation'
     env = Environment(loader=FileSystemLoader(env_path))
 
     context = {
         'station_id': requestedData['station_id'],
-        'crop_id': requestedData['crop_id'],
-        'emergence_date': requestedData['emergence_date'],
+        'sim_start_date': requestedData['sim_start_date'],
+        'sim_end_date': requestedData['sim_end_date'],
     }
 
     template_name = 'water_balance.sql'
     template = env.get_template(template_name)
     query = template.render(context)    
-
-    print(query)
 
     config = settings.SURFACE_CONNECTION_STRING
     with psycopg2.connect(config) as conn:
@@ -7229,10 +7442,30 @@ def get_agromet_irrigation_data(request):
         response = []
         return JsonResponse(response, status=status.HTTP_200_OK, safe=False)
 
-    data = df.fillna('').to_dict(orient='records')
+    # # Create the temporary file and write the data
+    # with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as temp_file:
+    #     # Write the DataFrame to the file object with tab separation
+    #     df.to_csv(temp_file, sep='\t', index=False)
+    #     temp_filepath = temp_file.name
+
+    # print(f"Temporary file created at: {temp_filepath}")
+
+
+    weather_data = df
+
+    aquacrop_model = create_aquacrop_model(requestedData, weather_data)
+    aquacrop_model.run_model(till_termination=True)
+
+    print('Model Runned!')
+
+    final_stats_df = aquacrop_model._outputs.final_stats
+
+    weather_data = weather_data.fillna('').to_dict(orient='records')
+    final_stats_dict = final_stats_df.fillna('NaN').to_dict(orient='records')
     
     response = {
-        'data': data
+        'weather_data': weather_data,
+        'final_stats': final_stats_dict
     }
 
     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)   
