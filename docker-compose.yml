@@ -1,3 +1,10 @@
+networks:
+  surface-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
 services:
   nginx:
     image: nmsbdocker/surface-nginx:v1.0.0
@@ -11,16 +18,22 @@ services:
       - 8080:80
     depends_on:
       - api
+    networks:
+      - surface-net
 
   cache:
     container_name: surface-cache
     image: memcached
     restart: unless-stopped
+    networks:
+      - surface-net
 
   redis:
     container_name: surface-redis
     image: redis
     restart: unless-stopped
+    networks:
+      - surface-net
 
   postgres:
     container_name: surface-database
@@ -35,17 +48,22 @@ services:
       - ./data/shared:/data/shared
       - ./data/backup:/data/backup
       - ./backup_restore_dumps:/restore_dumps
+      - ./pg_hba.custom.conf:/etc/postgresql/pg_hba.custom.conf
     ports:
       - 5432:5432
     command:
       - "postgres"
       - "-c"
       - "max_locks_per_transaction=512"
+      - "-c"
+      - "hba_file=/etc/postgresql/pg_hba.custom.conf"
     logging:
       driver: "json-file"
       options:
         max-size: "1M"
         max-file: "10"
+    networks:
+      - surface-net
 
   api:
     image: nmsbdocker/surface-base:v1.0.0-beta
@@ -70,6 +88,8 @@ services:
       options:
         max-size: "1M"
         max-file: "10"
+    networks:
+      - surface-net
 
   celery_worker:
     image: nmsbdocker/surface-base:v1.0.0-beta
@@ -92,6 +112,8 @@ services:
       options:
         max-size: "1M"
         max-file: "10"
+    networks:
+      - surface-net
 
   celery_beat:
     image: nmsbdocker/surface-base:v1.0.0-beta
@@ -111,3 +133,5 @@ services:
       options:
         max-size: "1M"
         max-file: "10"
+    networks:
+      - surface-net

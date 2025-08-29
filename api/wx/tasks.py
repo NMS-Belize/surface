@@ -103,7 +103,7 @@ def backup_set_running(backup_task, started_at, file_path):
     return new_log.id
 
 
-def backup_create(file_path, file_path_glob):
+def backup_create(file_path):
     db = settings.DATABASES['default']
 
     db_host = db['HOST']
@@ -112,44 +112,20 @@ def backup_create(file_path, file_path_glob):
     db_user = db['USER']
     db_pass = db['PASSWORD'] 
 
-    dbname = 'postgresql://'+db_user+':'+db_pass+'@'+db_host+':'+db_port+'/'+db_name
-
-    # # backup the globals only
-    # command_glob = '/usr/bin/pg_dumpall --globals-only | gzip -9 > ' + file_path_glob
-
-    # # backup a specified database
-    # command = '/usr/bin/pg_dump --dbname=' + dbname + ' | gzip -9 > ' + file_path
-
-    # backup the globals only
-    command_glob = (
-        'PGPASSWORD=' + db_pass +
-        ' /usr/bin/pg_dumpall --globals-only'
-        ' -h ' + db_host +
-        ' -p ' + db_port +
-        ' -U ' + db_user +
-        ' | gzip -9 > ' +
-        file_path_glob
-    )
-
-    # backup a specified database
+    # backup the entire Postgres cluster
     command = (
         'PGPASSWORD=' + db_pass +
-        ' /usr/bin/pg_dump --dbname=' + dbname +
-        ' --format=custom' +
-        ' --exclude-table=\'_timescaledb_internal.*\'' +
-        ' --exclude-table=\'_timescaledb_catalog.*\'' +
-        ' | gzip -9 > ' + file_path
+        ' /usr/bin/pg_basebackup'
+        ' --host=' + db_host +
+        ' --port=' + str(db_port) +
+        ' --username=' + db_user +
+        ' --pgdata=-'               # stream to stdout
+        ' --format=t'                # tar format
+        ' --wal-method=none'          # include WAL
+        ' --gzip > ' + file_path  # compress whole tar to one .tar.gz
     )
 
-
-    # proc_glob = subprocess.Popen(command_glob, shell=True)
-    # proc = subprocess.Popen(command, shell=True)
-
-    # proc_glob.wait()
-    # proc.wait()
-
     try:
-        subprocess.run(command_glob, shell=True, check=True)
         subprocess.run(command, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         logger.error(f"Backup failed: {e}")
@@ -208,7 +184,7 @@ def backup_free(backup_task, now):
     delete_date = delete_datetime.date()
 
     _backup_logs = BackupLog.objects.filter(created_at__lt=delete_datetime, backup_task=backup_task)
-    file_paths = [_backup_log.file_paths for _backup_log in _backup_logs]
+    file_paths = [_backup_log.file_path for _backup_log in _backup_logs]
 
     for file_path in file_paths:
         file_time = os.path.getctime(file_path)
@@ -228,20 +204,16 @@ def backup_process(_entry):
     started_at = pytz.UTC.localize(datetime.now())
     
     try:
-        file_name = f"{started_at.strftime('%Y%m%d')}_{_entry.file_name}.dump.gz"
-        file_name_glob = f"{started_at.strftime('%Y%m%d')}_globals_{_entry.file_name}.dump.gz"
+        file_name = f"{started_at.strftime('%Y%m%d')}_{_entry.file_name}.tar.gz"
 
-        file_path_glob = os.path.join(backup_dir, file_name_glob)
         file_path = os.path.join(backup_dir, file_name)
 
         log_id = backup_set_running(_entry, started_at, file_path)
 
-        backup_create(file_path, file_path_glob)
+        backup_create(file_path)
 
         if _entry.ftp_server is not None:
             try:
-                # send backup globals via FTP
-                backup_ftp(file_name_glob, file_path_glob, _entry.ftp_server, _entry.remote_folder)
                 
                 # send backup via FTP
                 backup_ftp(file_name, file_path, _entry.ftp_server, _entry.remote_folder)
