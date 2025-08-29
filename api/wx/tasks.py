@@ -186,13 +186,17 @@ def backup_free(backup_task, now):
     _backup_logs = BackupLog.objects.filter(created_at__lt=delete_datetime, backup_task=backup_task)
     file_paths = [_backup_log.file_path for _backup_log in _backup_logs]
 
-    for file_path in file_paths:
-        file_time = os.path.getctime(file_path)
-        file_date = datetime.fromtimestamp(file_time).date()
-        if file_date < delete_date:
-            os.remove(file_path)
+    try:
+        for file_path in file_paths:
+            file_time = os.path.getctime(file_path)
+            file_date = datetime.fromtimestamp(file_time).date()
+            if file_date < delete_date:
+                os.remove(file_path)
 
-    BackupLog.objects.filter(created_at__lt=delete_datetime).delete()
+        BackupLog.objects.filter(created_at__lt=delete_datetime).delete()
+
+    except Exception as e:
+        logger.warning(f"An error occured removing stale backup files: {e}")
 
 def backup_process(_entry):
     backup_dir = '/data/backup/'
