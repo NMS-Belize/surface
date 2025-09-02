@@ -121,7 +121,7 @@ def backup_create(file_path):
         ' --username=' + db_user +
         ' --pgdata=-'               # stream to stdout
         ' --format=t'                # tar format
-        ' --wal-method=stream'          # include WAL
+        ' --wal-method=fetch'          # include WAL
         ' --gzip > ' + file_path  # compress whole tar to one .tar.gz
     )
 
