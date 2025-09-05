@@ -112,17 +112,21 @@ def backup_create(file_path):
     db_user = db['USER']
     db_pass = db['PASSWORD'] 
 
+    # Set a temporary backup directory
+    temp_backup_dir = "./pgBackupTmpDir"
+
     # backup the entire Postgres cluster
     command = (
-        'PGPASSWORD=' + db_pass +
-        ' /usr/bin/pg_basebackup'
-        ' --host=' + db_host +
-        ' --port=' + str(db_port) +
-        ' --username=' + db_user +
-        ' --pgdata=-'               # stream to stdout
-        ' --format=t'                # tar format
-        ' --wal-method=fetch'          # include WAL
-        ' --gzip > ' + file_path  # compress whole tar to one .tar.gz
+        f'PGPASSWORD={db_pass} /usr/bin/pg_basebackup'
+        f' --host={db_host}'
+        f' --port={db_port}'
+        f' --username={db_user}'
+        f' --pgdata={temp_backup_dir}'                      # write to temp directory
+        f' --format=p'                                      # plain format
+        f' --wal-method=stream'                             # stream WALs safely
+        f' --checkpoint=fast && '                           # fast checkpoint for consistency
+        f'tar -czf {file_path} -C {temp_backup_dir} . && '  # create tar.gz
+        f'rm -rf {temp_backup_dir}'                         # clean up temp directory
     )
 
     try:
