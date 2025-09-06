@@ -53,16 +53,17 @@ app.conf.beat_schedule = {
         'task': 'wx.tasks.calculate_last24h_summary',
         'schedule': 300
     },
-    'backup_postgres': {
-        'task': 'wx.tasks.backup_postgres',
-        'schedule': 60
-    },
     'ftp_ingest_highfrequency_station_files': {
         'task': 'wx.tasks.ftp_ingest_highfrequency_station_files',
         'schedule': 60
     },        
     'process_hfdata_summary_tasks': {
         'task': 'wx.tasks.process_hfdata_summary_tasks',
+        'schedule': 60
+    },
+    # backup the db
+    'backup_postgres': {
+        'task': 'wx.tasks.backup_postgres',
         'schedule': 60
     },
     ## Wava data simulator

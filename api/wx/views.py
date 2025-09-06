@@ -973,6 +973,9 @@ def CheckManualImportView(request):
                 # if a station exists 
                 if Station.objects.filter(name=str(sheet)).exists():
                     continue #  continue on with the loop
+                # check if a statioin with that alias exist if the regular stsation name doesn't
+                elif Station.objects.filter(alias_name=str(sheet)).exists():
+                    continue #  continue on with the loop
                 else:
                     missing_stations.append(str(sheet)) # add sheet name (station name) to the missing stations list
                     
