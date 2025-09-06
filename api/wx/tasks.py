@@ -594,6 +594,110 @@ def calculate_station_minimum_interval(start_date=None, end_date=None, station_i
 
     logger.info(f'Calculate minimum interval finished at {datetime.now(pytz.UTC)}. Took {time() - start_at} seconds.')
 
+
+
+# delete after use
+@shared_task
+def calculate_Backfill(start_date=None, end_date=None, station_id_list=None):
+    print(f'CALCULATE BACKFILL started at {datetime.now(tz=pytz.UTC)} with parameters: '
+                f'start_date={start_date} end_date={end_date} '
+                f'station_id_list={station_id_list}')
+
+    start_at = time()
+
+    # handle the case of start dates not existing
+    if start_date is None or end_date is None:
+        start_date = datetime.now(pytz.UTC).date()
+        end_date = (datetime.now(pytz.UTC) + timedelta(days=1)).date()
+
+    # exit if start > end date
+    if start_date > end_date:
+        print('Error - start_date is more recent than end_date.')
+        return
+
+    conn = get_connection()
+    with conn.cursor() as cursor:
+        stations = Station.objects.filter(id__in=station_id_list)
+
+        offsets = list(set([s.utc_offset_minutes for s in stations]))
+
+        # loop through offsets for the different station
+        for offset in offsets:
+            # based on offset set datetime_start/end, and station ids
+            station_ids = list(stations.filter(utc_offset_minutes=offset).values_list('id', flat=True))
+
+            fixed_offset = pytz.FixedOffset(offset)
+
+            datetime_start_utc = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=pytz.UTC)
+            datetime_end_utc = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0, tzinfo=pytz.UTC)
+
+            datetime_start = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0,
+                                      tzinfo=fixed_offset).astimezone(pytz.UTC)
+            datetime_end = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0,
+                                    tzinfo=fixed_offset).astimezone(pytz.UTC)
+
+            print(f"BACKFILL UPDATE: datetime_start={datetime_start}, datetime_end={datetime_end} "
+                        f"offset={offset} "
+                        f"station_ids={station_ids}")
+
+            # insertion query into StationDataMinimumInterval
+            insert_minimum_data_interval = """
+                INSERT INTO wx_stationdataminimuminterval (
+                    datetime
+                    ,station_id
+                    ,variable_id
+                    ,minimum_interval
+                    ,record_count
+                    ,ideal_record_count
+                    ,record_count_percentage
+                    ,created_at
+                    ,updated_at
+                ) 
+                SELECT current_day
+                      ,stationvariable.station_id
+                      ,stationvariable.variable_id
+                      ,min(value.data_interval) as minimum_interval
+                      ,COALESCE(count(value.formated_datetime), 0) as record_count 
+                      ,COALESCE(EXTRACT('EPOCH' FROM interval '1 day') / EXTRACT('EPOCH' FROM min(value.data_interval)), 0) as ideal_record_count
+                      ,COALESCE(count(value.formated_datetime) / (EXTRACT('EPOCH' FROM interval '1 day') / EXTRACT('EPOCH' FROM min(value.data_interval))) * 100, 0) as record_count_percentage
+                      ,now()
+                      ,now()
+                FROM generate_series(%(datetime_start)s , %(datetime_end)s , INTERVAL '1 day') as current_day
+                    ,wx_stationvariable as stationvariable
+                    ,wx_station as station
+                LEFT JOIN LATERAL (
+                    SELECT date_trunc('day', rd.datetime - INTERVAL '1 second' + (COALESCE(station.utc_offset_minutes, 0)||' minutes')::interval) as formated_datetime
+                          ,CASE WHEN rd.is_daily THEN '24:00:00' ELSE LEAD(datetime, 1) OVER (partition by station_id, variable_id order by datetime) - datetime END as data_interval
+                    FROM raw_data rd
+                    WHERE rd.datetime   > current_day - ((COALESCE(station.utc_offset_minutes, 0)||' minutes')::interval)
+                      AND rd.datetime   <= current_day + INTERVAL '1 DAY' - ((COALESCE(station.utc_offset_minutes, 0)||' minutes')::interval)
+                      AND rd.station_id  = stationvariable.station_id
+                      AND rd.variable_id = stationvariable.variable_id
+                ) value ON TRUE
+                WHERE stationvariable.station_id = ANY(%(station_ids)s) 
+                  AND stationvariable.station_id = station.id
+                  AND (value.formated_datetime = current_day OR value.formated_datetime is null)
+                GROUP BY current_day, stationvariable.station_id, stationvariable.variable_id
+                  ON CONFLICT (datetime, station_id, variable_id)
+                  DO UPDATE SET
+                     minimum_interval        = excluded.minimum_interval
+                    ,record_count            = excluded.record_count
+                    ,ideal_record_count      = excluded.ideal_record_count
+                    ,record_count_percentage = excluded.record_count_percentage
+                    ,updated_at = now()
+            """
+            cursor.execute(insert_minimum_data_interval,
+                           {"datetime_start": datetime_start_utc, "datetime_end": datetime_end_utc,
+                            "station_ids": station_ids})
+            conn.commit()
+
+    conn.commit()
+    conn.close()
+
+    print(f'BACKFILL finished at {datetime.now(pytz.UTC)}. Took {time() - start_at} seconds.')
+
+
+
 @shared_task
 def calculate_last24h_summary():
     print('Last 24h summary started at {}'.format(datetime.today()))

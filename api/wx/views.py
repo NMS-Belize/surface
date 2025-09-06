@@ -7444,6 +7444,40 @@ class DataInventoryView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateV
         return context
 
 
+# Class-based view that executes backfill_inventory and displays a message.
+class BackfillInventoryView(LoginRequiredMixin, TemplateView):
+    template_name = "wx/data_inventory_backfill.html"
+
+    def get_context_data(self, **kwargs):
+        """
+        Run the backfill task and pass context to the template.
+        """
+        context = super().get_context_data(**kwargs)
+
+        # Fetch all station IDs from the database
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM wx_station;")
+            backfill_rows = cursor.fetchall()
+            backfill_station_ids = [row[0] for row in backfill_rows]
+
+        # Log the IDs that will be backfilled
+        logger.info("Starting the backfill process for the following station IDs:")
+        logger.info(backfill_station_ids)
+
+        # Trigger the backfill task (uncomment when ready)
+        tasks.calculate_Backfill.delay(
+        # tasks.calculate_Backfill(
+            start_date='2021-01-01',
+            station_id_list=backfill_station_ids
+        )
+
+        # Pass any context to the template
+        context['backfill_station_ids'] = backfill_station_ids
+        context['message'] = "This view runs the backfill task"
+
+        return context
+
+
 @api_view(['GET'])
 def get_data_inventory(request):
     start_year = request.GET.get('start_date', None)
@@ -7453,21 +7487,22 @@ def get_data_inventory(request):
     result = []
 
     query = """
-       SELECT EXTRACT('YEAR' from station_data.datetime)
-              ,station.id
-              ,station.name
-              ,station.code
-              ,station.is_automatic
-              ,station.begin_date
-              ,station.watershed
-              ,TRUNC(AVG(station_data.record_count_percentage)::numeric, 2)
+        SELECT EXTRACT('YEAR' from station_data.datetime) AS year
+            ,station.id
+            ,station.name
+            ,station.code
+            ,station.is_automatic
+            ,station.begin_date
+            ,region.name
+            ,TRUNC(AVG(station_data.record_count_percentage)::numeric, 2) AS avg_record_count
         FROM wx_stationdataminimuminterval AS station_data
         JOIN wx_station AS station ON station.id = station_data.station_id
+        JOIN wx_administrativeregion AS region ON region.id = station.region_id
         WHERE EXTRACT('YEAR' from station_data.datetime) >= %(start_year)s
-          AND EXTRACT('YEAR' from station_data.datetime) <  %(end_year)s
-          AND station.is_automatic = %(is_automatic)s
-        GROUP BY 1, station.id
-        ORDER BY station.watershed, station.name
+        AND EXTRACT('YEAR' from station_data.datetime) <  %(end_year)s
+        AND station.is_automatic = %(is_automatic)s
+        GROUP BY 1, station.id, region.name
+        ORDER BY region.name, station.name
     """
 
     with connection.cursor() as cursor:
@@ -7483,7 +7518,7 @@ def get_data_inventory(request):
                     'code': row[3],
                     'is_automatic': row[4],
                     'begin_date': row[5],
-                    'watershed': row[6],
+                    'region': row[6],
                 },
                 'percentage': row[7],
             }

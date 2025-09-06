@@ -1,14 +1,23 @@
 {% extends "base.html" %} {% block content %}
 <div class="srf-container">
+
   <div id="app" v-cloak>
+
     <v-app>
+
       <v-content fluid fill-height style="background: white">
+
         <v-layout column>
+          <!-- Page title -->
           <v-flex>
             <h1 class="display-1 text-uppercase">Data Inventory</h1>
           </v-flex>
+
+          <!-- page options -->
           <v-layout column fluid>
+
             <v-layout mt-3 mb-5>
+              <!-- start year option  -->
               <v-flex lg2 mr-10 class="d-flex justify-between">
                 <v-text-field
                     v-model="requestObject.start_year"
@@ -17,6 +26,8 @@
                     hint="*Required"
                 ></v-text-field>
               </v-flex>
+
+              <!-- end year option -->
               <v-flex lg2 mr-10 class="d-flex justify-between">
                 <v-text-field
                     v-model="requestObject.end_year"
@@ -25,12 +36,16 @@
                     hint="*Required"
                 ></v-text-field>
               </v-flex>
+
+              <!-- station type select (is_automatic) -->
               <v-flex lg1 mr-10 class="d-flex justify-center">
                 <v-switch
                     label="Automatic"
                     v-model="requestObject.is_automatic"
                 ></v-switch>
               </v-flex>
+
+              <!-- submit btn -->
               <v-flex mt-5 lg2 class="d-flex justify-between">
                 <v-btn
                     outlined
@@ -38,14 +53,20 @@
                     small
                     @click="getDataInventory"
                     :disabled="$v.requestObject.$invalid"
-                >SUBMIT
+                >
+                  SUBMIT
                 </v-btn
                 >
               </v-flex>
+
             </v-layout>
+
+            <!-- alert pop up -->
             <v-alert v-model="request_error" dismissible type="error">
               [[ request_error_message ]]
             </v-alert>
+
+            <!-- loading overlay -->
             <v-overlay :value="loading">
               <v-progress-circular
                   indeterminate
@@ -53,9 +74,12 @@
               ></v-progress-circular>
             </v-overlay>
 
+            <!-- ------------------------------------------------------------------------------------------------------------------------------ -->
 
-            <v-layout mt-3 :hidden="watershedSet == null" column fluid>
+            <!--  -->
+            <v-layout mt-3 :hidden="regionSet == null" column fluid>
 
+              <!--  -->
               <v-layout>
                 <v-flex justify-center>
                   Search Result
@@ -63,9 +87,13 @@
                 </v-flex>
               </v-layout>
 
+              <!--  -->
               <v-layout ml-3 mt-3 column>
+
+                <!--  -->
                 <template v-if="pageStage == 'firstLevel'">
 
+                  <!--  -->
                   <v-layout mt-3 w-100>
                     <v-layout column fluid w-50>
                       <div> Total Stations: [[stations.length]]</div>
@@ -89,17 +117,23 @@
                     </v-layout>
                   </v-layout>
 
+                  <!--  -->
                   <v-layout mt-3 w-100>
+
+                    <!--  -->
                     <v-expansion-panels>
-                      <v-expansion-panel v-for="(stations, watershedName) in filteredWatershedSet"
-                                         :key="watershedName">
+
+                      <!--  -->
+                      <v-expansion-panel v-for="(stations, regionName) in filteredRegionSet" :key="regionName">
+
+                        <!--  -->
                         <v-expansion-panel-header v-slot="{open}" style="min-height: 0;">
 
                           <v-simple-table>
                             <template>
                               <thead>
                               <tr style="border-bottom: 1px solid rgba(0, 0, 0, .3);">
-                                <th class="surface-main-cell">[[watershedName]]</th>
+                                <th class="surface-main-cell">[[regionName]]</th>
                                 <th class="surface-detail-cell" v-for="(availableYear, index) in availableYears">
                                   [[availableYear]]
                                 </th>
@@ -109,14 +143,24 @@
                           </v-simple-table>
 
                         </v-expansion-panel-header>
+
+                        <!--  -->
                         <v-expansion-panel-content>
 
+                          <!--  -->
                           <v-expansion-panels>
+
+                            <!--  -->
                             <v-expansion-panel v-for="(station, stationIndex) in stations" :key="stationIndex"
                                                @change="getVariableByStation(station, 5)"
                                                style="margin-bottom: .4vh;border: none">
+
                               <v-expansion-panel-header v-slot="{open}" style="background: #e6e6e6; padding-left: 0">
+
+                                <!--  -->
                                 <div>
+                                  
+                                  <!--  -->
                                   <v-simple-table style="background: #e6e6e6;">
                                     <template>
                                       <tbody>
@@ -139,16 +183,22 @@
                                       </tbody>
                                     </template>
                                   </v-simple-table>
+
+                                  <!--  -->
                                   <div v-if="open" class="surface-station-details" style="padding-left: 2vw;">
                                     <div>Local station ID: [[station.id]]</div>
                                     <div>Begin date: [[station.begin_date_formatted]]</div>
                                     <div>Automatic: [[station.is_automatic ? 'True': 'False' ]]</div>
                                   </div>
+
                                 </div>
 
                               </v-expansion-panel-header>
+
+                              <!--  -->
                               <v-expansion-panel-content>
 
+                                <!--  -->
                                 <template v-if="station.variables">
                                   <v-simple-table style="margin-right: 24px; padding-left: 1vw">
                                     <template>
@@ -170,25 +220,34 @@
                                       </tbody>
                                     </template>
                                   </v-simple-table>
-
                                 </template>
+
+                                <!--  -->
                                 <template v-else>
                                   <v-progress-circular indeterminate></v-progress-circular>
                                 </template>
 
                               </v-expansion-panel-content>
+
                             </v-expansion-panel>
+
                           </v-expansion-panels>
 
 
                         </v-expansion-panel-content>
+
                       </v-expansion-panel>
+
                     </v-expansion-panels>
+
                   </v-layout>
+                  
                 </template>
 
+                <!--  -->
                 <template v-if="pageStage == 'secondLevel'">
 
+                  <!--  -->
                   <v-layout mt-3 w-100>
                     <v-layout column fluid w-50>
                       <div>[[this.currentData.station.name]] - [[this.currentData.station.code]]</div>
@@ -212,6 +271,7 @@
                     </v-layout>
                   </v-layout>
 
+                  <!--  -->
                   <v-simple-table>
                     <template>
                       <thead>
@@ -222,6 +282,7 @@
                         </th>
                       </tr>
                       </thead>
+                      
                       <tbody>
                       <tr v-for="(variable, variableId) in variableSet" :key="variableId" style="border: none;">
                         <td class="month-main-cell">[[ variable.name ]]</td>
@@ -240,11 +301,13 @@
                       </tbody>
                     </template>
                   </v-simple-table>
+
                 </template>
 
-
+                <!--  -->
                 <template v-if="pageStage == 'thirdLevel'">
 
+                  <!--  -->
                   <v-layout mt-3 w-100>
                     <v-layout column fluid w-50>
                       <div>[[this.currentData.station.name]] - [[this.currentData.station.code]] - [[this.currentData.variable.name]]</div>
@@ -268,7 +331,9 @@
                     </v-layout>
                   </v-layout>
 
+                  <!--  -->
                   <v-simple-table>
+
                     <template>
                       <thead>
                       <tr>
@@ -296,15 +361,23 @@
                         </td>
                       </tr>
                     </template>
+
                   </v-simple-table>
                 </template>
 
               </v-layout>
+
             </v-layout>
+
           </v-layout>
+
         </v-layout>
+
       </v-content>
+
+      <!--  -->
       <pre id="csv" style="display: none"></pre>
+
     </v-app>
   </div>
 
@@ -326,6 +399,7 @@
           end_year: { required }
         }
       },
+      
       data: {
         timezone: "{{ TIMEZONE_NAME|escapejs }}",
         request_error:false,
@@ -351,8 +425,8 @@
         },
         stationNameFilter: null,
         rawStationData: [],
-        watershedSet: null,
-        originalWatershedSet: null,
+        regionSet: null,
+        originalRegionSet: null,
         variableSet: null,
         availableYears: [],
         availableMonths: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
@@ -365,7 +439,7 @@
         },
         variableDetails: null,
         pageStage: 'firstLevel',
-        watershedRevision: 0,
+        regionRevision: 0,
         stations: [],
         requestObject: {
           start_year: moment().add(-5, 'years').format('YYYY'),
@@ -378,32 +452,38 @@
         drilldowns: {},
         colorGradient: new Color('#f08080').range(new Color('#90ee90'), { outputSpace: "srgb" })
       },
+
+      
       watch: {
         variables (newSelectedArray, oldSelectedArray) {
           this.searchVariables = '';
         }
       },
+      
+      
       computed: {
-        filteredWatershedSet() {
-          if (this.watershedRevision < 0){
+        filteredRegionSet() {
+          if (this.regionRevision < 0){
             return;
           }
 
           if (!this.stationNameFilter) {
-            return this.originalWatershedSet;
+            return this.originalRegionSet;
           }
 
-          for(watershedName in this.originalWatershedSet) {
-            this.watershedSet[watershedName] = this.originalWatershedSet[watershedName].filter(station => station.filterName.toLowerCase().includes(this.stationNameFilter.toLowerCase()));
-            if (this.watershedSet[watershedName].length == 0) {
-              delete this.watershedSet[watershedName];
+          for(regionName in this.originalRegionSet) {
+            this.regionSet[regionName] = this.originalRegionSet[regionName].filter(station => station.filterName.toLowerCase().includes(this.stationNameFilter.toLowerCase()));
+            if (this.regionSet[regionName].length == 0) {
+              delete this.regionSet[regionName];
             }
           }
 
-          return this.watershedSet;
+          return this.regionSet;
         }
 
       },
+      
+      
       methods: {
         goToStationReport(day) {
           const initial_datetime = `${this.currentData.year.toString().padStart(2, "0")}-${this.currentData.month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
@@ -488,20 +568,29 @@
 
         },
         getDataInventory(){
+          // resetting the page stage to null
           this.pageStage = null;
+
+          // enable loading overlay
           this.loading = true;
+
+          // get the years
           axios.get(`/api/data_inventory/?&start_date=${this.requestObject.start_year}&end_date=${this.requestObject.end_year}&is_automatic=${this.requestObject.is_automatic}`)
           .then(result => {
             const stationSet = {};
             const stationArray = [];
-            const watershedSet = {};
+            const regionSet = {};
             const yearSet = {};
             let yearArray = [];
 
             this.rawStationData = result.data;
-            this.rawStationData.forEach(record => {
-               this.pageStage = 'firstLevel';
 
+            this.rawStationData.forEach(record => {
+              // delete later start
+              console.log("This is the year set on iter");
+              console.log(record.year);
+              // delete later end
+               this.pageStage = 'firstLevel';
 
                if (stationSet[record.station.id] == null) {
                   stationArray.push(record.station);
@@ -511,11 +600,11 @@
                   record.station.filterName = record.station.name + ' ' + record.station.code;
                   record.station.begin_date_formatted = moment.utc(record.station.begin_date).format('YYYY-MM-DD');
 
-                 const stationWatershed = record.station.watershed || "Others";
-                 if (watershedSet[stationWatershed] == null) {
-                    watershedSet[stationWatershed] = [];
+                 const stationRegion = record.station.region || "Others";
+                 if (regionSet[stationRegion] == null) {
+                    regionSet[stationRegion] = [];
                  }
-                 watershedSet[stationWatershed].push(record.station);
+                 regionSet[stationRegion].push(record.station);
 
                  if (yearSet[record.year] == null) {
                     yearSet[record.year] = true;
@@ -528,12 +617,16 @@
             if (yearArray.length != 0) {
               yearArray = yearArray.sort()
             }
-            this.watershedSet = Object.assign({}, watershedSet);
-            this.originalWatershedSet = watershedSet;
+            this.regionSet = Object.assign({}, regionSet);
+            this.originalRegionSet = regionSet;
             this.availableYears = yearArray;
             this.stations = stationArray;
 
             this.loading = false;
+          }).catch((error) => {
+            this.loading = false;
+            this.request_error = true;
+            this.request_error_message = `${error}`;
           });
         },
         getVariableByStation(station, recordLimit) {
@@ -552,13 +645,15 @@
                 }
                 variableSet[record.variable.id].yearSet[record.year] = record.percentage;
             });
-            this.watershedRevision++;
+            this.regionRevision++;
 
             station.variables = variableSet;
             station.loading = false;
           });
         },
       },
+      
+      
       mounted() {
         axios.defaults.xsrfHeaderName = "X-CSRFToken"
         axios.defaults.xsrfCookieName = 'csrftoken'
