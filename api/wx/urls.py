@@ -138,6 +138,11 @@ urlpatterns = [
     path('wx/agromet/summaries/get/', views.get_agromet_summary_data, name='get-agromet-summaries-data'),
     path('wx/agromet/products/', views.AgroMetProductsView.as_view(), name='agromet-products'),    
     path('wx/agromet/products/get/', views.get_agromet_products_data, name='get-agromet-products-data'),
+    path('wx/agromet/irrigation/', views.AgroMetIrrigationView.as_view(), name='agromet-irrigation'),
+    path('wx/agromet/irrigation/get/', views.get_agromet_irrigation_data, name='get-agromet-irrigation-data'),
+    path('api/agromet/aquacrop/run/', views.AquacropModelRunView.as_view()),
+    path('api/agromet/aquacrop/available/', views.AquacropAvailableDataView.as_view()),
+    path('api/user_info/', views.UserInfo.as_view()),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -373,4 +373,11 @@ class EquipmentAdmin(SimpleHistoryAdmin):
 class StationProfileEquipmentTypeAdmin(admin.ModelAdmin):
     list_display = ("station_profile", "equipment_type", "equipment_type_order")
 
+@admin.register(models.Crop)
+class CropAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+
+@admin.register(models.Soil)
+class SoilAdmin(admin.ModelAdmin):
+    list_display = ("soil_type",)
     

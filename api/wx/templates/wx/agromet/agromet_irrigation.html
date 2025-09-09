@@ -1,0 +1,473 @@
+{% extends "base.html" %} {% block content %} {% load static %} {% load material_form %}
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+<div class="srf-container">
+	<div class="srf-flex flex-row align-items-center justify-content-between srf-padding">
+		<span class="srf-display-1 text-uppercase">Agromet Irrigation</span><br /><br />
+	</div>
+	<div class="srf-flex justify-content-between srf-padding" id="app">
+		<v-app>
+			<v-form ref="form" v-model="isFormValid" enctype="multipart/form-data" method="POST" class="mb-10">
+				{% csrf_token %}
+				<v-row>
+					<v-col cols="2" class="d-flex justify-left">
+						<v-switch 
+							v-model="filters.is_automatic"
+							:label='filters.is_automatic?"Automatic Stations":"Manual Stations"'
+							inset
+						/>
+					</v-col>
+					<v-col cols="4">
+						<v-autocomplete
+							label="Select Station"
+							:items="filteredStationList"
+							item-value="id"
+							item-text="name"
+							v-model="requestData.stationId"
+							hint="*Required"
+							persistent-hint
+							:rules="[rules.required]"
+						/>
+					</v-col>
+				</v-row>
+				<v-row>
+					<v-col cols="2">
+						<v-switch 
+							v-model="filters.is_custom_crop"
+							:label='filters.is_custom_crop?"Custom Crops":"Default Crops"'
+							inset
+						/>
+					</v-col>			
+					<v-col cols="4">
+						<v-autocomplete
+							label="Select Crop"
+							:items="filters.is_custom_crop?customCropList:defaultCropList"
+							item-value="name"
+							item-text="name"
+							v-model="requestData.cropName"
+							hint="*Required"
+							persistent-hint
+							:rules="[rules.required]"
+						/>
+					</v-col>
+					<v-col cols="2">
+						<v-switch 
+							v-model="filters.is_custom_soil"
+							:label='filters.is_custom_soil?"Custom Soils":"Default Soils"'
+							inset
+						/>
+					</v-col>					
+					<v-col cols="4">
+						<v-autocomplete
+							label="Select Soil"
+							:items="filters.is_custom_soil?customSoilList:defaultSoilList"
+							item-value="soil_type"
+							item-text="soil_type"
+							v-model="requestData.soilType"
+							hint="*Required"
+							persistent-hint
+							:rules="[rules.required]"
+						/>
+					</v-col>
+				</v-row>
+				<v-row>	
+					<v-col cols="4">
+						<v-autocomplete
+							label="Select Initial Water Content"
+							:items="initialWCOptions"
+							v-model="requestData.initialWC"
+							hint="*Required"
+							persistent-hint
+							:rules="[rules.required]"
+						/>
+					</v-col>
+					<v-col cols="4">
+						<v-autocomplete
+							label="Select Irrigation Method"
+							:items="irrigationOptions"
+							v-model="requestData.irrigationMethod"
+							hint="*Required"
+							persistent-hint
+							:rules="[rules.required]"
+						/>
+					</v-col>								
+				</v-row>
+				<v-row>										
+					<v-col cols="2">
+						<v-menu
+							:close-on-content-click="false"
+							v-model="planting_menu"
+							:nudge-right="40"
+							transition="scale-transition"
+							offset-y
+							class="max-50"
+						>
+							<template v-slot:activator="{ on }">
+								<v-text-field
+									v-model="requestData.plantingDate"
+									label="Planting Date"
+									prepend-icon="event"
+									v-on="on"
+									required
+									hint="*Required"
+								></v-text-field>
+							</template>
+							<v-date-picker
+								name="Planting Date"
+								v-model="requestData.plantingDate"
+								@input="planting_menu = false"
+							></v-date-picker>
+						</v-menu>
+					</v-col>
+					<v-col cols="2">
+						<v-menu
+							:close-on-content-click="false"
+							v-model="harvesting_menu"
+							:nudge-right="40"
+							transition="scale-transition"
+							offset-y
+							class="max-50"
+						>
+							<template v-slot:activator="{ on }">
+								<v-text-field
+									v-model="requestData.harvestingDate"
+									label="Harvesting Date"
+									prepend-icon="event"
+									v-on="on"
+									required
+									hint="*Required"
+								></v-text-field>
+							</template>
+							<v-date-picker
+								name="Harvesting Date"
+								v-model="requestData.harvestingDate"
+								@input="harvesting_menu = false"
+							></v-date-picker>
+						</v-menu>
+					</v-col>
+				</v-row>
+				<v-row>			
+					<v-col cols="2">
+						<v-menu
+							:close-on-content-click="false"
+							v-model="sim_start_menu"
+							:nudge-right="40"
+							transition="scale-transition"
+							offset-y
+							class="max-50"
+						>
+							<template v-slot:activator="{ on }">
+								<v-text-field
+									v-model="requestData.simStartDate"
+									label="Sim Start Date"
+									prepend-icon="event"
+									v-on="on"
+									required
+									hint="*Required"
+								></v-text-field>
+							</template>
+							<v-date-picker
+								name="Sim Start Date"
+								v-model="requestData.simStartDate"
+								@input="sim_start_menu = false"
+							></v-date-picker>
+						</v-menu>
+					</v-col>
+					<v-col cols="2">
+						<v-menu
+							:close-on-content-click="false"
+							v-model="sim_end_menu"
+							:nudge-right="40"
+							transition="scale-transition"
+							offset-y
+							class="max-50"
+						>
+							<template v-slot:activator="{ on }">
+								<v-text-field
+									v-model="requestData.simEndDate"
+									label="Sim End Date"
+									prepend-icon="event"
+									v-on="on"
+									required
+									hint="*Required"
+								></v-text-field>
+							</template>
+							<v-date-picker
+								name="Sim End Date"
+								v-model="requestData.simEndDate"
+								@input="sim_end_menu = false"
+							></v-date-picker>
+						</v-menu>
+					</v-col>																			
+				</v-row>				
+				<v-row>				
+					<v-col cols="2" class="d-flex justify-left">
+						<v-btn @click="getData" :disabled="!isFormValid">
+							Request Data
+							<v-icon right>send</v-icon>
+						</v-btn>
+						<v-btn @click="debugData()" :disabled="!isFormValid">
+							Debug Data
+							<v-icon right>send</v-icon>
+						</v-btn>						
+					</v-col
+				</v-row>				
+			</v-form>
+
+			<div >
+				<template>
+					<v-card  v-if="!loading_data && requestedData.response">
+						<v-card-title class="text-h5">
+							Final Stats
+						</v-card-title>
+
+						<v-data-table
+							:headers="dataTableFinalStats.headers"
+							:items="dataTableFinalStats.items"
+							class="elevation-1"
+						></v-data-table>				
+					</v-card>
+				</template>
+
+								<template>
+					<v-card  v-if="!loading_data && requestedData.response">
+						<v-card-title class="text-h5">
+							Final Stats
+						</v-card-title>
+
+						<v-data-table
+							:headers="dataTableWeatherData.headers"
+							:items="dataTableWeatherData.items"
+							class="elevation-1"
+						></v-data-table>				
+					</v-card>
+				</template>
+			</div>			
+		</v-app>
+	</div>
+</div>
+
+{% endblock %} {% block localjavascript %}
+ 
+<script>
+	Vue.use(window.vuelidate.default);
+    Vue.use(HighchartsVue.default);
+	const { required, numeric } = window.validators;
+
+	new Vue({
+		el: "#app",
+		vuetify: new Vuetify(),
+		delimiters: ["[[", "]]"],
+		data: {
+			loading_data: false,
+			now: moment().format('YYYY-MM-DD'),
+			username: '{{username | safe}}',
+			isFormValid: false,
+			filters: {
+				is_automatic: false,
+				is_custom_crop: false,
+				is_custom_soil: false,
+			},
+			planting_menu: false,
+			harvesting_menu: false,
+			sim_start_menu: false,
+			sim_end_menu: false,
+			rules: {
+				required: value => !!value || 'Required.',
+				nonEmpty: value => !!value && value.length>0 || 'Select at least one item.',
+				numeric: value => (!isNaN(value) ) || 'Parameter must be a Numeric.',
+				integer: value => (Number.isInteger(value) ) || 'Number must be an integer.',
+				percentage: value => (0 <= value && value <= 100) || 'Value must be between 0 and 100.',
+				positive: value => (0 <= value) || 'Value must greater than 0.',
+			},			
+			requestData: {
+				stationId: 59, // null, // 59 is Melinda for testing
+				soilType: 'Clay',
+				cropName: 'Barley',
+				irrigationMethod: 'Rainfed',
+				initialWC: 'FC',
+				plantingDate: '2010-01-01',
+				harvestingDate: '2010-10-20',
+				simStartDate: '2010-01-01',
+				simEndDate: '2015-12-31',
+			},
+			requestedData: {
+				stationId: null,
+				soilType: null,
+				cropName: null,
+				irrigationMethod: null,
+				initialWC: null,
+				plantingDate: null,
+				harvestingDate: null,
+				simStartDate: null,
+				simEndDate: null,
+				response: null,
+				requestedAt: null,
+			},
+			defaultCropList: [
+				{% for crop in default_crop_list %}
+					{
+						name: "{{crop.name | safe }}",
+					},
+				{% endfor %}
+			],
+			customCropList: [
+				{% for crop in custom_crop_list %}
+					{
+						name: "{{crop.name | safe }}",
+					},
+				{% endfor %}
+			],			
+			defaultSoilList: [
+				{% for soil in default_soil_list %}
+					{
+						soil_type: "{{soil.soil_type | safe }}",
+					},
+				{% endfor %}
+			],
+			customSoilList: [
+				{% for soil in custom_soil_list %}
+					{
+						soil_type: "{{soil.soil_type | safe }}",
+					},
+				{% endfor %}
+			],
+			initialWCOptions: [
+				'FC',
+				'Percentage'
+			],
+			irrigationOptions: [
+				'Rainfed',
+				'Threshold',
+				'Irrinterval',
+				'Schedule',
+				'Net',
+				'Constant depth'
+			],
+			stationList: [
+				{% for station in station_list %}
+					{
+						id: {{station.id}},
+						base_name: "{{station.name | safe }}",
+						name: "{{station.name | safe }} - {{station.code}}",
+						code: "{{station.code}}",
+						is_automatic:  {{station.is_automatic|yesno:"true,false"}},
+						latitude: {{station.latitude}},
+						longitude: {{station.longitude}}
+					},
+				{% endfor %}
+			]
+		},
+		watch: {
+		},	
+		computed: {
+			filteredStationList() {
+				return this.stationList.filter(station=>station.is_automatic===this.filters.is_automatic)
+			},
+			dataTableFinalStats() {
+						let headers = [
+							{text: 'Season', value: 'Season'},
+							{text: 'crop Type', value: 'crop Type'},
+							{text: 'Harvest Date (YYYY/MM/DD)', value: 'Harvest Date (YYYY/MM/DD)'},
+							{text: 'Harvest Date (Step)', value: 'Harvest Date (Step)'},
+							{text: 'Dry yield (tonne/ha)', value: 'Dry yield (tonne/ha)'},
+							{text: 'Fresh yield (tonne/ha)', value: 'Fresh yield (tonne/ha)'},
+							{text: 'Yield potential (tonne/ha)', value: 'Yield potential (tonne/ha)'},
+							{text: 'Seasonal irrigation (mm)', value: 'Seasonal irrigation (mm)'},
+						]
+
+						return {
+							headers: headers,
+							items: this.requestedData.response && Array.isArray(this.requestedData.response.final_stats) 
+							? this.requestedData.response.final_stats 
+							: []
+						}                
+			},
+			dataTableWeatherData() {
+						let headers = [
+							{text: 'MinTemp', value: 'MinTemp'},
+							{text: 'MaxTemp', value: 'MaxTemp'},
+							{text: 'Precipitation', value: 'Precipitation'},
+							{text: 'ReferenceET', value: 'ReferenceET'},
+							{text: 'Date', value: 'Date'},
+						]
+
+						return {
+							headers: headers,
+							items: this.requestedData.response && Array.isArray(this.requestedData.response.weather_data) 
+							? this.requestedData.response.weather_data 
+							: []
+						}                
+			},    			
+		},
+		methods: {
+			debugData() {
+				console.log('Debug requestedData.response:', this.requestedData.response);
+				console.log('Debug requestedData.response.final_stats:', this.requestedData.response.final_stats);
+				console.log('Debug DataTableFinalStats:', this.dataTableFinalStats);
+			},
+            getData(){
+				this.loading_data = true
+
+				this.requestedData = JSON.parse(JSON.stringify(this.requestData));
+				this.requestedData.response = null
+				this.requestedData.requestedAt = moment().format('YYYY-MM-DD HH:mm')
+
+				const url = `/wx/agromet/irrigation/get/`
+
+				const params = {
+					station_id: this.requestedData.stationId,
+					is_custom_crop: this.filters.is_custom_crop,
+					crop_name: this.requestedData.cropName,
+					is_custom_soil: this.filters.is_custom_soil,
+					soil_type: this.requestedData.soilType,
+					initial_wc: this.requestedData.initialWC,
+					irrigation_method: this.requestedData.irrigationMethod,					
+					planting_date: this.requestedData.plantingDate,
+					harvesting_date: this.requestedData.harvestingDate,
+					sim_start_date: this.requestedData.simStartDate,
+					sim_end_date: this.requestedData.simEndDate,
+				};
+
+				axios.get(url, {
+					params,
+					transformResponse: [function (data) {
+						// Return data as-is (as string)
+						return data;
+					}]
+				})
+				.then(response => {
+					this.requestedData.response = JSON.parse(response.data);
+				})
+				.catch(error => {
+					console.error('Error fetching data:', error);
+				})
+				.finally(() => {
+					this.loading_data = false;
+				});
+			},
+		},
+		
+	})
+
+	$(document).ready(function(){
+		function getCookie(c_name) {
+			if(document.cookie.length > 0) {
+				c_start = document.cookie.indexOf(c_name + "=");
+				if(c_start != -1) {
+					c_start = c_start + c_name.length + 1;
+					c_end = document.cookie.indexOf(";", c_start);
+					if(c_end == -1) c_end = document.cookie.length;
+					return unescape(document.cookie.substring(c_start,c_end));
+				}
+			}
+			return "";
+		}
+	
+		$(function () {
+		  axios.defaults.headers.common["X-CSRFToken"] = getCookie("csrftoken");
+		  axios.defaults.headers.common["Content-Type"] = 'application/json';
+		});
+	});	
+</script>
+{% endblock %}		
