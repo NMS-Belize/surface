@@ -7225,87 +7225,82 @@ def get_aquacrop_custom_crop(custom_crop_name: str, planting_date):
     
     aquacrop_crop = AquacropCrop(
         'custom',
-        # CropType=django_crop.crop_type,
-        # PlantMethod=django_crop.plant_method,
-        # CalendarType=django_crop.calendar_type,
-        # SwitchGDD=1 if django_crop.switch_gdd else 0,
-        # Emergence=django_crop.emergence,
-        # MaxRooting=django_crop.max_rooting,
-        # Senescence=django_crop.senescence,
-        # Maturity=django_crop.maturity,
-        # HIstart=django_crop.hi_start,
-        # Flowering=django_crop.flowering,
-        # YldForm=django_crop.yld_form,
-        # GDDMethod=django_crop.gdd_method,
-        # Tbase=django_crop.t_base,
-        # Tupp=django_crop.t_upp,
-        # PolHeatStress=1 if django_crop.pol_heat_stress else 0,
-        # Tmax_up=django_crop.t_max_up,
-        # Tmax_lo=django_crop.t_max_lo,
-        # PolColdStress=1 if django_crop.pol_cold_stress else 0,
-        # Tmin_up=django_crop.t_min_up,
-        # Tmin_lo=django_crop.t_min_lo,
-        # TrColdStress=1 if django_crop.tr_cold_stress else 0,
-        # GDD_up=django_crop.gdd_up,
-        # GDD_lo=django_crop.gdd_lo,
-        # Zmin=django_crop.z_min,
-        # Zmax=django_crop.z_max,
-        # fshape_r=django_crop.fshape_r,
-        # SxTopQ=django_crop.sx_top_q,
-        # SxBotQ=django_crop.sx_bot_q,
-        # SeedSize=django_crop.seed_size,
-        # PlantPop=django_crop.plant_pop,
-        # CCx=django_crop.ccx,
-        # CDC=django_crop.cdc,
-        # CGC=django_crop.cgc,
-        # Kcb=django_crop.kcb,
-        # fage=django_crop.fage,
-        # WP=django_crop.wp,
-        # WPy=django_crop.wpy,
-        # fsink=django_crop.fsink,
-        # HI0=django_crop.hi0,
-        # dHI_pre=django_crop.dhi_pre,
-        # a_HI=django_crop.a_hi,
-        # b_HI=django_crop.b_hi,
-        # dHI0=django_crop.dhi0,
-        # Determinant=1 if django_crop.determinant else 0,
-        # exc=django_crop.exc,
-        # # p_up=[
-        # #     django_crop.p_up1,
-        # #     django_crop.p_up2,
-        # #     django_crop.p_up3,
-        # #     django_crop.p_up4
-        # # ],
-        # # p_lo=[
-        # #     django_crop.p_lo1,
-        # #     django_crop.p_lo2,
-        # #     django_crop.p_lo3,
-        # #     django_crop.p_lo4
-        # # ],
-        # # fshape_w=[
-        # #     django_crop.fshape_w1,
-        # #     django_crop.fshape_w2,
-        # #     django_crop.fshape_w3,
-        # #     django_crop.fshape_w4
-        # # ],
-        # fshape_b=django_crop.fshape_b,
-        # PctZmin=django_crop.pct_z_min,
-        # fshape_ex=django_crop.fshape_ex,
-        # ETadj=1 if django_crop.et_adj else 0,
-        # Aer=django_crop.aer,
-        # LagAer=django_crop.lag_aer,
-        # beta=django_crop.beta,
-        # a_Tr=django_crop.a_tr,
-        # GermThr=django_crop.germ_thr,
-        # CCmin=django_crop.cc_min,
-        # MaxFlowPct=django_crop.max_flow_pct,
-        # HIini=django_crop.hi_ini,
-        # bsted=django_crop.bsted,
-        # bface=django_crop.bface,
+        CropType=django_crop.crop_type,
+        PlantMethod=django_crop.plant_method,
+        CalendarType=django_crop.calendar_type,
+        SwitchGDD=1 if django_crop.switch_gdd else 0,
+        Emergence=django_crop.emergence,
+        MaxRooting=django_crop.max_rooting,
+        Senescence=django_crop.senescence,
+        Maturity=django_crop.maturity,
+        HIstart=django_crop.hi_start,
+        Flowering=django_crop.flowering,
+        YldForm=django_crop.yld_form,
+        GDDMethod=django_crop.gdd_method,
+        Tbase=django_crop.t_base,
+        Tupp=django_crop.t_upp,
+        PolHeatStress=1 if django_crop.pol_heat_stress else 0,
+        Tmax_up=django_crop.t_max_up,
+        Tmax_lo=django_crop.t_max_lo,
+        PolColdStress=1 if django_crop.pol_cold_stress else 0,
+        Tmin_up=django_crop.t_min_up,
+        Tmin_lo=django_crop.t_min_lo,
+        TrColdStress=1 if django_crop.tr_cold_stress else 0,
+        GDD_up=django_crop.gdd_up,
+        GDD_lo=django_crop.gdd_lo,
+        Zmin=django_crop.z_min,
+        Zmax=django_crop.z_max,
+        fshape_r=django_crop.fshape_r,
+        SxTopQ=django_crop.sx_top_q,
+        SxBotQ=django_crop.sx_bot_q,
+        SeedSize=django_crop.seed_size,
+        PlantPop=django_crop.plant_pop,
+        CCx=django_crop.ccx,
+        CDC=django_crop.cdc,
+        CGC=django_crop.cgc,
+        Kcb=django_crop.kcb,
+        fage=django_crop.fage,
+        WP=django_crop.wp,
+        WPy=django_crop.wpy,
+        fsink=django_crop.fsink,
+        HI0=django_crop.hi0,
+        dHI_pre=django_crop.dhi_pre,
+        a_HI=django_crop.a_hi,
+        b_HI=django_crop.b_hi,
+        dHI0=django_crop.dhi0,
+        Determinant=1 if django_crop.determinant else 0,
+        exc=django_crop.exc,
+        p_up1 = django_crop.p_up1,
+        p_up2 = django_crop.p_up2,
+        p_up3 = django_crop.p_up3,
+        p_up4 = django_crop.p_up4,
+        p_lo1 = django_crop.p_lo1,
+        p_lo2 = django_crop.p_lo2,
+        p_lo3 = django_crop.p_lo3,
+        p_lo4 = django_crop.p_lo4,
+        fshape_w1 = django_crop.fshape_w1,
+        fshape_w2 = django_crop.fshape_w2,
+        fshape_w3 = django_crop.fshape_w3,
+        fshape_w4 = django_crop.fshape_w4,
+        fshape_b=django_crop.fshape_b,
+        PctZmin=django_crop.pct_z_min,
+        fshape_ex=django_crop.fshape_ex,
+        ETadj=1 if django_crop.et_adj else 0,
+        Aer=django_crop.aer,
+        LagAer=django_crop.lag_aer,
+        beta=django_crop.beta,
+        a_Tr=django_crop.a_tr,
+        GermThr=django_crop.germ_thr,
+        CCmin=django_crop.cc_min,
+        MaxFlowPct=django_crop.max_flow_pct,
+        HIini=django_crop.hi_ini,
+        bsted=django_crop.bsted,
+        bface=django_crop.bface,
         # Dates
         planting_date=planting_date
     )
 
+    print('returning crop')
     return aquacrop_crop
 
 def get_aquacrop_custom_soil(custom_soil_type: str):
@@ -7374,6 +7369,8 @@ def create_aquacrop_model(requestedData, weather_data):
             planting_date=planting_date
         )
 
+    print(crop)
+
     # Irrigation
     irr_mngt = IrrigationManagement(irrigation_method=2,irrinterval=7) # specify irrigation management
 
@@ -7396,6 +7393,7 @@ def create_aquacrop_model(requestedData, weather_data):
     
         
     return model
+
 
 
 @api_view(["GET"])
@@ -7469,3 +7467,208 @@ def get_agromet_irrigation_data(request):
     }
 
     return JsonResponse(response, status=status.HTTP_200_OK, safe=False)   
+
+
+
+
+class UserInfo(views.APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        username = request.user.username
+        return Response({'username': username})
+
+def prepare_aquacrop_weather(json_data):
+    env_path= '/surface/wx/sql/agromet/agromet_irrigation/aquacrop_data'
+    env = Environment(loader=FileSystemLoader(env_path))
+
+    context = {
+        'station_id': json_data['stationId'],
+        'sim_start_date': json_data['simStartDate'],
+        'sim_end_date': json_data['simEndDate'],
+    }
+
+    pgia_code = '8858307' # Phillip Goldson Int'l Synop
+    station = Station.objects.get(id=json_data['stationId'])
+    referenec_et_method = 'Penman-Monteith' if station.is_automatic or station.code==pgia_code else 'Hargreaves'
+    
+    if referenec_et_method == 'Penman-Monteith':
+        if json_data['dataType'] == 'last_filled':
+            template_name = 'penman_lastfilled.sql'
+        else:
+            template_name = 'penman_original.sql'
+    else:
+        template_name = 'aquacrop_data_hargreaves.sql'
+        if json_data['dataType'] == 'last_filled':
+            template_name = 'hargreaves_lastfilled.sql'
+        else:
+            template_name = 'hargreaves_original.sql'            
+        
+
+    template = env.get_template(template_name)
+    query = template.render(context)
+
+    config = settings.SURFACE_CONNECTION_STRING
+    with psycopg2.connect(config) as conn:
+        df = pd.read_sql(query, conn)
+
+    if df.empty:
+        return pd.DataFrame()
+
+    return df    
+
+
+class AquacropModelRunView(views.APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            json_data = json.loads(request.body)
+            print(json_data)
+
+            # Start the simulation 90 days before planting date to allow the model to stabilize the soil water content
+            planting_date = datetime.datetime.strptime(json_data['plantingDate'], "%Y-%m-%d")
+            sim_start_date = planting_date - datetime.timedelta(days=90)
+            json_data['simStartDate'] = sim_start_date.strftime("%Y-%m-%d")
+
+            df = prepare_aquacrop_weather(json_data)
+
+            # Soil Type
+            soil = AquacropSoil(soil_type=json_data['soilType'])
+
+            planting_date = json_data['plantingDate'].replace('-','/')[5:]
+
+            # Crop Type
+            crop = AquacropCrop(c_name=json_data['cropName'], planting_date=planting_date)
+
+            # Irrigation
+            irr_mngt = IrrigationManagement(irrigation_method=2,irrinterval=7) # specify irrigation management
+
+            # Initialized at Field Capacity
+            InitWC = InitialWaterContent(value=['FC'])
+
+            sim_start_time = json_data['simStartDate'].replace('-','/')
+            sim_end_time = json_data['simEndDate'].replace('-','/')            
+
+            model = AquaCropModel(sim_start_time=sim_start_time,
+                                sim_end_time=sim_end_time,
+                                weather_df=df,
+                                soil=soil,
+                                crop=crop,
+                                irrigation_management=irr_mngt,
+                                initial_water_content=InitWC
+            )
+
+
+            # # locate built in weather file
+            # filepath=get_filepath('tunis_climate.txt')
+
+            # weather_data = prepare_weather(filepath)
+
+
+            # # Irrigation
+            # irr_mngt = IrrigationManagement(irrigation_method=2,irrinterval=7) # specify irrigation management
+
+            # # Initialized at Field Capacity
+            # InitWC = InitialWaterContent(value=['FC'])
+
+            
+
+            # # Initial and end of simulation
+            # sim_start_time = '1979/10/01'
+            # sim_end_time = '1985/05/30'
+
+            # # combine into aquacrop model and specify start and end simulation date
+            # model = AquaCropModel(sim_start_time=sim_start_time,
+            #                     sim_end_time=sim_end_time,
+            #                     weather_df=weather_data,
+            #                     soil=soil,
+            #                     crop=crop,
+            #                     irrigation_management=irr_mngt,
+            #                     initial_water_content=InitWC)
+
+            # run model till termination
+            model.run_model(till_termination=True)
+
+            results = model._outputs.final_stats.fillna('NaN').to_dict(orient='records')
+
+            # results = []
+
+            return JsonResponse({'data': results}, status=status.HTTP_200_OK)
+        except json.JSONDecodeError:
+            return Response({'error': 'Invalid JSON format'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class AquacropAvailableDataView(views.APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            json_data = json.loads(request.body)
+
+            # Start the simulation 90 days before planting date to allow the model to stabilize the soil water content
+            planting_date = datetime.datetime.strptime(json_data['plantingDate'], "%Y-%m-%d")
+            sim_start_date = planting_date - datetime.timedelta(days=90)
+            json_data['simStartDate'] = sim_start_date.strftime("%Y-%m-%d")
+
+
+            env_path= '/surface/wx/sql/agromet/agromet_irrigation'
+            env = Environment(loader=FileSystemLoader(env_path))
+
+            context = {
+                'station_id': json_data['stationId'],
+                'sim_start_date': json_data['simStartDate'],
+                'sim_end_date': json_data['simEndDate'],
+            }
+
+            pgia_code = '8858307' # Phillip Goldson Int'l Synop
+            station = Station.objects.get(id=json_data['stationId'])
+            referenec_et_method = 'Penman-Monteith' if station.is_automatic or station.code==pgia_code else 'Hargreaves'
+            
+            if referenec_et_method == 'Penman-Monteith':
+                template_name = 'available_data_penman.sql'
+            else:
+                template_name = 'available_data_hargreaves.sql'
+
+            template = env.get_template(template_name)
+            query = template.render(context)
+            logger.info(query)
+
+            config = settings.SURFACE_CONNECTION_STRING
+            with psycopg2.connect(config) as conn:
+                df = pd.read_sql(query, conn)
+
+            if df.empty:
+                return Response({'error': 'No data'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+            result = df.to_dict(orient='records')[0]
+
+            if referenec_et_method == 'Penman-Monteith':
+                variables=[
+                    'MinTemp',
+                    'MaxTemp',
+                    'Precipitation',
+                    'AtmosphericPressure',
+                    'WindSpeed',
+                    'SolarRadiation',
+                    'RelativeHumidity'
+                ]
+            else:
+                variables=[
+                    'MinTemp',
+                    'MaxTemp',
+                    'Precipitation',
+                ]
+            
+            results = [{
+                    'variable': variable,
+                    'percentage': f"{round(100*result[f'{variable}Count']/result['Days'], 2)}%",
+                    'first_day': result[f'{variable}MinDay'],
+                    'last_day': result[f'{variable}MaxDay'],
+                } for variable in variables
+            ]
+
+            return JsonResponse({'data': results}, status=status.HTTP_200_OK)
+        except json.JSONDecodeError:
+            return Response({'error': 'Invalid JSON format'}, status=status.HTTP_400_BAD_REQUEST)
