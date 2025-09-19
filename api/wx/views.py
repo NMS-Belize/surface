@@ -9,8 +9,10 @@ import random
 import uuid
 import wx.export_surface_oscar as exso
 import pyoscar
+import time
 from datetime import datetime as datetime_constructor
-from datetime import timezone, timedelta
+from datetime import timezone, timedelta, date
+import calendar
 
 import matplotlib
 
@@ -75,7 +77,7 @@ from base64 import b64encode
 from wx.models import QualityFlag
 import time
 from wx.models import HighFrequencyData, MeasurementVariable
-from wx.tasks import fft_decompose, export_station_to_oscar, export_station_to_oscar_wigos
+from wx.tasks import fft_decompose, export_station_to_oscar, export_station_to_oscar_wigos, data_inventory_month_view
 import math
 import numpy as np
 
@@ -7429,7 +7431,7 @@ class DataInventoryView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateV
     permission_required = "Data Inventory - Read"
 
     # If you want a custom 403 page instead of redirecting to login again, explicitly set:
-    raise_exception = True
+    # raise_exception = True
 
     # (Optional) override the login URL if you don’t want the default:
     # login_url = "/new-reroute/"
@@ -7440,40 +7442,6 @@ class DataInventoryView(LoginRequiredMixin, WxPermissionRequiredMixin, TemplateV
         context = super().get_context_data(**kwargs)
 
         context['variable_list'] = Variable.objects.all()
-
-        return context
-
-
-# Class-based view that executes backfill_inventory and displays a message.
-class BackfillInventoryView(LoginRequiredMixin, TemplateView):
-    template_name = "wx/data_inventory_backfill.html"
-
-    def get_context_data(self, **kwargs):
-        """
-        Run the backfill task and pass context to the template.
-        """
-        context = super().get_context_data(**kwargs)
-
-        # Fetch all station IDs from the database
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM wx_station;")
-            backfill_rows = cursor.fetchall()
-            backfill_station_ids = [row[0] for row in backfill_rows]
-
-        # Log the IDs that will be backfilled
-        logger.info("Starting the backfill process for the following station IDs:")
-        logger.info(backfill_station_ids)
-
-        # Trigger the backfill task (uncomment when ready)
-        tasks.calculate_Backfill.delay(
-        # tasks.calculate_Backfill(
-            start_date='2021-01-01',
-            station_id_list=backfill_station_ids
-        )
-
-        # Pass any context to the template
-        context['backfill_station_ids'] = backfill_station_ids
-        context['message'] = "This view runs the backfill task"
 
         return context
 
@@ -7633,71 +7601,44 @@ def get_station_variable_day_data_inventory(request):
     station_id = request.GET.get('station_id', None)
     variable_id = request.GET.get('variable_id', None)
 
-    if station_id is None:
-        return JsonResponse({"message": "Invalid request. Station id must be provided"},
-                            status=status.HTTP_400_BAD_REQUEST)
+    # validate input
+    if not (year and month and station_id and variable_id):
+        return Response(
+            {"error": "year, month, station_id, and variable_id must be provided"},
+            status=400
+        )
 
-    query = """
-         WITH data AS (
-             SELECT EXTRACT('DAY' FROM station_data.datetime) AS day
-                   ,EXTRACT('DOW' FROM station_data.datetime) AS dow
-                   ,TRUNC(station_data.record_count_percentage::numeric, 2) as percentage
-                   ,station_data.record_count
-                   ,station_data.ideal_record_count
-                   ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval and coalesce(rd.manual_flag, rd.quality_flag) in (1, 4)) qc_passed_amount
-                   ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval) qc_amount
-            FROM wx_stationdataminimuminterval AS station_data
-            WHERE EXTRACT('YEAR' from station_data.datetime) = %(year)s
-              AND EXTRACT('MONTH' from station_data.datetime) = %(month)s 
-              AND station_data.station_id = %(station_id)s
-              AND station_data.variable_id = %(variable_id)s
-            ORDER BY station_data.datetime)
-         SELECT available_days.custom_day
-               ,data.dow
-               ,COALESCE(data.percentage, 0) AS percentage
-               ,COALESCE(data.record_count, 0) AS record_count
-               ,COALESCE(data.ideal_record_count, 0) AS ideal_record_count
-               ,case when data.qc_amount = 0 then 0 
-                     else TRUNC((data.qc_passed_amount / data.qc_amount::numeric) * 100, 2) end as qc_passed_percentage
-         FROM (SELECT custom_day FROM unnest( ARRAY[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] ) AS custom_day) AS available_days
-         LEFT JOIN data ON data.day = available_days.custom_day;
-         
-    """
+    # cast to int
+    year = int(year)
+    month = int(month)
+    station_id = int(station_id)
+    variable_id = int(variable_id)
 
-    days = []
-    day_with_data = None
-    with connection.cursor() as cursor:
-        cursor.execute(query, {"year": year, "station_id": station_id, "month": month, "variable_id": variable_id})
-        rows = cursor.fetchall()
+    try:
+        # kick off async task
+        task = data_inventory_month_view.delay(int(year), int(month), int(station_id), int(variable_id))
 
-        for row in rows:
-            obj = {
-                'day': row[0],
-                'dow': row[1],
-                'percentage': row[2],
-                'record_count': row[3],
-                'ideal_record_count': row[4],
-                'qc_passed_percentage': row[5],
-            }
+        return Response({"task_id": task.id}, status=202)
 
-            if row[1] is not None and day_with_data is None:
-                day_with_data = obj
-            days.append(obj)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
-    if day_with_data is None:
-        return JsonResponse({"message": "No data found"},
-                            status=status.HTTP_404_NOT_FOUND)
 
-    for day in days:
-        current_day = day.get('day', None)
-        current_dow = day.get('dow', None)
-        if current_dow is None:
-            day_with_data_day = day_with_data.get('day', None)
-            day_with_data_dow = day_with_data.get('dow', None)
-            day_difference = current_day - day_with_data_day
-            day["dow"] = (day_difference + day_with_data_dow) % 7
+@api_view(['GET'])
+def get_task_status(request, task_id):
+    result = AsyncResult(task_id)
 
-    return Response(days, status=status.HTTP_200_OK)
+    if result.state == "PENDING":
+        return Response({"status": "pending"}, status=202)
+
+    elif result.state == "SUCCESS":
+        return Response({"status": "completed", "data": result.result}, status=200)
+
+    elif result.state == "FAILURE":
+        return Response({"status": "failed", "error": str(result.result)}, status=500)
+
+    else:
+        return Response({"status": result.state}, status=202)
 
 
 class UserInfo(views.APIView):

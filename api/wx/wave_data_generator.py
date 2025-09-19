@@ -148,7 +148,7 @@ def send_via_ftp(data, file_name):
 
         buf_b.close()
     except FTPServer.DoesNotExist:
-        logger.warn('FTP Server named "High Frequency Data Server" not found skipping...')
+        logger.warning('FTP Server named "High Frequency Data Server" not found skipping...')
         ftp_server = None
 
 def format_and_send_data(df, file_name):

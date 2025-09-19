@@ -62,24 +62,46 @@
             </v-layout>
 
             <!-- alert pop up -->
-            <v-alert v-model="request_error" dismissible type="error">
+            <v-alert v-model="request_error" transition="scale-transition" dismissible border="left" type="error" dense elevation="2">
               [[ request_error_message ]]
             </v-alert>
+
+            <!-- warning pop up -->
+            <v-alert v-model="request_warning" transition="scale-transition" dismissible border="left" type="warning" dense elevation="2">
+              [[ request_warning_message ]]
+            </v-alert>
+
+            <!-- loading overlay -->
+            <!-- 
+            <v-overlay :value="loading">
+              <v-progress-circular
+                :size="120"
+                :width="10"
+                :rotate="-90"
+                :value="progress"
+                color="primary"
+              >
+                [[ Math.floor(progress) ]]
+              </v-progress-circular>
+            </v-overlay>
+            -->
 
             <!-- loading overlay -->
             <v-overlay :value="loading">
               <v-progress-circular
                   indeterminate
                   size="64"
-              ></v-progress-circular>
-            </v-overlay>
+              >
+                [[ Math.floor(progress) ]]%
+              </v-progress-circular>
+            </v-overlay> 
 
             <!-- ------------------------------------------------------------------------------------------------------------------------------ -->
 
             <!--  -->
             <v-layout mt-3 :hidden="regionSet == null" column fluid>
 
-              <!--  -->
+              <!-- "search result" title -->
               <v-layout>
                 <v-flex justify-center>
                   Search Result
@@ -87,22 +109,21 @@
                 </v-flex>
               </v-layout>
 
-              <!--  -->
+              <!-- inventory container -->
               <v-layout ml-3 mt-3 column>
 
-                <!--  -->
+                <!-- inventory firstLevel -->
                 <template v-if="pageStage == 'firstLevel'">
 
-                  <!--  -->
                   <v-layout mt-3 w-100>
+                    <!-- station output description -->
                     <v-layout column fluid w-50>
                       <div> Total Stations: [[stations.length]]</div>
-                      <div> Date: 2018 to 2024</div>
+                      <div> Date: [[ display_start_year ]] to [[ display_end_year ]]</div>
                     </v-layout>
+                    
+                    <!-- search bar -->
                     <v-layout pl-5 column fluid align-end w-25>
-                      <v-flex>
-                        Data Filter
-                      </v-flex>
                       <v-flex lg2 class="d-flex" w-75>
                         <v-text-field
                             v-model="stationNameFilter"
@@ -117,23 +138,19 @@
                     </v-layout>
                   </v-layout>
 
-                  <!--  -->
                   <v-layout mt-3 w-100>
-
-                    <!--  -->
+                    <!-- hold the region pannels which expand to show the station list -->
                     <v-expansion-panels>
-
-                      <!--  -->
+                      <!-- looping through each region -->
                       <v-expansion-panel v-for="(stations, regionName) in filteredRegionSet" :key="regionName">
-
-                        <!--  -->
+                        <!-- panel header ex. Belize 2020 2021 2025 -->
                         <v-expansion-panel-header v-slot="{open}" style="min-height: 0;">
-
                           <v-simple-table>
                             <template>
                               <thead>
                               <tr style="border-bottom: 1px solid rgba(0, 0, 0, .3);">
                                 <th class="surface-main-cell">[[regionName]]</th>
+                                <!-- loop through the years and display them as table headers -->
                                 <th class="surface-detail-cell" v-for="(availableYear, index) in availableYears">
                                   [[availableYear]]
                                 </th>
@@ -141,34 +158,35 @@
                               </thead>
                             </template>
                           </v-simple-table>
-
                         </v-expansion-panel-header>
 
-                        <!--  -->
+                        <!-- pannel content. Holding all stations in a given region -->
                         <v-expansion-panel-content>
 
-                          <!--  -->
+                          <!-- pannel content breaks down into an additional level to show station variables -->
                           <v-expansion-panels>
 
-                            <!--  -->
+                            <!-- Holds the headers and the contents for the content pannel -->
                             <v-expansion-panel v-for="(station, stationIndex) in stations" :key="stationIndex"
                                                @change="getVariableByStation(station, 5)"
                                                style="margin-bottom: .4vh;border: none">
 
+                              <!-- header for the content.ex Altun ha etc...-->
                               <v-expansion-panel-header v-slot="{open}" style="background: #e6e6e6; padding-left: 0">
-
-                                <!--  -->
                                 <div>
                                   
-                                  <!--  -->
+                                  <!-- station heaader -->
                                   <v-simple-table style="background: #e6e6e6;">
                                     <template>
                                       <tbody>
                                       <tr style="border: none;">
+                                        <!-- station name and code -->
                                         <td class="surface-main-cell" style="color: rgba(0,0,0,.7) !important;">
                                           [[station.name]] - [[station.code]]
                                         </td>
-                                        <td class="surface-value-detail-cell"
+                                        
+                                        <!-- <td class="surface-value-detail-cell" -->
+                                        <td class="surface-detail-cell"
                                             v-for="(availableYear, index) in availableYears"
                                             :key="index"
                                             @click="fetchVariables(availableYear, station, station.yearSet[availableYear])">
@@ -184,7 +202,7 @@
                                     </template>
                                   </v-simple-table>
 
-                                  <!--  -->
+                                  <!-- display station metadata -->
                                   <div v-if="open" class="surface-station-details" style="padding-left: 2vw;">
                                     <div>Local station ID: [[station.id]]</div>
                                     <div>Begin date: [[station.begin_date_formatted]]</div>
@@ -192,13 +210,11 @@
                                   </div>
 
                                 </div>
-
                               </v-expansion-panel-header>
 
-                              <!--  -->
+                              <!-- holds station variable content the limit is 5 variables per station this can be increased if needed. More is displayed on the second level-->
                               <v-expansion-panel-content>
-
-                                <!--  -->
+                        
                                 <template v-if="station.variables">
                                   <v-simple-table style="margin-right: 24px; padding-left: 1vw">
                                     <template>
@@ -208,7 +224,8 @@
                                         <td class="surface-main-cell surface-main-variable-cell">
                                           [[ variable.name ]]
                                         </td>
-                                        <td class="surface-value-detail-cell"
+                                        <!-- variable percentage -->
+                                        <td class="surface-value-detail-cell-wide"
                                             v-for="(availableYear, index) in availableYears" :key="index">
                                           <div
                                               :style="{'background-color': getPercentageColor(variable.yearSet[availableYear] || 0)}"
@@ -222,42 +239,33 @@
                                   </v-simple-table>
                                 </template>
 
-                                <!--  -->
-                                <template v-else>
-                                  <v-progress-circular indeterminate></v-progress-circular>
-                                </template>
-
                               </v-expansion-panel-content>
-
                             </v-expansion-panel>
-
                           </v-expansion-panels>
-
-
                         </v-expansion-panel-content>
-
                       </v-expansion-panel>
-
                     </v-expansion-panels>
-
                   </v-layout>
                   
                 </template>
 
-                <!--  -->
+                <!-- inventory secondLevel : individual station view  -->
                 <template v-if="pageStage == 'secondLevel'">
 
-                  <!--  -->
+                  <!-- second level header information -->
                   <v-layout mt-3 w-100>
+                    <!-- station metadata, search year -->
                     <v-layout column fluid w-50>
                       <div>[[this.currentData.station.name]] - [[this.currentData.station.code]]</div>
                       <div>Date: [[this.currentData.year]]</div>
                       <div class="surface-station-details">
                         <div>Local station ID: [[this.currentData.station.id]]</div>
-                        <div>Begin date: [[this.currentData.station.begin_date_formatted]]</div>
+                        <div>Station Begin date: [[this.currentData.station.begin_date_formatted]]</div>
                         <div>Automatic: [[this.currentData.station.is_automatic ? 'True': 'False' ]]</div>
                       </div>
                     </v-layout>
+
+                    <!-- back button -->
                     <v-layout pl-5 column fluid align-end w-25>
                       <v-flex lg2 class="d-flex justify-between">
                         <v-btn
@@ -269,12 +277,14 @@
                         </v-btn>
                       </v-flex>
                     </v-layout>
+
                   </v-layout>
 
-                  <!--  -->
+                  <!-- second level content -->
                   <v-simple-table>
                     <template>
                       <thead>
+                      <!-- Month headers -->
                       <tr>
                         <th></th>
                         <th class="month-cell" v-for="(month, monthIndex) in availableMonths" :key="monthIndex">
@@ -283,9 +293,11 @@
                       </tr>
                       </thead>
                       
+                      <!-- variable content -->
                       <tbody>
                       <tr v-for="(variable, variableId) in variableSet" :key="variableId" style="border: none;">
                         <td class="month-main-cell">[[ variable.name ]]</td>
+
                         <td v-for="(availableYear, index) in availableMonths" :key="index"
                             @click="fetchVariableDetails(index + 1, variable, variable.monthSet[index + 1])"
                             class="month-cell month-value-detail-cell">
@@ -295,7 +307,6 @@
                               class="value-cell">
                             [[ variable.monthSet[index + 1] || 0 ]]%
                           </div>
-
                         </td>
                       </tr>
                       </tbody>
@@ -304,7 +315,7 @@
 
                 </template>
 
-                <!--  -->
+                <!-- Third level or month view -->
                 <template v-if="pageStage == 'thirdLevel'">
 
                   <!--  -->
@@ -404,7 +415,11 @@
         timezone: "{{ TIMEZONE_NAME|escapejs }}",
         request_error:false,
         request_error_message: '',
+        request_warning:false,
+        request_warning_message: '',
         loading: false,
+        progress: 0,
+        progressIntervalId: null,
         searchVariables: '',
         seriesData: [],
         variable_list: [
@@ -424,6 +439,8 @@
           },
         },
         stationNameFilter: null,
+        display_start_year: null,
+        display_end_year: null,
         rawStationData: [],
         regionSet: null,
         originalRegionSet: null,
@@ -483,7 +500,20 @@
 
       },
       
-      
+      watch: {
+        loading(newVal) {
+          if (newVal) {
+            this.startProgress();  // start when loading = true
+          } else {
+            this.resetProgress();  // reset when loading = false
+          }
+        }
+      },
+
+      beforeDestroy() {
+        clearInterval(this.progressIntervalId);
+      },
+
       methods: {
         goToStationReport(day) {
           const initial_datetime = `${this.currentData.year.toString().padStart(2, "0")}-${this.currentData.month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
@@ -503,41 +533,82 @@
           return this.colorGradient(percentage/100).toString();
         },
         fetchVariableDetails(month, variable, percentage) {
-          if (percentage == null) {
+          // if (percentage == null) {
+          if (percentage == null || percentage == 0) {
+            this.request_warning = true;
+            this.request_warning_message = "No data to display";
             return;
           }
 
-          this.pageStage = 'thirdLevel';
           this.loading = true;
 
           this.currentData.month = month
           this.currentData.variable = variable
 
           axios.get(`/api/station_variable_data_day_inventory/?&year=${this.currentData.year}&month=${this.currentData.month}&station_id=${this.currentData.station.id}&variable_id=${this.currentData.variable.id}`)
-            .then(result => {
-              this.loading = false;
+          .then(result => {
+            const taskId = result.data.task_id;
+            this.pollFetchVariableTask(taskId); // poll until done
 
-              const rows = [];
-              for (let i=0; i < 6; i++) {
-                const columns = [];
+            // console.log(`This is the task ID: ${taskId}`) // log the task id
 
-                for (let j=0; j < 7; j++) {
-                  columns[j] = null;
-                }
-                rows[i] = columns;
-              }
-
-              count = 0
-              result.data.forEach(data => {
-                rows[count][data.dow] = data;
-                if(data.dow == 6) {
-                  count += 1;
-                }
-              });
-
-              this.variableDetails = rows;
+          }).catch((error) => {
+            this.loading = false;
+            this.request_error = true;
+            this.request_error_message = error.message || 'An unknown error occurred';
           });
 
+        },
+        pollFetchVariableTask(taskId) {
+          // Define pollFetchVariableTask
+          const interval = setInterval(() => {
+            axios.get(`/api/task/${taskId}/`)
+              .then(res => {
+                if (res.data.status === "completed") {
+                  clearInterval(interval);
+
+                  // process result
+                  const rows = [];
+                  for (let i=0; i < 6; i++) {
+                    const columns = [];
+
+                    for (let j=0; j < 7; j++) {
+                      columns[j] = null;
+                    }
+                    rows[i] = columns;
+                  }
+
+                  count = 0
+
+                  res.data.data.forEach(data => {
+                    rows[count][data.dow] = data;
+                    if(data.dow == 6) {
+                      count += 1;
+                    }
+                  });
+
+                  this.variableDetails = rows;
+
+                  // show the month view (third level)
+                  this.pageStage = 'thirdLevel';
+
+                  this.loading = false;
+                  // console.log(res.data.data); // the result
+                } 
+                else if (res.data.status === "failed") {
+                  clearInterval(interval);
+                  this.loading = false;
+                  this.request_error = true;
+                  this.request_error_message = res.data.error;
+                }
+              })
+              .catch(err => {
+                clearInterval(interval);
+                this.loading = false;
+                this.request_error = true;
+                this.request_error_message = err.message || 'Task check failed';
+              });
+          }, 2000); // poll every 2s
         },
         fetchVariables(year, station, percentage) {
           if (percentage == null) {
@@ -564,6 +635,10 @@
 
               this.variableSet = variableSet;
               this.loading = false;
+          }).catch((error) => {
+            this.loading = false;
+            this.request_error = true;
+            this.request_error_message = `${error}`;
           });
 
         },
@@ -586,10 +661,6 @@
             this.rawStationData = result.data;
 
             this.rawStationData.forEach(record => {
-              // delete later start
-              console.log("This is the year set on iter");
-              console.log(record.year);
-              // delete later end
                this.pageStage = 'firstLevel';
 
                if (stationSet[record.station.id] == null) {
@@ -622,6 +693,9 @@
             this.availableYears = yearArray;
             this.stations = stationArray;
 
+            this.display_start_year = this.requestObject.start_year;
+            this.display_end_year = this.requestObject.end_year;
+
             this.loading = false;
           }).catch((error) => {
             this.loading = false;
@@ -651,13 +725,33 @@
             station.loading = false;
           });
         },
+        startProgress() {
+          clearInterval(this.progressIntervalId);
+          this.progress = 0;
+
+          const duration = 120 * 1000; // 2 min 00 sec
+          const target = 98;
+          const stepTime = 100; // ms
+          const step = target / (duration / stepTime);
+
+          this.progressIntervalId = setInterval(() => {
+            if (this.progress < target) {
+              this.progress = Math.min(this.progress + step, target);
+            } else {
+              clearInterval(this.progressIntervalId);
+            }
+          }, stepTime);
+        },
+        resetProgress() {
+          clearInterval(this.progressIntervalId);
+          this.progress = 0;
+        },
       },
-      
       
       mounted() {
         axios.defaults.xsrfHeaderName = "X-CSRFToken"
         axios.defaults.xsrfCookieName = 'csrftoken'
-      }
+      },
     });
   </script>
 
@@ -707,6 +801,18 @@
           padding: 4px 2px 0 0 !important;
         }
 
+        .surface-value-detail-cell-wide {
+          min-width: 1vw;
+          max-width: 1vw;
+          border-bottom: none !important;
+          width: 1vw;
+          text-align: center !important;
+          vertical-align: middle !important;
+          font: 15px Roboto, sans-serif !important;
+          color: #000000 !important;
+          padding-top: 4px !important;
+        }
+
         .surface-station-details {
           font: 13px Roboto, sans-serif !important;
           color: rgba(0,0,0,.5) !important;
@@ -724,6 +830,7 @@
           display: flex;
           justify-content: center;
           align-items: center;
+          border-radius: 5px;
         }
 
         .month-main-cell {

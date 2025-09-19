@@ -37,9 +37,13 @@ app.conf.beat_schedule = {
         'task': 'wx.tasks.process_hourly_summary_tasks',
         'schedule': 120
     },
+    # 'process_daily_summary_tasks': {
+    #     'task': 'wx.tasks.process_daily_summary_tasks',
+    #     'schedule': 600
+    # },
     'process_daily_summary_tasks': {
         'task': 'wx.tasks.process_daily_summary_tasks',
-        'schedule': 600
+        'schedule': 5
     },
     'ftp_ingest_historical_station_files': {
         'task': 'wx.tasks.ftp_ingest_historical_station_files',

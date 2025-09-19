@@ -95,7 +95,6 @@ urlpatterns = [
     path('wx/product/extremes_means/', views.ExtremesMeansView.as_view(), name='extremes-means'),
     path('api/daily_means/', views.daily_means_data_view),
     path('wx/data/inventory/', views.DataInventoryView.as_view(), name='data-inventory'),
-    path('wx/data/inventory/backfill/', views.BackfillInventoryView.as_view(), name='backfill-data-inventory'), # backfill the data inventory for incomplete years
     path('api/data_inventory/', views.get_data_inventory),
     path('api/data_inventory_by_station/', views.get_data_inventory_by_station),
     path('api/station_variable_data_month_inventory/', views.get_station_variable_month_data_inventory),
@@ -167,6 +166,8 @@ urlpatterns = [
     path("api/publishing_offsets/", views.publishingOffsetViewSet.as_view({'get': 'list'}), name='api-publishing-offsets'),
     path('wx/reports/synop/capture', views.SynopCaptureView.as_view(), name='synop-capture-form'),
     path('wx/reports/synop/capture/update/empty_cols', views.synop_capture_update_empty_col, name='update-empty-col-synop-capture-report'),
+    path("api/task/<str:task_id>/", views.get_task_status, name="task_status"), # fetches the task status
+
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

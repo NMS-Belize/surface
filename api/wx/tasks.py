@@ -6,7 +6,8 @@ import logging
 import os
 import socket
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
+import calendar
 from ftplib import FTP, error_perm, error_reply
 from time import sleep, time
 from croniter import croniter
@@ -595,106 +596,158 @@ def calculate_station_minimum_interval(start_date=None, end_date=None, station_i
     logger.info(f'Calculate minimum interval finished at {datetime.now(pytz.UTC)}. Took {time() - start_at} seconds.')
 
 
-
-# delete after use
+# retrived data inventory (Individul MONTH VIEW)
 @shared_task
-def calculate_Backfill(start_date=None, end_date=None, station_id_list=None):
-    print(f'CALCULATE BACKFILL started at {datetime.now(tz=pytz.UTC)} with parameters: '
-                f'start_date={start_date} end_date={end_date} '
-                f'station_id_list={station_id_list}')
+def data_inventory_month_view(year, month, station_id, variable_id):
+    # calculate query dates
+    query_start_date = date(year, month, 1)
+    if month == 12:
+        query_end_date = date(year + 1, 1, 1)
+    else:
+        query_end_date = date(year, month + 1, 1)
 
-    start_at = time()
+    last_day = calendar.monthrange(year, month)[1]
 
-    # handle the case of start dates not existing
-    if start_date is None or end_date is None:
-        start_date = datetime.now(pytz.UTC).date()
-        end_date = (datetime.now(pytz.UTC) + timedelta(days=1)).date()
+    # # An alternative way to retrieve the data (may be faster in some cases)
+    # query = """
+    #     WITH raw_agg AS (
+    #         SELECT 
+    #             time_bucket('1 day', rd.datetime) AS day,
+    #             COUNT(*) AS qc_amount,
+    #             COUNT(*) FILTER (WHERE coalesce(rd.manual_flag, rd.quality_flag) IN (1,4)) AS qc_passed_amount
+    #         FROM raw_data rd
+    #         WHERE rd.station_id = %(station_id)s
+    #           AND rd.variable_id = %(variable_id)s
+    #           AND rd.datetime >= %(query_start_date)s
+    #           AND rd.datetime <  %(query_end_date)s
+    #         GROUP BY time_bucket('1 day', rd.datetime)
+    #     ),
+    #     station_data_agg AS (
+    #         SELECT 
+    #             s.datetime,
+    #             EXTRACT('DAY' FROM s.datetime) AS day,
+    #             EXTRACT('DOW' FROM s.datetime) AS dow,
+    #             TRUNC(s.record_count_percentage::numeric, 2) AS percentage,
+    #             s.record_count,
+    #             s.ideal_record_count
+    #         FROM wx_stationdataminimuminterval s
+    #         WHERE s.station_id = %(station_id)s
+    #           AND s.variable_id = %(variable_id)s
+    #           AND s.datetime >= %(query_start_date)s
+    #           AND s.datetime < %(query_end_date)s
+    #     ),
+    #     combined AS (
+    #         SELECT 
+    #             s.day,
+    #             COALESCE(s.dow, EXTRACT(DOW FROM make_date(%(year)s, %(month)s, s.day::int))) AS dow,
+    #             s.percentage,
+    #             s.record_count,
+    #             s.ideal_record_count,
+    #             COALESCE(r.qc_amount,0) AS qc_amount,
+    #             COALESCE(r.qc_passed_amount,0) AS qc_passed_amount
+    #         FROM station_data_agg s
+    #         LEFT JOIN raw_agg r ON r.day = time_bucket('1 day', s.datetime)
+    #     )
+    #     SELECT ad.custom_day,
+    #            COALESCE(c.dow, EXTRACT(DOW FROM make_date(%(year)s, %(month)s, ad.custom_day::int))) AS dow,
+    #            COALESCE(c.percentage, 0) AS percentage,
+    #            COALESCE(c.record_count, 0) AS record_count,
+    #            COALESCE(c.ideal_record_count, 0) AS ideal_record_count,
+    #            CASE 
+    #                WHEN COALESCE(c.qc_amount,0) = 0 THEN 0
+    #                ELSE TRUNC((c.qc_passed_amount / c.qc_amount::numeric) * 100, 2)
+    #            END AS qc_passed_percentage
+    #     FROM generate_series(1, %(last_day)s) AS ad(custom_day)
+    #     LEFT JOIN combined c ON c.day = ad.custom_day
+    #     ORDER BY ad.custom_day;
+    # """
 
-    # exit if start > end date
-    if start_date > end_date:
-        print('Error - start_date is more recent than end_date.')
-        return
+    # with connection.cursor() as cursor:
+    #     cursor.execute(query, {
+    #         "query_start_date": query_start_date,
+    #         "query_end_date": query_end_date,
+    #         "station_id": station_id,
+    #         "variable_id": variable_id,
+    #         "year": year,
+    #         "month": month,
+    #         "last_day": last_day
+    #     })
+    #     rows = cursor.fetchall()
 
-    conn = get_connection()
-    with conn.cursor() as cursor:
-        stations = Station.objects.filter(id__in=station_id_list)
+    # days = []
+    # for row in rows:
+    #     days.append({
+    #         'day': row[0],
+    #         'dow': row[1],
+    #         'percentage': row[2],
+    #         'record_count': row[3],
+    #         'ideal_record_count': row[4],
+    #         'qc_passed_percentage': row[5],
+    #     })
+    
+    # return days
 
-        offsets = list(set([s.utc_offset_minutes for s in stations]))
+    query = """
+        WITH data AS (
+            SELECT EXTRACT('DAY' FROM station_data.datetime) AS day
+                ,EXTRACT('DOW' FROM station_data.datetime) AS dow
+                ,TRUNC(station_data.record_count_percentage::numeric, 2) as percentage
+                ,station_data.record_count
+                ,station_data.ideal_record_count
+                ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval and coalesce(rd.manual_flag, rd.quality_flag) in (1, 4)) qc_passed_amount
+                ,(select COUNT(1) from raw_data rd where rd.station_id = station_data.station_id and rd.variable_id = station_data.variable_id and rd.datetime between station_data.datetime  and station_data.datetime + '1 DAY'::interval) qc_amount
+        FROM wx_stationdataminimuminterval AS station_data
+        WHERE EXTRACT('YEAR' from station_data.datetime) = %(year)s
+            AND EXTRACT('MONTH' from station_data.datetime) = %(month)s 
+            AND station_data.station_id = %(station_id)s
+            AND station_data.variable_id = %(variable_id)s
+        ORDER BY station_data.datetime)
+        SELECT available_days.custom_day
+            ,data.dow
+            ,COALESCE(data.percentage, 0) AS percentage
+            ,COALESCE(data.record_count, 0) AS record_count
+            ,COALESCE(data.ideal_record_count, 0) AS ideal_record_count
+            ,case when data.qc_amount = 0 then 0 
+                    else TRUNC((data.qc_passed_amount / data.qc_amount::numeric) * 100, 2) end as qc_passed_percentage
+        FROM (SELECT custom_day FROM unnest( ARRAY[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31] ) AS custom_day) AS available_days
+        LEFT JOIN data ON data.day = available_days.custom_day;
+    """
 
-        # loop through offsets for the different station
-        for offset in offsets:
-            # based on offset set datetime_start/end, and station ids
-            station_ids = list(stations.filter(utc_offset_minutes=offset).values_list('id', flat=True))
+    days = []
+    day_with_data = None
 
-            fixed_offset = pytz.FixedOffset(offset)
+    with connection.cursor() as cursor:
+        cursor.execute(query, {"year": year, 
+                                "month": month, 
+                                "station_id": station_id, 
+                                "variable_id": variable_id,
+                                })
+        rows = cursor.fetchall()
 
-            datetime_start_utc = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=pytz.UTC)
-            datetime_end_utc = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0, tzinfo=pytz.UTC)
+        for row in rows:
+            obj = {
+                'day': row[0],
+                'dow': row[1],
+                'percentage': row[2],
+                'record_count': row[3],
+                'ideal_record_count': row[4],
+                'qc_passed_percentage': row[5],
+            }
 
-            datetime_start = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0,
-                                      tzinfo=fixed_offset).astimezone(pytz.UTC)
-            datetime_end = datetime(end_date.year, end_date.month, end_date.day, 0, 0, 0,
-                                    tzinfo=fixed_offset).astimezone(pytz.UTC)
+            if row[1] is not None and day_with_data is None:
+                day_with_data = obj
+            days.append(obj)
 
-            print(f"BACKFILL UPDATE: datetime_start={datetime_start}, datetime_end={datetime_end} "
-                        f"offset={offset} "
-                        f"station_ids={station_ids}")
+    for day in days:
+        current_day = day.get('day', None)
+        current_dow = day.get('dow', None)
+        if current_dow is None:
+            day_with_data_day = day_with_data.get('day', None)
+            day_with_data_dow = day_with_data.get('dow', None)
+            day_difference = current_day - day_with_data_day
+            day["dow"] = (day_difference + day_with_data_dow) % 7
 
-            # insertion query into StationDataMinimumInterval
-            insert_minimum_data_interval = """
-                INSERT INTO wx_stationdataminimuminterval (
-                    datetime
-                    ,station_id
-                    ,variable_id
-                    ,minimum_interval
-                    ,record_count
-                    ,ideal_record_count
-                    ,record_count_percentage
-                    ,created_at
-                    ,updated_at
-                ) 
-                SELECT current_day
-                      ,stationvariable.station_id
-                      ,stationvariable.variable_id
-                      ,min(value.data_interval) as minimum_interval
-                      ,COALESCE(count(value.formated_datetime), 0) as record_count 
-                      ,COALESCE(EXTRACT('EPOCH' FROM interval '1 day') / EXTRACT('EPOCH' FROM min(value.data_interval)), 0) as ideal_record_count
-                      ,COALESCE(count(value.formated_datetime) / (EXTRACT('EPOCH' FROM interval '1 day') / EXTRACT('EPOCH' FROM min(value.data_interval))) * 100, 0) as record_count_percentage
-                      ,now()
-                      ,now()
-                FROM generate_series(%(datetime_start)s , %(datetime_end)s , INTERVAL '1 day') as current_day
-                    ,wx_stationvariable as stationvariable
-                    ,wx_station as station
-                LEFT JOIN LATERAL (
-                    SELECT date_trunc('day', rd.datetime - INTERVAL '1 second' + (COALESCE(station.utc_offset_minutes, 0)||' minutes')::interval) as formated_datetime
-                          ,CASE WHEN rd.is_daily THEN '24:00:00' ELSE LEAD(datetime, 1) OVER (partition by station_id, variable_id order by datetime) - datetime END as data_interval
-                    FROM raw_data rd
-                    WHERE rd.datetime   > current_day - ((COALESCE(station.utc_offset_minutes, 0)||' minutes')::interval)
-                      AND rd.datetime   <= current_day + INTERVAL '1 DAY' - ((COALESCE(station.utc_offset_minutes, 0)||' minutes')::interval)
-                      AND rd.station_id  = stationvariable.station_id
-                      AND rd.variable_id = stationvariable.variable_id
-                ) value ON TRUE
-                WHERE stationvariable.station_id = ANY(%(station_ids)s) 
-                  AND stationvariable.station_id = station.id
-                  AND (value.formated_datetime = current_day OR value.formated_datetime is null)
-                GROUP BY current_day, stationvariable.station_id, stationvariable.variable_id
-                  ON CONFLICT (datetime, station_id, variable_id)
-                  DO UPDATE SET
-                     minimum_interval        = excluded.minimum_interval
-                    ,record_count            = excluded.record_count
-                    ,ideal_record_count      = excluded.ideal_record_count
-                    ,record_count_percentage = excluded.record_count_percentage
-                    ,updated_at = now()
-            """
-            cursor.execute(insert_minimum_data_interval,
-                           {"datetime_start": datetime_start_utc, "datetime_end": datetime_end_utc,
-                            "station_ids": station_ids})
-            conn.commit()
-
-    conn.commit()
-    conn.close()
-
-    print(f'BACKFILL finished at {datetime.now(pytz.UTC)}. Took {time() - start_at} seconds.')
+    return days
 
 
 
@@ -2716,27 +2769,36 @@ def daily_summary(daily_summary_tasks_ids, station_ids, s_datetime, e_datetime):
            calculate_station_minimum_interval(s_datetime, e_datetime, station_id_list=(station_id,))
     except Exception as err:
         logger.error('Error calculation daily summary for day "{0}". '.format(s_datetime) + repr(err))
+
+        print('Error calculation daily summary for day "{0}". '.format(s_datetime) + repr(err)) # delete after use
+
         db_logger.error('Error calculation daily summary for day "{0}". '.format(s_datetime) + repr(err))
     else:
         DailySummaryTask.objects.filter(id__in=daily_summary_tasks_ids).update(finished_at=datetime.now(tz=pytz.UTC))
 
 @shared_task
 def process_daily_summary_tasks():
-    # process only 500 daily summaries per execution
-    unprocessed_daily_summary_dates = DailySummaryTask.objects.filter(started_at=None).values_list('date',flat=True).distinct()[:501]
-    for daily_summary_date in unprocessed_daily_summary_dates:
+    try:
+        # process only 500 daily summaries per execution
+        unprocessed_daily_summary_dates = DailySummaryTask.objects.filter(started_at=None).values_list('date',flat=True).distinct()[:501]
+        for daily_summary_date in unprocessed_daily_summary_dates:
 
-        start_date = daily_summary_date
-        end_date = daily_summary_date + timedelta(days=1)
+            start_date = daily_summary_date
+            end_date = daily_summary_date + timedelta(days=1)
 
-        daily_summary_tasks = DailySummaryTask.objects.filter(started_at=None, date=daily_summary_date)
-        daily_summary_tasks_ids = list(daily_summary_tasks.values_list('id', flat=True))
-        station_ids = list(daily_summary_tasks.values_list('station_id', flat=True).distinct())
+            daily_summary_tasks = DailySummaryTask.objects.filter(started_at=None, date=daily_summary_date)
+            daily_summary_tasks_ids = list(daily_summary_tasks.values_list('id', flat=True))
+            station_ids = list(daily_summary_tasks.values_list('station_id', flat=True).distinct())
 
-        if station_ids:
-            update_qc_persist(start_date, end_date, station_ids, 'daily')
+            if station_ids:
+                update_qc_persist(start_date, end_date, station_ids, 'daily')
 
-        daily_summary(daily_summary_tasks_ids, station_ids, start_date, end_date)
+            daily_summary(daily_summary_tasks_ids, station_ids, start_date, end_date)
+    except Exception as err:
+        logger.error('Error processing daily summary for day "{0}". '.format(start_date) + repr(err))
+
+        print('Error processing daily summary for day "{0}". '.format(start_date) + repr(err)) # delete after use
+        raise
 
 def predict_data(start_datetime, end_datetime, prediction_id, station_ids, target_station_id, variable_id,
                  data_period_in_minutes, interval_in_minutes, result_mapping):
